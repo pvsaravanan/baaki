@@ -6,6 +6,7 @@ import { Money } from "@/components/money";
 import { useAppData, useLookups } from "./app-data";
 import { useTransactionModal } from "./add-transaction";
 import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/components/ui/confirm";
 import { apiDelete, apiPost } from "@/lib/http";
 import { fromISODate, formatRelativeDay } from "@/lib/dates";
 import { formatPaymentMethod } from "@/lib/constants";
@@ -38,6 +39,7 @@ export function TransactionRow({
   const { category, accountName } = useLookups();
   const { openEdit } = useTransactionModal();
   const toast = useToast();
+  const confirm = useConfirm();
   const [menuOpen, setMenuOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -53,14 +55,31 @@ export function TransactionRow({
   };
 
   async function onDelete() {
-    setBusy(true);
     setMenuOpen(false);
+    const isSplit = !!txn.splitGroupId;
+    const ok = await confirm({
+      title: isSplit ? "Delete this split expense?" : "Delete this transaction?",
+      message: isSplit
+        ? "Every part of this split expense will be deleted together."
+        : "You can undo this right after.",
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
+    setBusy(true);
     try {
       if (txn.splitGroupId) {
+        const splitGroupId = txn.splitGroupId;
         // Every part of a split expense is one logical purchase — delete them together.
-        await apiDelete(`/api/transactions/split/${txn.splitGroupId}`);
+        await apiDelete(`/api/transactions/split/${splitGroupId}`);
         done();
-        toast.success("Split expense deleted");
+        toast.success("Split expense deleted", {
+          label: "Undo",
+          onClick: async () => {
+            await apiPost(`/api/transactions/split/${splitGroupId}/restore`).catch(() => {});
+            done();
+          },
+        });
         return;
       }
       await apiDelete(`/api/transactions/${txn.id}`);

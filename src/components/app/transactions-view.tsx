@@ -38,10 +38,16 @@ interface Filters {
 
 const EMPTY: Filters = { q: "", type: "", categoryId: "", accountId: "", paymentMethod: "", start: "", end: "", min: "", max: "", tag: "" };
 
+type TransactionsResponse = {
+  transactions: TransactionDTO[];
+  total: number;
+  totals?: { income: number; expense: number };
+};
+
 export function TransactionsView({
   initialData,
 }: {
-  initialData?: { transactions: TransactionDTO[]; total: number };
+  initialData?: TransactionsResponse;
 } = {}) {
   const { categories, accounts, tags } = useAppData();
   const confirm = useConfirm();
@@ -92,7 +98,7 @@ export function TransactionsView({
     !filters.max &&
     take === 50;
 
-  const { data, error, isLoading, mutate } = useSWR<{ transactions: TransactionDTO[]; total: number }>(
+  const { data, error, isLoading, mutate } = useSWR<TransactionsResponse>(
     `/api/transactions?${query}`,
     swrFetcher,
     {
@@ -111,15 +117,9 @@ export function TransactionsView({
 
   const txns = data?.transactions ?? [];
   const total = data?.total ?? 0;
-
-  const totals = useMemo(() => {
-    let income = 0, expense = 0;
-    for (const t of txns) {
-      if (t.type === "income" || t.type === "refund") income += t.amount;
-      else if (t.type === "expense") expense += t.amount;
-    }
-    return { income, expense };
-  }, [txns]);
+  // Server-computed over every row matching the filter, not just this page —
+  // see the comment in the API route.
+  const totals = data?.totals ?? { income: 0, expense: 0 };
 
   const grouped = useMemo(() => groupByDay(txns), [txns]);
 

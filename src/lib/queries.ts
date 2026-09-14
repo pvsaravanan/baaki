@@ -88,6 +88,24 @@ export async function countTransactions(userId: string): Promise<number> {
   });
 }
 
+/** Income/expense totals across every (undeleted) transaction, not just a loaded page. */
+export async function loadTransactionTotals(userId: string): Promise<{ income: number; expense: number }> {
+  const sums = await prisma.transaction.groupBy({
+    by: ["type"],
+    where: { userId, deletedAt: null },
+    _sum: { amount: true },
+  });
+  return sums.reduce(
+    (acc, s) => {
+      const amount = s._sum.amount ?? 0;
+      if (s.type === "income" || s.type === "refund") acc.income += amount;
+      else if (s.type === "expense") acc.expense += amount;
+      return acc;
+    },
+    { income: 0, expense: 0 },
+  );
+}
+
 
 export const loadPreference = cache(async (userId: string): Promise<PreferenceDTO> => {
   // Reuse the cached accounts (already fetched by loadAccounts in the layout)

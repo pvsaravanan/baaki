@@ -77,8 +77,15 @@ export async function createTransaction(userId: string, input: TransactionInput)
 }
 
 export async function updateTransaction(userId: string, id: string, input: TransactionInput) {
-  const existing = await prisma.transaction.findFirst({ where: { id, userId, deletedAt: null }, select: { id: true } });
+  const existing = await prisma.transaction.findFirst({
+    where: { id, userId, deletedAt: null },
+    select: { id: true, splitGroupId: true },
+  });
   if (!existing) throw new NotFoundError("Transaction not found");
+  // A split part is one row of a compound unit — editing it in isolation
+  // would desync it from its siblings. Only updateSplitTransaction (a full
+  // group replace) may touch it.
+  if (existing.splitGroupId) throw new BadRequestError("Edit the whole split expense instead");
   await assertOwnership(userId, input);
   // A transfer can never carry shares (see createTransaction / validation.ts).
   // Forcing an empty array here also clears any shares left over should an
@@ -131,11 +138,32 @@ export async function assertSharesValid(userId: string, shares: ShareInput[], ca
   if (contacts.length !== contactIds.length) throw new NotFoundError("Contact not found");
 }
 
+interface PriorShareState {
+  settled: boolean;
+  settledAt: Date | null;
+}
+
+/**
+ * Replace a transaction's shares with a new set, matched by contactId
+ * against whatever shares already exist on `transactionId` — a contact who
+ * stays on the split has their row updated (amount only) rather than
+ * deleted and recreated, so `settled`/`settledAt` survives an edit instead
+ * of silently reverting to "owed" every time (e.g. fixing a typo on an
+ * already-settled split expense).
+ *
+ * `priorByContact` covers the split-group case: the new `transactionId` is
+ * always a freshly created row (the group's old rows were hard-deleted, its
+ * old shares cascaded away with them), so there's nothing here for
+ * "existing" to match — the caller passes in the settled state captured
+ * from the old rows before they were deleted, keyed by contactId, so it can
+ * still be carried onto the new shares.
+ */
 export async function attachShares(
   userId: string,
   transactionId: string,
   shares: ShareInput[],
   capAmount?: number,
+  priorByContact?: Map<string, PriorShareState>,
 ): Promise<void> {
   const txn = await prisma.transaction.findFirst({
     where: { id: transactionId, userId, deletedAt: null },
@@ -145,12 +173,37 @@ export async function attachShares(
 
   await assertSharesValid(userId, shares, capAmount ?? txn.amount);
 
+  const existing = await prisma.expenseShare.findMany({
+    where: { transactionId },
+    select: { id: true, contactId: true },
+  });
+  const existingIdByContact = new Map(existing.map((s) => [s.contactId, s.id]));
+  const keep = new Set(shares.map((s) => s.contactId));
+  const toDelete = existing.filter((s) => !keep.has(s.contactId)).map((s) => s.id);
+  const toUpdate = shares.filter((s) => existingIdByContact.has(s.contactId));
+  const toCreate = shares.filter((s) => !existingIdByContact.has(s.contactId));
+
   await prisma.$transaction([
-    prisma.expenseShare.deleteMany({ where: { transactionId } }),
-    ...(shares.length
+    ...(toDelete.length ? [prisma.expenseShare.deleteMany({ where: { id: { in: toDelete } } })] : []),
+    ...toUpdate.map((s) =>
+      prisma.expenseShare.update({
+        where: { id: existingIdByContact.get(s.contactId)! },
+        data: { amount: s.amount },
+      }),
+    ),
+    ...(toCreate.length
       ? [
           prisma.expenseShare.createMany({
-            data: shares.map((s) => ({ transactionId, contactId: s.contactId, amount: s.amount })),
+            data: toCreate.map((s) => {
+              const prior = priorByContact?.get(s.contactId);
+              return {
+                transactionId,
+                contactId: s.contactId,
+                amount: s.amount,
+                settled: prior?.settled ?? false,
+                settledAt: prior?.settledAt ?? null,
+              };
+            }),
           }),
         ]
       : []),
@@ -216,6 +269,7 @@ export async function createSplitTransaction(
   // conversion/replace is atomic (their tags/shares cascade away with them).
   // Validating before any delete runs means a bad account/category/share in
   // the new input throws before the old rows are touched, instead of after.
+  const replacedIds = opts.replaceId ? [opts.replaceId] : opts.replaceIds ?? [];
   if (opts.replaceId) {
     const original = await prisma.transaction.findFirst({
       where: { id: opts.replaceId, userId, deletedAt: null },
@@ -230,6 +284,16 @@ export async function createSplitTransaction(
     });
     if (originals.length !== opts.replaceIds.length) throw new NotFoundError("Split transaction not found");
   }
+  // Capture settled state before the old rows (and their shares, which
+  // cascade-delete with them) are gone, so it can be carried onto the new
+  // shares created below instead of every replace silently un-settling them.
+  const priorShares = replacedIds.length
+    ? await prisma.expenseShare.findMany({
+        where: { transactionId: { in: replacedIds } },
+        select: { contactId: true, settled: true, settledAt: true },
+      })
+    : [];
+  const priorByContact = new Map(priorShares.map((s) => [s.contactId, { settled: s.settled, settledAt: s.settledAt }]));
 
   const tagIds = await resolveTagIds(userId, input.tags ?? []);
   const creates = input.parts.map((part) =>
@@ -251,7 +315,7 @@ export async function createSplitTransaction(
   const rows = results.slice(deletes.length);
 
   if (input.shares?.length) {
-    await attachShares(userId, rows[0].id, input.shares, partsTotal);
+    await attachShares(userId, rows[0].id, input.shares, partsTotal, priorByContact);
   }
 
   return rows.map((r) => r.id);
@@ -286,10 +350,20 @@ export async function softDeleteSplitGroup(userId: string, splitGroupId: string)
   await prisma.transaction.updateMany({ where: { userId, splitGroupId }, data: { deletedAt: new Date() } });
 }
 
+/** Restore every part of a soft-deleted split group together (undo for softDeleteSplitGroup). */
+export async function restoreSplitGroup(userId: string, splitGroupId: string): Promise<void> {
+  const existing = await prisma.transaction.findMany({ where: { userId, splitGroupId }, select: { id: true } });
+  if (existing.length === 0) throw new NotFoundError("Split transaction not found");
+  await prisma.transaction.updateMany({ where: { userId, splitGroupId }, data: { deletedAt: null } });
+}
+
 /** Soft-delete. Returns the id so the caller can offer undo. */
 export async function softDeleteTransaction(userId: string, id: string): Promise<void> {
   const existing = await prisma.transaction.findFirst({ where: { id, userId, deletedAt: null } });
   if (!existing) throw new NotFoundError("Transaction not found");
+  // A split part must be deleted with the rest of its group — see
+  // updateTransaction's matching guard — otherwise it orphans its siblings.
+  if (existing.splitGroupId) throw new BadRequestError("Delete the whole split expense instead");
   await prisma.transaction.update({ where: { id }, data: { deletedAt: new Date() } });
 }
 
@@ -329,6 +403,9 @@ export async function bulkSoftDeleteTransactions(userId: string, ids: string[]):
 export async function restoreTransaction(userId: string, id: string): Promise<void> {
   const existing = await prisma.transaction.findFirst({ where: { id, userId } });
   if (!existing) throw new NotFoundError("Transaction not found");
+  // A split part must be restored with the rest of its group — see
+  // restoreSplitGroup — otherwise it comes back without its siblings.
+  if (existing.splitGroupId) throw new BadRequestError("Restore the whole split expense instead");
   await prisma.transaction.update({ where: { id }, data: { deletedAt: null } });
 }
 

@@ -42,8 +42,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   horizon.setDate(horizon.getDate() + 45);
   const upcoming = recurring
     .filter((r) => r.isActive)
-    .map((r) => ({ r, date: fromISODate(r.nextOccurrence)! }))
-    .filter((x) => x.date <= horizon)
+    // fromISODate can return null on an unparseable date; skip those rows
+    // instead of crashing the whole dashboard render.
+    .flatMap((r) => {
+      const date = fromISODate(r.nextOccurrence);
+      return date && date <= horizon ? [{ r, date }] : [];
+    })
     .sort((x, y) => x.date.getTime() - y.date.getTime())
     .slice(0, 5);
 

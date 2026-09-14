@@ -329,6 +329,10 @@ function ContributeModal({
       setError("Amount must be greater than zero");
       return;
     }
+    if (mode === "withdraw" && paise > goal.currentAmount) {
+      setError("Can't withdraw more than the amount saved");
+      return;
+    }
 
     const signed = mode === "withdraw" ? -paise : paise;
 

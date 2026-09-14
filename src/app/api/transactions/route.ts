@@ -17,7 +17,10 @@ export const GET = withUser(async (user, req: NextRequest) => {
   const take = Math.min(Math.max(toFiniteInt(params.get("take")) ?? 100, 1), 500);
   const skip = Math.max(toFiniteInt(params.get("skip")) ?? 0, 0);
 
-  const [rows, total] = await Promise.all([
+  // Income/expense totals must cover every row matching the filter, not just
+  // the page that's loaded — a client-side sum over `rows` would silently
+  // understate the real totals once a filter matches more than `take`.
+  const [rows, total, sums] = await Promise.all([
     prisma.transaction.findMany({
       where,
       include: INCLUDE,
@@ -26,9 +29,20 @@ export const GET = withUser(async (user, req: NextRequest) => {
       skip,
     }),
     prisma.transaction.count({ where }),
+    prisma.transaction.groupBy({ by: ["type"], where, _sum: { amount: true } }),
   ]);
 
-  return json({ transactions: rows.map(serializeTransaction), total });
+  const totals = sums.reduce(
+    (acc, s) => {
+      const amount = s._sum.amount ?? 0;
+      if (s.type === "income" || s.type === "refund") acc.income += amount;
+      else if (s.type === "expense") acc.expense += amount;
+      return acc;
+    },
+    { income: 0, expense: 0 },
+  );
+
+  return json({ transactions: rows.map(serializeTransaction), total, totals });
 });
 
 export const POST = withUser(async (user, req: NextRequest) => {
