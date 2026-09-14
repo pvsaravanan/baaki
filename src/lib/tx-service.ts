@@ -188,7 +188,7 @@ function toSplitPartData(
 export async function createSplitTransaction(
   userId: string,
   input: SplitTransactionInput,
-  opts: { splitGroupId?: string; replaceId?: string } = {},
+  opts: { splitGroupId?: string; replaceId?: string; replaceIds?: string[] } = {},
 ): Promise<string[]> {
   const splitGroupId = opts.splitGroupId ?? randomUUID();
   const date = fromISODate(input.date);
@@ -210,15 +210,25 @@ export async function createSplitTransaction(
   const partsTotal = input.parts.reduce((s, p) => s + p.amount, 0);
   if (input.shares?.length) await assertSharesValid(userId, input.shares, partsTotal);
 
-  // Converting a saved single transaction into a split: verify ownership up
-  // front, then hard-delete it in the same batch as the new parts land so the
-  // conversion is atomic (its tags/shares cascade away with it).
+  // Converting a saved single transaction into a split, or replacing every
+  // part of an existing split group: verify ownership up front, then
+  // hard-delete the old row(s) in the same batch as the new parts land so the
+  // conversion/replace is atomic (their tags/shares cascade away with them).
+  // Validating before any delete runs means a bad account/category/share in
+  // the new input throws before the old rows are touched, instead of after.
   if (opts.replaceId) {
     const original = await prisma.transaction.findFirst({
       where: { id: opts.replaceId, userId, deletedAt: null },
       select: { id: true },
     });
     if (!original) throw new NotFoundError("Transaction not found");
+  }
+  if (opts.replaceIds) {
+    const originals = await prisma.transaction.findMany({
+      where: { id: { in: opts.replaceIds }, userId, deletedAt: null },
+      select: { id: true },
+    });
+    if (originals.length !== opts.replaceIds.length) throw new NotFoundError("Split transaction not found");
   }
 
   const tagIds = await resolveTagIds(userId, input.tags ?? []);
@@ -230,13 +240,15 @@ export async function createSplitTransaction(
       },
     }),
   );
-  // Prepend the delete (when converting) so it commits atomically with the
-  // new parts. Every op returns a Transaction, so the array is uniformly typed.
-  const ops = opts.replaceId
-    ? [prisma.transaction.delete({ where: { id: opts.replaceId } }), ...creates]
-    : creates;
+  // Prepend the delete(s) (when converting/replacing) so they commit
+  // atomically with the new parts. Every op returns a Transaction, so the
+  // array is uniformly typed.
+  const deletes = opts.replaceId
+    ? [prisma.transaction.delete({ where: { id: opts.replaceId } })]
+    : (opts.replaceIds ?? []).map((id) => prisma.transaction.delete({ where: { id } }));
+  const ops = [...deletes, ...creates];
   const results = await prisma.$transaction(ops);
-  const rows = opts.replaceId ? results.slice(1) : results;
+  const rows = results.slice(deletes.length);
 
   if (input.shares?.length) {
     await attachShares(userId, rows[0].id, input.shares, partsTotal);
@@ -257,11 +269,11 @@ export async function updateSplitTransaction(
   });
   if (existing.length === 0) throw new NotFoundError("Split transaction not found");
 
-  // Editing this compound unit is a full replace, not a per-row edit — hard
-  // delete the old rows (cascades tags/shares) and recreate under the same
-  // group id, rather than trying to diff and patch a variable-length list.
-  await prisma.transaction.deleteMany({ where: { userId, splitGroupId } });
-  return createSplitTransaction(userId, input, { splitGroupId });
+  // Editing this compound unit is a full replace, not a per-row edit.
+  // createSplitTransaction validates the new parts/categories/shares first
+  // and only then deletes the old rows and creates the new ones in one DB
+  // transaction — so a bad edit throws without destroying the original.
+  return createSplitTransaction(userId, input, { splitGroupId, replaceIds: existing.map((r) => r.id) });
 }
 
 /** Soft-delete every part of a split group together. */

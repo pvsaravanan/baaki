@@ -139,23 +139,41 @@ export async function settleShare(
   if (!share) throw new NotFoundError("Share not found");
   if (share.settled) return;
 
-  await prisma.expenseShare.update({ where: { id: shareId }, data: { settled: true, settledAt: new Date() } });
-
+  // Validate the destination account before claiming the settle, so a bad
+  // account id never leaves the share marked settled with no transaction
+  // recorded to back it.
+  let accountId: string | null = null;
   if (opts.record && opts.accountId) {
     const account = await prisma.account.findFirst({ where: { id: opts.accountId, userId }, select: { id: true } });
     if (!account) throw new NotFoundError("Account not found");
-    const owed = share.direction !== "you_owe"; // owed_to_you → income
-    const label = share.transaction?.description ?? share.description ?? "shared expense";
-    await prisma.transaction.create({
-      data: {
-        userId,
-        type: owed ? "income" : "expense",
-        amount: share.amount,
-        description: owed ? `${share.contact.name} settled up` : `Paid ${share.contact.name} back`,
-        date: new Date(),
-        accountId: opts.accountId,
-        notes: `Settlement for "${label}"`,
-      },
-    });
+    accountId = account.id;
   }
+
+  const owed = share.direction !== "you_owe"; // owed_to_you → income
+  const label = share.transaction?.description ?? share.description ?? "shared expense";
+
+  await prisma.$transaction(async (db) => {
+    // Claim the settle first, conditioned on it still being unsettled. This
+    // is the lock: two concurrent settle calls (double-click, two tabs) can't
+    // both pass and each record a duplicate settlement transaction.
+    const claimed = await db.expenseShare.updateMany({
+      where: { id: shareId, settled: false },
+      data: { settled: true, settledAt: new Date() },
+    });
+    if (claimed.count === 0) return; // a concurrent call already settled it
+
+    if (accountId) {
+      await db.transaction.create({
+        data: {
+          userId,
+          type: owed ? "income" : "expense",
+          amount: share.amount,
+          description: owed ? `${share.contact.name} settled up` : `Paid ${share.contact.name} back`,
+          date: new Date(),
+          accountId,
+          notes: `Settlement for "${label}"`,
+        },
+      });
+    }
+  });
 }
