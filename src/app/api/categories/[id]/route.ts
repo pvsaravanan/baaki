@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { ConflictError, json, NotFoundError, withUser } from "@/lib/api";
+import { BadRequestError, ConflictError, json, NotFoundError, withUser } from "@/lib/api";
+import { assertCategoriesOwned } from "@/lib/ownership";
 import { categorySchema } from "@/lib/validation";
 import { loadCategories } from "@/lib/queries";
 
@@ -28,24 +29,53 @@ export const PATCH = withUser(async (user, req: NextRequest, ctx: Ctx) => {
       throw new ConflictError("System categories can't change type");
     }
   }
-  if (input.name !== undefined) {
-    const clash = await prisma.category.findFirst({
-      where: { userId: user.id, id: { not: id }, name: { equals: input.name, mode: "insensitive" } },
-      select: { id: true },
-    });
-    if (clash) throw new ConflictError("A category with this name already exists");
-  }
-  await prisma.category.update({
-    where: { id },
-    data: {
-      name: input.name,
-      icon: input.icon,
-      color: input.color,
-      kind: input.kind,
-      monthlyBudget: input.monthlyBudget === undefined ? undefined : input.monthlyBudget,
-      isActive: input.isActive,
+  // The name-clash check + update must run in one Serializable transaction —
+  // same case-insensitive-clash-vs-case-sensitive-unique-constraint race as
+  // the POST handler — or two concurrent renames onto names that only
+  // differ by case can both pass the check.
+  await prisma.$transaction(
+    async (db) => {
+      if (input.name !== undefined) {
+        const clash = await db.category.findFirst({
+          where: { userId: user.id, id: { not: id }, name: { equals: input.name, mode: "insensitive" } },
+          select: { id: true },
+        });
+        if (clash) throw new ConflictError("A category with this name already exists");
+      }
+      if (input.parentId !== undefined && input.parentId !== null) {
+        if (input.parentId === id) throw new BadRequestError("A category can't be its own parent");
+        // SECURITY: a new parent must belong to this user.
+        await assertCategoriesOwned(user.id, [input.parentId]);
+        // Walk up from the proposed parent; if this category's own id shows
+        // up, the new parent is one of its descendants and the move would
+        // create a cycle (and silently orphan that branch from the root).
+        let cursor: string | null = input.parentId;
+        let depth = 0;
+        while (cursor && depth < 50) {
+          if (cursor === id) throw new BadRequestError("Can't move a category under one of its own subcategories");
+          const next: { parentId: string | null } | null = await db.category.findUnique({
+            where: { id: cursor },
+            select: { parentId: true },
+          });
+          cursor = next?.parentId ?? null;
+          depth++;
+        }
+      }
+      await db.category.update({
+        where: { id },
+        data: {
+          name: input.name,
+          icon: input.icon,
+          color: input.color,
+          kind: input.kind,
+          monthlyBudget: input.monthlyBudget === undefined ? undefined : input.monthlyBudget,
+          parentId: input.parentId,
+          isActive: input.isActive,
+        },
+      });
     },
-  });
+    { isolationLevel: "Serializable" },
+  );
   return json({ categories: await loadCategories(user.id) });
 });
 

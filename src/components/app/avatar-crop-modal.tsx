@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import Cropper, { type Area } from "react-easy-crop";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
 
 const OUTPUT_SIZE = 512; // square px written to the uploaded file
 
@@ -37,6 +38,7 @@ export function AvatarCropModal({
   onCancel: () => void;
   onConfirm: (blob: Blob) => void;
 }) {
+  const toast = useToast();
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [area, setArea] = useState<Area | null>(null);
@@ -52,8 +54,12 @@ export function AvatarCropModal({
 
   async function confirm() {
     if (!src || !area) return;
-    const blob = await cropToBlob(src, area);
-    onConfirm(blob);
+    try {
+      const blob = await cropToBlob(src, area);
+      onConfirm(blob);
+    } catch {
+      toast.error("Could not process that image. Try a different photo.");
+    }
   }
 
   return (

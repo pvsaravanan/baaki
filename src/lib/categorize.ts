@@ -65,7 +65,7 @@ export const CATEGORY_RULES: CategoryRule[] = [
   {
     category: "Bills & Utilities",
     keywords: [
-      "jio", "airtel", "vi ", "vodafone", "bsnl", "recharge", "electricity",
+      "jio", "airtel", "vi", "vodafone", "bsnl", "recharge", "electricity",
       "water bill", "gas bill", "broadband", "wifi", "internet", "bescom", "tneb",
       "adani electricity", "tata power", "bill payment", "postpaid", "dth",
       "act fibernet", "hathway",
@@ -164,11 +164,27 @@ function matchesKeyword(haystack: string, keyword: string): boolean {
   return boundary(before) && boundary(after);
 }
 
+const MERCHANT_STOPWORDS = new Set(["to", "for", "at", "the", "a", "an", "my", "on", "from", "paid", "payment"]);
+// Raw UPI/bank reference tokens that carry no merchant identity of their own.
+const MERCHANT_NOISE = new Set(["upi", "neft", "imps", "rtgs", "pos", "txn", "ref", "transfer", "debit", "credit", "purchase"]);
+
+function isMerchantNoise(word: string): boolean {
+  if (!word) return true;
+  const lower = word.toLowerCase();
+  if (MERCHANT_STOPWORDS.has(lower) || MERCHANT_NOISE.has(lower)) return true;
+  if (/^\d+$/.test(word)) return true; // pure reference/phone number
+  if (word.includes("@")) return true; // VPA handle, e.g. "name@bank"
+  return false;
+}
+
 /** Extract a likely merchant name from a description (first meaningful token). */
 export function guessMerchant(description: string): string | null {
   const cleaned = description.trim().replace(/\s+/g, " ");
   if (!cleaned) return null;
-  const stop = new Set(["to", "for", "at", "the", "a", "an", "my", "on", "from", "paid", "payment"]);
-  const first = cleaned.split(" ").find((w) => !stop.has(w.toLowerCase()));
+  // Bank/UPI reference strings are often one long hyphen-joined token with no
+  // spaces at all (e.g. "UPI-SWIGGY-9876543210@ybl-1234567890-Payment") — split
+  // on '-' and '/' too, or the whole reference string becomes the "merchant".
+  const tokens = cleaned.split(/[\s/]+/).flatMap((w) => w.split("-"));
+  const first = tokens.find((w) => !isMerchantNoise(w));
   return first ? first.replace(/[^a-zA-Z0-9.&' -]/g, "") || null : null;
 }

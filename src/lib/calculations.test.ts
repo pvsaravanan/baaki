@@ -180,6 +180,14 @@ describe("percentChange", () => {
     expect(percentChange(0, 0)).toBe(0);
     expect(percentChange(rs(50), 0)).toBeNull();
   });
+  it("returns null on a sign flip instead of an absurd percentage", () => {
+    // previous -0.50, current +50 would otherwise compute as +10100%.
+    expect(percentChange(5000, -50)).toBeNull();
+    expect(percentChange(-5000, 50)).toBeNull();
+  });
+  it("still computes a sane percentage when both stay negative", () => {
+    expect(percentChange(rs(-50), rs(-100))).toBeCloseTo(50);
+  });
 });
 
 describe("date range filtering", () => {

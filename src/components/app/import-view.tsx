@@ -69,6 +69,14 @@ const FIELDS: FieldMeta[] = [
 
 const REQUIRED_FIELDS: ImportField[] = ["date", "description", "amount"];
 
+// Keep well under typical serverless request-body limits (e.g. Vercel's
+// ~4.5MB) — the whole parsed file is sent as JSON, twice (preview + commit),
+// and JSON overhead roughly doubles a CSV's raw byte size.
+const MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024;
+// Matches the server's `records` schema cap (see /api/import) — failing fast
+// client-side avoids parsing a huge file only to have the request rejected.
+const MAX_ROWS = 5000;
+
 type Step = 1 | 2 | 3 | 4;
 
 const STEPS: { n: Step; label: string }[] = [
@@ -157,9 +165,24 @@ export function ImportView() {
   function handleFile(file: File | undefined | null) {
     if (!file) return;
     setParseError(null);
+    // The <input accept=".csv"> filter only applies to the native file
+    // picker — drag-and-drop bypasses it entirely, so check the extension
+    // ourselves too.
+    if (!/\.csv$/i.test(file.name) && file.type && file.type !== "text/csv") {
+      setParseError("Please choose a .csv file.");
+      return;
+    }
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      setParseError(
+        `This file is too large (${(file.size / (1024 * 1024)).toFixed(1)}MB). Split it into files under ${MAX_FILE_SIZE_BYTES / (1024 * 1024)}MB and import separately.`,
+      );
+      return;
+    }
     Papa.parse<Record<string, string>>(file, {
       header: true,
       skipEmptyLines: true,
+      // Large files parse off the main thread so the UI doesn't freeze.
+      worker: true,
       complete: (results) => {
         const fields = results.meta.fields ?? [];
         const rows = (results.data as Record<string, string>[]).filter((r) =>
@@ -171,6 +194,10 @@ export function ImportView() {
         }
         if (rows.length === 0) {
           setParseError("No data rows were found in this file.");
+          return;
+        }
+        if (rows.length > MAX_ROWS) {
+          setParseError(`This file has ${rows.length} rows — up to ${MAX_ROWS} can be imported at once. Split it into smaller files.`);
           return;
         }
         setFileName(file.name);

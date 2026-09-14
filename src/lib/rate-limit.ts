@@ -1,8 +1,15 @@
 import "server-only";
 
 /**
- * Fixed-window rate limiter for auth endpoints (brute-force / credential-
- * stuffing protection).
+ * Generic fixed-window rate limiter for our own API routes.
+ *
+ * Currently wired into POST /api/recurring/run-due (a per-user cap on
+ * manually triggering the auto-post job). Login, register and
+ * forgot-password are NOT rate-limited here — those go straight from the
+ * client to Supabase Auth, which enforces its own brute-force/credential-
+ * stuffing rate limits server-side; there is no local route for those flows
+ * to attach this limiter to. If a custom server-side auth route is added
+ * later, this is the place to rate-limit it.
  *
  * NOTE: state is per-process and in-memory. That is sufficient for a single
  * instance (the SQLite deployment this app targets), but a multi-instance

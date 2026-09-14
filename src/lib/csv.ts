@@ -9,7 +9,12 @@ import { isTransactionType, type TransactionType } from "./constants";
 /** Quote a value for CSV per RFC 4180. */
 function csvCell(value: string | number | null | undefined): string {
   if (value === null || value === undefined) return "";
-  const s = String(value);
+  let s = String(value);
+  // Neutralize formula/DDE injection: a cell starting with =, +, -, or @ is
+  // interpreted as a live formula by Excel/Sheets when the file is opened
+  // there. A leading single quote forces it to be read as plain text (free
+  // text fields like description/merchant/notes flow straight into cells).
+  if (/^[=+\-@]/.test(s)) s = `'${s}`;
   if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
   return s;
 }
@@ -143,7 +148,7 @@ export function validateImportRows(
         return Number.isFinite(num) && num < 0;
       })
     : true; // irrelevant when a type column is mapped
-  const typeIsAmbiguous = !hasTypeColumn && !hasAnyNegativeAmount && records.length > 0;
+  const fileIsAmbiguous = !hasTypeColumn && !hasAnyNegativeAmount && records.length > 0;
 
   records.forEach((raw, index) => {
     const errors: string[] = [];
@@ -180,6 +185,11 @@ export function validateImportRows(
       else if (["debit", "dr", "withdrawal", "spent"].includes(rawType)) type = "expense";
       else if (["credit", "cr", "deposit", "received"].includes(rawType)) type = "income";
     }
+    // A Type column is mapped but this particular cell is blank: the
+    // file-wide ambiguity check above only fires when NO Type column is
+    // mapped at all, so a blank cell here would otherwise fall through to
+    // sign-based inference silently. Flag it instead of guessing.
+    const rowTypeIsAmbiguous = hasTypeColumn && !rawType && sign >= 0;
 
     // Transfers need a destination account (see accountBalance's double-entry
     // logic), but the import mapping has no "to account" column — so a transfer
@@ -191,8 +201,10 @@ export function validateImportRows(
       errors.push("Transfers can't be imported — record them manually, or map this row as an expense/income");
     }
 
-    if (typeIsAmbiguous) {
+    if (fileIsAmbiguous) {
       errors.push("Cannot tell income from expense — map a Type/Debit-Credit column (this file has no negative amounts)");
+    } else if (rowTypeIsAmbiguous) {
+      errors.push(`Type column is blank for this row — can't tell income from expense for "${rawAmount}"`);
     }
 
     if (errors.length) {
@@ -269,7 +281,19 @@ function normalizePaymentMethod(input: string): string | null {
   return known.includes(s) ? s : null;
 }
 
-/** Signature used to detect duplicate transactions on import. */
-export function dedupeKey(input: { date: string; amount: number; description: string; type: string }): string {
-  return `${input.date}|${input.type}|${input.amount}|${input.description.trim().toLowerCase()}`;
+/**
+ * Signature used to detect duplicate transactions on import. Includes the
+ * account so two legitimately different transactions (e.g. the same
+ * subscription charged the same day to two different cards) don't collide
+ * just because date/amount/description match. `accountId` is optional so
+ * existing callers that don't have one yet still get a (less precise) key.
+ */
+export function dedupeKey(input: {
+  date: string;
+  amount: number;
+  description: string;
+  type: string;
+  accountId?: string;
+}): string {
+  return `${input.date}|${input.type}|${input.amount}|${input.description.trim().toLowerCase()}|${input.accountId ?? ""}`;
 }

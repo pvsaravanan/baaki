@@ -14,6 +14,11 @@ export const POST = withUser(async (user, req: NextRequest) => {
   const input = goalSchema.parse(await req.json());
   // SECURITY: a goal may link to an account — verify it is this user's.
   await assertAccountsOwned(user.id, [input.accountId]);
+  // Match the contribute endpoint's achieved-flip: a goal created with a
+  // starting amount that already meets (or exceeds) its target shouldn't sit
+  // at "active" and >100% until the next contribution happens to trigger it.
+  const status =
+    input.status === "active" && input.initialAmount >= input.targetAmount ? "achieved" : input.status;
   await prisma.financialGoal.create({
     data: {
       userId: user.id,
@@ -23,7 +28,7 @@ export const POST = withUser(async (user, req: NextRequest) => {
       targetAmount: input.targetAmount,
       targetDate: input.targetDate ? fromISODate(input.targetDate) : null,
       accountId: input.accountId ?? null,
-      status: input.status,
+      status,
       contributions:
         input.initialAmount > 0
           ? { create: { amount: input.initialAmount, note: "Starting amount" } }

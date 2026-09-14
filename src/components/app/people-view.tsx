@@ -37,8 +37,12 @@ export function PeopleView({ contacts: initial }: { contacts: ContactDTO[] }) {
 
   const active = contacts.filter((c) => !c.isArchived);
   const archived = contacts.filter((c) => c.isArchived);
-  const totalOwedToYou = active.reduce((sum, c) => sum + c.owedToYou, 0);
-  const totalYouOwe = active.reduce((sum, c) => sum + c.youOwe, 0);
+  // Archiving only hides a contact from the active list — it's explicitly
+  // meant to preserve their unsettled debts (see deleteContact), so the
+  // summary totals must still include archived contacts or it understates
+  // what's actually owed.
+  const totalOwedToYou = contacts.reduce((sum, c) => sum + c.owedToYou, 0);
+  const totalYouOwe = contacts.reduce((sum, c) => sum + c.youOwe, 0);
 
   function openAdd() {
     setEditing(null);
@@ -388,6 +392,7 @@ function SettleModal({
   onSettled: () => void;
 }) {
   const { accounts, preference } = useAppData();
+  const toast = useToast();
   const [record, setRecord] = useState(true);
   const [accountId, setAccountId] = useState(preference.defaultAccountId ?? accounts[0]?.id ?? "");
   const [busy, setBusy] = useState(false);
@@ -403,7 +408,8 @@ function SettleModal({
         accountId: record ? accountId : null,
       });
       onSettled();
-    } catch {
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not settle up. Please try again.");
       setBusy(false);
     }
   }

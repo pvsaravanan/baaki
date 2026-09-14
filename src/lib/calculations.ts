@@ -220,11 +220,15 @@ export function dailySeries(txns: CalcTxn[], start: Date, end: Date): DailyPoint
 
 /**
  * Percentage change from previous to current.
- * Returns null when it cannot be expressed as a percentage (previous is 0 and
- * current is non-zero) so the UI can show "New" instead of Infinity.
+ * Returns null when it cannot be expressed as a sane percentage: previous is
+ * 0 and current is non-zero (so the UI can show "New" instead of Infinity),
+ * or current and previous have different signs (e.g. previous -50, current
+ * +5000 computes as +10100% of the old magnitude — a swing from a loss to a
+ * gain isn't meaningfully a percentage of the old baseline at all).
  */
 export function percentChange(current: number, previous: number): number | null {
   if (previous === 0) return current === 0 ? 0 : null;
+  if (current !== 0 && Math.sign(current) !== Math.sign(previous)) return null;
   return ((current - previous) / Math.abs(previous)) * 100;
 }
 

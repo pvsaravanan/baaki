@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { json, NotFoundError, withUser } from "@/lib/api";
-import { dedupeKey, validateImportRows, type ColumnMapping } from "@/lib/csv";
+import { dedupeKey, validateImportRows, type ColumnMapping, type InvalidImportRow } from "@/lib/csv";
 import { endOfDayExclusive, fromISODate, startOfDay, toISODate } from "@/lib/dates";
 import { suggestCategory } from "@/lib/categorize";
 
@@ -28,9 +28,13 @@ interface Resolved {
  * would convert to UTC and shift the day in any non-UTC timezone, making every
  * re-imported row miss its match and re-insert as new.
  */
-function keysFrom(rows: { date: Date; amount: number; description: string; type: string }[]): Set<string> {
+function keysFrom(
+  rows: { date: Date; amount: number; description: string; type: string; accountId: string }[],
+): Set<string> {
   return new Set(
-    rows.map((t) => dedupeKey({ date: toISODate(t.date), amount: t.amount, description: t.description, type: t.type })),
+    rows.map((t) =>
+      dedupeKey({ date: toISODate(t.date), amount: t.amount, description: t.description, type: t.type, accountId: t.accountId }),
+    ),
   );
 }
 
@@ -56,10 +60,24 @@ export const POST = withUser(async (user, req: NextRequest) => {
   const fallbackAccount = input.defaultAccountId ?? accounts[0]?.id ?? null;
 
   const resolved: Resolved[] = [];
+  const unresolvedAccount: InvalidImportRow[] = [];
   for (const row of validation.valid) {
     const accountId =
       (row.accountName && acctByName.get(row.accountName.toLowerCase())) || fallbackAccount;
-    if (!accountId) continue; // no account to attach to
+    if (!accountId) {
+      // No account to attach to (unmapped/unmatched account column and no
+      // default account — e.g. a brand-new user with zero accounts). This
+      // used to just `continue`, silently dropping the row from both the
+      // valid and invalid counts with no explanation for the gap.
+      unresolvedAccount.push({
+        index: row.index,
+        raw: input.records[row.index] ?? {},
+        errors: row.accountName
+          ? [`No account named "${row.accountName}" — create it first or set a default account`]
+          : ["No default account set — add an account or pick one as the import default"],
+      });
+      continue;
+    }
 
     let categoryId = row.categoryName ? catByName.get(row.categoryName.toLowerCase()) ?? null : null;
     if (!categoryId && row.type !== "transfer") {
@@ -70,7 +88,7 @@ export const POST = withUser(async (user, req: NextRequest) => {
     }
 
     resolved.push({
-      key: dedupeKey({ date: row.date, amount: row.amount, description: row.description, type: row.type }),
+      key: dedupeKey({ date: row.date, amount: row.amount, description: row.description, type: row.type, accountId }),
       type: row.type,
       amount: row.amount,
       description: row.description,
@@ -81,6 +99,7 @@ export const POST = withUser(async (user, req: NextRequest) => {
       notes: row.notes,
     });
   }
+  const invalidRows = [...validation.invalid, ...unresolvedAccount];
 
   // Only existing rows on the same calendar day as a batch row can ever be a
   // duplicate (dedupeKey is keyed on the day), so scope the existing-rows read
@@ -105,7 +124,7 @@ export const POST = withUser(async (user, req: NextRequest) => {
     // is written — the authoritative check happens inside the transaction below.
     const existing = await prisma.transaction.findMany({
       where: dedupeWhere,
-      select: { date: true, amount: true, description: true, type: true },
+      select: { date: true, amount: true, description: true, type: true, accountId: true },
     });
     const existingKeys = keysFrom(existing);
     const seenInBatch = new Set<string>();
@@ -124,9 +143,14 @@ export const POST = withUser(async (user, req: NextRequest) => {
       preview: true,
       summary: {
         total: validation.total,
-        valid: validation.valid.length,
-        invalid: validation.invalid.length,
-        invalidRows: validation.invalid.slice(0, 50),
+        // A row can fail schema validation (validation.invalid) or fail to
+        // resolve to an account (unresolvedAccount) — both keep it out of
+        // `resolved`/`willImport`, so both must count against `valid` here,
+        // or the reported valid count silently disagrees with what's
+        // actually importable.
+        valid: validation.valid.length - unresolvedAccount.length,
+        invalid: invalidRows.length,
+        invalidRows: invalidRows.slice(0, 50),
         duplicates,
         willImport,
       },
@@ -141,7 +165,7 @@ export const POST = withUser(async (user, req: NextRequest) => {
   const imported = await prisma.$transaction(async (db) => {
     const existing = await db.transaction.findMany({
       where: dedupeWhere,
-      select: { date: true, amount: true, description: true, type: true },
+      select: { date: true, amount: true, description: true, type: true, accountId: true },
     });
     const existingKeys = keysFrom(existing);
     const seenInBatch = new Set<string>();
@@ -182,9 +206,9 @@ export const POST = withUser(async (user, req: NextRequest) => {
     preview: false,
     summary: {
       total: validation.total,
-      valid: validation.valid.length,
-      invalid: validation.invalid.length,
-      invalidRows: validation.invalid.slice(0, 50),
+      valid: validation.valid.length - unresolvedAccount.length,
+      invalid: invalidRows.length,
+      invalidRows: invalidRows.slice(0, 50),
       duplicates: resolved.length - imported,
       willImport: imported,
       imported,

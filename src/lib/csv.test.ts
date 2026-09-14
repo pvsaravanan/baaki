@@ -7,6 +7,16 @@ describe("buildCSV", () => {
     const csv = buildCSV(["a", "b"], [["plain", 'has,comma'], ['say "hi"', "line\nbreak"]]);
     expect(csv).toBe('a,b\r\nplain,"has,comma"\r\n"say ""hi""","line\nbreak"');
   });
+
+  it("neutralizes a leading formula character to prevent CSV/formula injection", () => {
+    const csv = buildCSV(["a"], [["=cmd|' /C calc'!A1"], ["+1"], ["-1"], ["@SUM(1)"], ["plain"]]);
+    const lines = csv.split("\r\n");
+    expect(lines[1]).toBe("'=cmd|' /C calc'!A1");
+    expect(lines[2]).toBe("'+1");
+    expect(lines[3]).toBe("'-1");
+    expect(lines[4]).toBe("'@SUM(1)");
+    expect(lines[5]).toBe("plain");
+  });
 });
 
 describe("normalizeDate & detectDateFormat", () => {
@@ -45,16 +55,20 @@ describe("validateImportRows", () => {
     type: "Type",
   };
 
-  it("parses valid rows and infers type from sign", () => {
-    const rows = [
-      { "Txn Date": "2026-08-01", Details: "Swiggy", Amount: "-450", Type: "" },
-      { "Txn Date": "2026-08-01", Details: "Salary", Amount: "65000", Type: "" },
-    ];
+  it("infers expense from a negative sign even when the mapped Type column is blank for that row", () => {
+    const rows = [{ "Txn Date": "2026-08-01", Details: "Swiggy", Amount: "-450", Type: "" }];
     const result = validateImportRows(rows, mapping);
-    expect(result.valid).toHaveLength(2);
+    expect(result.valid).toHaveLength(1);
     expect(result.valid[0].type).toBe("expense");
     expect(result.valid[0].amount).toBe(toPaise(450));
-    expect(result.valid[1].type).toBe("income");
+  });
+
+  it("flags a row as ambiguous instead of guessing when the mapped Type column is blank and the amount is positive", () => {
+    const rows = [{ "Txn Date": "2026-08-01", Details: "Salary", Amount: "65000", Type: "" }];
+    const result = validateImportRows(rows, mapping);
+    expect(result.valid).toHaveLength(0);
+    expect(result.invalid).toHaveLength(1);
+    expect(result.invalid[0].errors.join(" ")).toMatch(/blank/i);
   });
 
   it("honors an explicit type column (debit/credit)", () => {
