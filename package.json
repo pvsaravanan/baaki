@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "baaki — Know where your money goes.",
+  "license": "MIT",
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",

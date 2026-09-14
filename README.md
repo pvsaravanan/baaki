@@ -107,3 +107,7 @@ filtering (month/year boundaries, leap years), goal math, CSV import and duplica
 - Passwords are hashed with bcrypt; sessions are random tokens stored hashed (SHA-256) in the
   database and delivered as `httpOnly`, `sameSite=lax` cookies.
 - Set a strong `AUTH_SECRET` in `.env` for any real deployment.
+
+## License
+
+MIT — see [LICENSE](./LICENSE).
