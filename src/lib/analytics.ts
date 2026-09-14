@@ -1,0 +1,485 @@
+import "server-only";
+import { prisma } from "./db";
+import { getUserAccounts, getUserCategories, loadBudget, loadCalcTxns } from "./queries";
+import {
+  accountBalance,
+  averageDailySpend,
+  budgetStatus,
+  categorySpend,
+  categoryTotals,
+  dailySeries,
+  filterRange,
+  percentChange,
+  summarize,
+  type BudgetStatus,
+  type CalcTxn,
+  type PeriodSummary,
+} from "./calculations";
+import { addMonths, monthName, monthRange, monthKeyOf, startOfDay, type MonthKey } from "./dates";
+import { generateInsights, type Insight } from "./insights";
+import type { CategoryDTO } from "./types";
+import { serializeCategory } from "./serialize";
+
+export interface CategorySpendRow {
+  categoryId: string | null;
+  name: string;
+  color: string;
+  icon: string;
+  expense: number;
+  refund: number;
+  net: number;
+  count: number;
+}
+
+export interface BudgetLine {
+  categoryId: string;
+  name: string;
+  color: string;
+  icon: string;
+  limit: number;
+  spent: number;
+  status: BudgetStatus;
+}
+
+export interface MonthlyAnalytics {
+  monthKey: MonthKey;
+  current: PeriodSummary;
+  previous: PeriodSummary;
+  deltas: {
+    income: number | null;
+    expense: number | null;
+    net: number | null;
+    savings: number | null;
+  };
+  categories: CategorySpendRow[];
+  /** Per-category net this month vs last, biggest absolute change first. */
+  categoryComparison: { categoryId: string | null; name: string; color: string; current: number; previous: number; delta: number }[];
+  daily: { date: string; expense: number; income: number; count: number }[];
+  largestExpense: { description: string; amount: number; date: Date; categoryName: string | null } | null;
+  topCategory: { name: string; net: number } | null;
+  transactionCount: number;
+  totalBalance: number;
+  avgDailySpend: number;
+  subscriptionSpend: number;
+  budget: {
+    overallLimit: number | null;
+    overallSpent: number;
+    status: BudgetStatus | null;
+    lines: BudgetLine[];
+  };
+  incomeExpenseTrend: { label: string; month: number; year: number; income: number; expense: number }[];
+  insights: Insight[];
+}
+
+function toRows(txns: CalcTxn[], categories: Map<string, CategoryDTO>): CategorySpendRow[] {
+  return categoryTotals(txns).map((c) => {
+    const meta = c.categoryId ? categories.get(c.categoryId) : null;
+    return {
+      categoryId: c.categoryId,
+      name: meta?.name ?? "Uncategorized",
+      color: meta?.color ?? "#94a3b8",
+      icon: meta?.icon ?? "circle-dot",
+      expense: c.expense,
+      refund: c.refund,
+      net: c.net,
+      count: c.count,
+    };
+  });
+}
+
+/** Everything the dashboard, insights and monthly views need for a month. */
+export async function getMonthlyAnalytics(
+  userId: string,
+  monthKey: MonthKey,
+  preloadedTxns?: CalcTxn[],
+): Promise<MonthlyAnalytics> {
+  const [txns, accountsRaw, categoriesRaw, budget] = await Promise.all([
+    preloadedTxns ? Promise.resolve(preloadedTxns) : loadCalcTxns(userId),
+    getUserAccounts(userId),
+    getUserCategories(userId),
+    loadBudget(userId, monthKey.year, monthKey.month),
+  ]);
+
+  const categories = new Map(categoriesRaw.map((c) => [c.id, serializeCategory(c)]));
+  const subscriptionCategoryId =
+    categoriesRaw.find((c) => c.name.trim().toLowerCase() === "subscriptions")?.id ?? null;
+
+  const range = monthRange(monthKey);
+  const prevRange = monthRange(addMonths(monthKey, -1));
+
+  const monthTxns = filterRange(txns, range.start, range.end);
+  const prevTxns = filterRange(txns, prevRange.start, prevRange.end);
+
+  const current = summarize(monthTxns);
+  const previous = summarize(prevTxns);
+
+  const categoryRows = toRows(monthTxns, categories).filter((c) => c.expense > 0 || c.refund > 0);
+  const prevCategoryTotals = categoryTotals(prevTxns);
+
+  // Largest single expense this month computed in-memory (0 extra DB queries).
+  let largestExpense: MonthlyAnalytics["largestExpense"] = null;
+  const monthExpenses = monthTxns.filter((t) => t.type === "expense");
+  if (monthExpenses.length > 0) {
+    const largest = monthExpenses.reduce((max, t) => (t.amount > max.amount ? t : max), monthExpenses[0]);
+    largestExpense = {
+      description: largest.description ?? "Expense",
+      amount: largest.amount,
+      date: largest.date,
+      categoryName: largest.categoryId ? categories.get(largest.categoryId)?.name ?? null : null,
+    };
+  }
+
+  const topCategory = categoryRows[0] ? { name: categoryRows[0].name, net: categoryRows[0].net } : null;
+
+  // This-month vs last-month net per category, biggest absolute swing first.
+  const currNet = new Map(categoryTotals(monthTxns).map((c) => [c.categoryId, c.net]));
+  const prevNet = new Map(prevCategoryTotals.map((c) => [c.categoryId, c.net]));
+  const categoryComparison = [...new Set([...currNet.keys(), ...prevNet.keys()])]
+    .map((id) => {
+      const meta = id ? categories.get(id) : null;
+      const current = currNet.get(id) ?? 0;
+      const previous = prevNet.get(id) ?? 0;
+      return {
+        categoryId: id,
+        name: meta?.name ?? "Uncategorized",
+        color: meta?.color ?? "#94a3b8",
+        current,
+        previous,
+        delta: current - previous,
+      };
+    })
+    .filter((c) => c.current !== 0 || c.previous !== 0)
+    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
+    .slice(0, 8);
+
+  // Budget lines.
+  const spentByCategory = new Map(categoryTotals(monthTxns).map((c) => [c.categoryId, c.net]));
+  const lines: BudgetLine[] = budget.categories.map((bc) => {
+    const meta = categories.get(bc.categoryId);
+    const spent = spentByCategory.get(bc.categoryId) ?? 0;
+    return {
+      categoryId: bc.categoryId,
+      name: meta?.name ?? "Category",
+      color: meta?.color ?? "#94a3b8",
+      icon: meta?.icon ?? "circle-dot",
+      limit: bc.limit,
+      spent,
+      status: budgetStatus(spent, bc.limit),
+    };
+  });
+  const overallSpent = current.effectiveExpense;
+  const overallStatus = budget.overallLimit ? budgetStatus(overallSpent, budget.overallLimit) : null;
+
+  // Income vs expense trend, up to 12 months (the client chart lets the user
+  // pick a 1 / 3 / 6 / 12-month window by slicing this).
+  const incomeExpenseTrend: MonthlyAnalytics["incomeExpenseTrend"] = [];
+  for (let i = 11; i >= 0; i--) {
+    const key = addMonths(monthKey, -i);
+    const r = monthRange(key);
+    const s = summarize(filterRange(txns, r.start, r.end));
+    incomeExpenseTrend.push({ label: monthName(key.month, true), month: key.month, year: key.year, income: s.income, expense: s.effectiveExpense });
+  }
+  // Rising-spend streak insight uses the trailing 6 months of the same trend.
+  const monthlyExpenseTrend = incomeExpenseTrend.slice(-6).map((m) => m.expense);
+
+  const subscriptionSpend = subscriptionCategoryId ? spentByCategory.get(subscriptionCategoryId) ?? 0 : 0;
+  const avgDaily = averageDailySpend(current.effectiveExpense, range.start, cappedEnd(range.start, range.end));
+
+  const insights = generateInsights({
+    current,
+    previous,
+    currentCategories: categoryTotals(monthTxns),
+    previousCategories: prevCategoryTotals,
+    categoryNames: new Map([...categories.entries()].map(([id, c]) => [id, c.name])),
+    monthlyExpenseTrend,
+    overallBudgetLimit: budget.overallLimit,
+    avgDailySpend: avgDaily,
+    subscriptionSpend,
+  });
+
+  return {
+    monthKey,
+    current,
+    previous,
+    deltas: {
+      income: percentChange(current.income, previous.income),
+      expense: percentChange(current.effectiveExpense, previous.effectiveExpense),
+      net: percentChange(current.net, previous.net),
+      // savingsRate is already a percentage, so a percent-change of it is
+      // meaningless (and a legitimate 0% last month reads as "New"). Report the
+      // month-over-month change in percentage points instead.
+      savings:
+        previous.income > 0 || current.income > 0
+          ? current.savingsRate - previous.savingsRate
+          : null,
+    },
+    categories: categoryRows,
+    categoryComparison,
+    daily: dailySeries(monthTxns, range.start, range.end),
+    largestExpense,
+    topCategory,
+    transactionCount: current.count,
+    // Exclude archived accounts so the dashboard total matches the Accounts and
+    // Reports pages, which both filter out archived accounts.
+    totalBalance: accountsRaw
+      .filter((a) => !a.isArchived)
+      .reduce((sum, a) => sum + accountBalance({ id: a.id, openingBalance: a.openingBalance }, txns), 0),
+    avgDailySpend: avgDaily,
+    subscriptionSpend,
+    budget: { overallLimit: budget.overallLimit, overallSpent, status: overallStatus, lines },
+    incomeExpenseTrend,
+    insights,
+  };
+}
+
+/**
+ * Analytics over an arbitrary date range (multi-month periods).
+ * Returns the same MonthlyAnalytics shape so the UI works unchanged.
+ */
+export async function getRangeAnalytics(
+  userId: string,
+  rangeStart: Date,
+  rangeEnd: Date,
+  prevStart: Date,
+  prevEnd: Date,
+  preloadedTxns?: CalcTxn[],
+): Promise<MonthlyAnalytics> {
+  const nowKey = monthKeyOf(new Date());
+
+  const [txns, accountsRaw, categoriesRaw, budget] = await Promise.all([
+    preloadedTxns ? Promise.resolve(preloadedTxns) : loadCalcTxns(userId),
+    getUserAccounts(userId),
+    getUserCategories(userId),
+    loadBudget(userId, nowKey.year, nowKey.month),
+  ]);
+
+  const categories = new Map(categoriesRaw.map((c) => [c.id, serializeCategory(c)]));
+  const subscriptionCategoryId =
+    categoriesRaw.find((c) => c.name.trim().toLowerCase() === "subscriptions")?.id ?? null;
+
+  const rangeTxns = filterRange(txns, rangeStart, rangeEnd);
+  const prevTxns = filterRange(txns, prevStart, prevEnd);
+
+  const current = summarize(rangeTxns);
+  const previous = summarize(prevTxns);
+
+  const categoryRows = toRows(rangeTxns, categories).filter((c) => c.expense > 0 || c.refund > 0);
+  const prevCategoryList = categoryTotals(prevTxns);
+
+  // Largest expense in the range.
+  let largestExpense: MonthlyAnalytics["largestExpense"] = null;
+  const expenses = rangeTxns.filter((t) => t.type === "expense");
+  if (expenses.length > 0) {
+    const largest = expenses.reduce((max, t) => (t.amount > max.amount ? t : max), expenses[0]);
+    largestExpense = {
+      description: largest.description ?? "Expense",
+      amount: largest.amount,
+      date: largest.date,
+      categoryName: largest.categoryId ? categories.get(largest.categoryId)?.name ?? null : null,
+    };
+  }
+
+  const topCategory = categoryRows[0] ? { name: categoryRows[0].name, net: categoryRows[0].net } : null;
+
+  // Category comparison: current range vs previous range.
+  const currNet = new Map(categoryTotals(rangeTxns).map((c) => [c.categoryId, c.net]));
+  const prevNet = new Map(prevCategoryList.map((c) => [c.categoryId, c.net]));
+  const categoryComparison = [...new Set([...currNet.keys(), ...prevNet.keys()])]
+    .map((id) => {
+      const meta = id ? categories.get(id) : null;
+      const cur = currNet.get(id) ?? 0;
+      const prev = prevNet.get(id) ?? 0;
+      return {
+        categoryId: id,
+        name: meta?.name ?? "Uncategorized",
+        color: meta?.color ?? "#94a3b8",
+        current: cur,
+        previous: prev,
+        delta: cur - prev,
+      };
+    })
+    .filter((c) => c.current !== 0 || c.previous !== 0)
+    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
+    .slice(0, 8);
+
+  // Budget: use current month's budget (makes most sense for the "now" slice).
+  const spentByCategory = new Map(categoryTotals(rangeTxns).map((c) => [c.categoryId, c.net]));
+  const lines: BudgetLine[] = budget.categories.map((bc) => {
+    const meta = categories.get(bc.categoryId);
+    const spent = spentByCategory.get(bc.categoryId) ?? 0;
+    return {
+      categoryId: bc.categoryId,
+      name: meta?.name ?? "Category",
+      color: meta?.color ?? "#94a3b8",
+      icon: meta?.icon ?? "circle-dot",
+      limit: bc.limit,
+      spent,
+      status: budgetStatus(spent, bc.limit),
+    };
+  });
+  const overallSpent = current.effectiveExpense;
+  const overallStatus = budget.overallLimit ? budgetStatus(overallSpent, budget.overallLimit) : null;
+
+  // 12-month income vs expense trend (always anchored to the current month).
+  const incomeExpenseTrend: MonthlyAnalytics["incomeExpenseTrend"] = [];
+  for (let i = 11; i >= 0; i--) {
+    const key = addMonths(nowKey, -i);
+    const r = monthRange(key);
+    const s = summarize(filterRange(txns, r.start, r.end));
+    incomeExpenseTrend.push({ label: monthName(key.month, true), month: key.month, year: key.year, income: s.income, expense: s.effectiveExpense });
+  }
+  const monthlyExpenseTrend = incomeExpenseTrend.slice(-6).map((m) => m.expense);
+
+  const subscriptionSpend = subscriptionCategoryId ? spentByCategory.get(subscriptionCategoryId) ?? 0 : 0;
+  const avgDaily = averageDailySpend(current.effectiveExpense, rangeStart, cappedEnd(rangeStart, rangeEnd));
+
+  // Daily series across the whole range.
+  const daily = dailySeries(rangeTxns, rangeStart, cappedEnd(rangeStart, rangeEnd));
+
+  const insights = generateInsights({
+    current,
+    previous,
+    currentCategories: categoryTotals(rangeTxns),
+    previousCategories: prevCategoryList,
+    categoryNames: new Map([...categories.entries()].map(([id, c]) => [id, c.name])),
+    monthlyExpenseTrend,
+    overallBudgetLimit: budget.overallLimit,
+    avgDailySpend: avgDaily,
+    subscriptionSpend,
+  });
+
+  return {
+    monthKey: nowKey,
+    current,
+    previous,
+    deltas: {
+      income: percentChange(current.income, previous.income),
+      expense: percentChange(current.effectiveExpense, previous.effectiveExpense),
+      net: percentChange(current.net, previous.net),
+      savings:
+        previous.income > 0 || current.income > 0
+          ? current.savingsRate - previous.savingsRate
+          : null,
+    },
+    categories: categoryRows,
+    categoryComparison,
+    daily,
+    largestExpense,
+    topCategory,
+    transactionCount: current.count,
+    totalBalance: accountsRaw
+      .filter((a) => !a.isArchived)
+      .reduce((sum, a) => sum + accountBalance({ id: a.id, openingBalance: a.openingBalance }, txns), 0),
+    avgDailySpend: avgDaily,
+    subscriptionSpend,
+    budget: { overallLimit: budget.overallLimit, overallSpent, status: overallStatus, lines },
+    incomeExpenseTrend,
+    insights,
+  };
+}
+
+/**
+ * The end date to use for the daily-average day count:
+ *  - current month (now within [start, end)): count days through today;
+ *  - past month (now >= end): the full month;
+ *  - future month (now < start): the full month too. Without the `now < start`
+ *    guard this returned "tomorrow", which is BEFORE a future month's start,
+ *    giving a negative day count that clamped to 1 and reported the whole
+ *    month's expense as the daily average.
+ */
+function cappedEnd(start: Date, end: Date): Date {
+  const now = new Date();
+  if (now < start || now >= end) return end;
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+}
+
+export interface CategoryDetail {
+  /** Net spend per month, oldest first, last 12 months. */
+  monthly: { label: string; month: number; year: number; net: number }[];
+  currentMonthSpent: number;
+  previousMonthSpent: number;
+  /** Percent change vs last month, or null when it can't be expressed (see percentChange). */
+  deltaPct: number | null;
+  /** Average monthly net spend over the 12-month window above. */
+  avgPerMonth: number;
+  /** All-time net spend (across every non-deleted transaction in this category). */
+  totalSpent: number;
+  transactionCount: number;
+  /** This category's share of this month's total effective expense, or null if there's no spend yet. */
+  shareOfMonthExpenses: number | null;
+  /** This month's total effective expense across every category, for the "share" chart. */
+  monthTotalExpenses: number;
+  budget: { limit: number; spent: number; status: BudgetStatus } | null;
+  /** Biggest merchants/descriptions within this category, by total spend, this year. */
+  topMerchants: { label: string; total: number; count: number }[];
+}
+
+/** Everything the category detail page needs for one category. */
+export async function getCategoryDetail(userId: string, categoryId: string): Promise<CategoryDetail> {
+  const nowKey = monthKeyOf(new Date());
+  const [txns, budget, merchantRows] = await Promise.all([
+    loadCalcTxns(userId),
+    loadBudget(userId, nowKey.year, nowKey.month),
+    // merchant/description breakdown needs fields loadCalcTxns doesn't select
+    // (it's shared/cached for the whole app), so this is a small dedicated query.
+    prisma.transaction.findMany({
+      where: { userId, categoryId, deletedAt: null, type: "expense" },
+      select: { merchant: true, description: true, amount: true },
+    }),
+  ]);
+
+  const catTxns = txns.filter((t) => t.categoryId === categoryId);
+
+  const monthly: CategoryDetail["monthly"] = [];
+  for (let i = 11; i >= 0; i--) {
+    const key = addMonths(nowKey, -i);
+    const r = monthRange(key);
+    const net = categorySpend(filterRange(catTxns, r.start, r.end), categoryId);
+    monthly.push({ label: monthName(key.month, true), month: key.month, year: key.year, net });
+  }
+
+  const currentRange = monthRange(nowKey);
+  const prevRange = monthRange(addMonths(nowKey, -1));
+  const currentMonthSpent = categorySpend(filterRange(catTxns, currentRange.start, currentRange.end), categoryId);
+  const previousMonthSpent = categorySpend(filterRange(catTxns, prevRange.start, prevRange.end), categoryId);
+  const deltaPct = percentChange(currentMonthSpent, previousMonthSpent);
+
+  const totalSpent = categorySpend(catTxns, categoryId);
+  const transactionCount = catTxns.filter((t) => t.type === "expense" || t.type === "refund").length;
+  const avgPerMonth = Math.round(monthly.reduce((sum, m) => sum + m.net, 0) / monthly.length);
+
+  const monthTotalExpense = summarize(filterRange(txns, currentRange.start, currentRange.end)).effectiveExpense;
+  const shareOfMonthExpenses = monthTotalExpense > 0 ? (currentMonthSpent / monthTotalExpense) * 100 : null;
+
+  const budgetLine = budget.categories.find((bc) => bc.categoryId === categoryId);
+  const budgetOut = budgetLine
+    ? { limit: budgetLine.limit, spent: currentMonthSpent, status: budgetStatus(currentMonthSpent, budgetLine.limit) }
+    : null;
+
+  const byMerchant = new Map<string, { total: number; count: number }>();
+  for (const r of merchantRows) {
+    const key = (r.merchant?.trim() || r.description?.trim() || "Other").slice(0, 60);
+    const entry = byMerchant.get(key) ?? { total: 0, count: 0 };
+    entry.total += r.amount;
+    entry.count += 1;
+    byMerchant.set(key, entry);
+  }
+  const topMerchants = [...byMerchant.entries()]
+    .map(([label, v]) => ({ label, ...v }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 6);
+
+  return {
+    monthly,
+    currentMonthSpent,
+    previousMonthSpent,
+    deltaPct,
+    avgPerMonth,
+    totalSpent,
+    transactionCount,
+    shareOfMonthExpenses,
+    monthTotalExpenses: monthTotalExpense,
+    budget: budgetOut,
+    topMerchants,
+  };
+}
