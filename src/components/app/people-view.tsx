@@ -393,7 +393,11 @@ function SettleModal({
 }) {
   const { accounts, preference } = useAppData();
   const toast = useToast();
-  const [record, setRecord] = useState(true);
+  const hasAccounts = accounts.length > 0;
+  // Default unchecked for a brand-new user with no accounts yet — there's
+  // nothing to record into, so leaving this checked would silently no-op
+  // instead of actually recording anything.
+  const [record, setRecord] = useState(hasAccounts);
   const [accountId, setAccountId] = useState(preference.defaultAccountId ?? accounts[0]?.id ?? "");
   const [busy, setBusy] = useState(false);
 
@@ -443,11 +447,20 @@ function SettleModal({
             <span className="text-sm text-muted">Amount</span>
             <Money paise={share.amount} tone={youOwe ? "expense" : "income"} className="text-lg font-semibold" />
           </div>
-          <label className="flex items-center gap-2 text-sm text-fg">
-            <input type="checkbox" checked={record} onChange={(e) => setRecord(e.target.checked)} className="h-4 w-4" />
+          <label className={cn("flex items-center gap-2 text-sm text-fg", !hasAccounts && "opacity-50")}>
+            <input
+              type="checkbox"
+              checked={record}
+              disabled={!hasAccounts}
+              onChange={(e) => setRecord(e.target.checked)}
+              className="h-4 w-4"
+            />
             {youOwe ? "Also record this as an expense (money paid)" : "Also record this as income (money received)"}
           </label>
-          {record && (
+          {!hasAccounts && (
+            <p className="text-xs text-muted">Add an account first to record this settlement as a transaction.</p>
+          )}
+          {record && hasAccounts && (
             <Field label={youOwe ? "Pay from" : "Deposit into"} htmlFor="settle-account">
               <Select id="settle-account" value={accountId} onChange={(e) => setAccountId(e.target.value)}>
                 {accounts.map((a) => (

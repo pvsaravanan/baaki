@@ -77,3 +77,50 @@ export const apiDelete = <T>(url: string, body?: unknown) => apiSend<T>(url, "DE
 
 /** SWR default fetcher. */
 export const swrFetcher = <T>(url: string) => apiGet<T>(url);
+
+// Exports can legitimately take longer than a normal CRUD request on a large
+// history — give it more room than the general request timeout above.
+const DOWNLOAD_TIMEOUT_MS = 60_000;
+
+/**
+ * Fetch a file download (e.g. a CSV/JSON export) and save it via a blob link,
+ * instead of a bare `<a href>` navigation — which would otherwise navigate
+ * the whole tab away to a raw JSON/HTML error page if the request fails,
+ * with no in-app feedback. Returns true on success.
+ */
+export async function downloadFile(url: string, onError: (message: string) => void): Promise<boolean> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) {
+      let message = `Download failed (${res.status})`;
+      try {
+        const data = await res.json();
+        if (data?.error) message = data.error;
+      } catch {
+        /* non-JSON error body */
+      }
+      onError(message);
+      return false;
+    }
+    const blob = await res.blob();
+    const cd = res.headers.get("content-disposition") ?? "";
+    const match = /filename="?([^";]+)"?/.exec(cd);
+    const filename = match?.[1] ?? "download";
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(blobUrl);
+    return true;
+  } catch {
+    onError("Could not download the file. Check your connection and try again.");
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}

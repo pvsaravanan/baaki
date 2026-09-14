@@ -9,7 +9,9 @@ import { StatCard } from "@/components/app/stat-card";
 import { EmptyState } from "@/components/ui/misc";
 import { Icon } from "@/components/icon";
 import { useAppData } from "@/components/app/app-data";
+import { useToast } from "@/components/ui/toast";
 import { IncomeExpenseBars, TrendArea, CategoryDonut } from "@/components/charts/chart-kit";
+import { downloadFile } from "@/lib/http";
 import { formatPercent } from "@/lib/money";
 import { formatAccountType } from "@/lib/constants";
 import type { MonthlyAnalytics } from "@/lib/analytics";
@@ -49,8 +51,16 @@ export function ReportsView({
   perAccount: PerAccountRow[];
 }) {
   const [report, setReport] = useState<ReportType>("overview");
+  const [downloading, setDownloading] = useState(false);
+  const toast = useToast();
 
   const reportLabel = REPORT_OPTIONS.find((o) => o.value === report)?.label ?? "Overview";
+
+  async function handleExport() {
+    setDownloading(true);
+    await downloadFile("/api/export?format=csv", (message) => toast.error(message));
+    setDownloading(false);
+  }
 
   return (
     <div className="space-y-5">
@@ -70,13 +80,15 @@ export function ReportsView({
           <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-surface to-transparent sm:hidden" aria-hidden />
         </div>
         <div className="flex items-center gap-2">
-          <a
-            href="/api/export?format=csv"
-            className="flex-1 sm:flex-none inline-flex h-9 items-center justify-center gap-2 rounded-none border border-border-strong px-4 text-sm font-medium text-fg transition-colors hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+          <button
+            type="button"
+            onClick={handleExport}
+            disabled={downloading}
+            className="flex-1 sm:flex-none inline-flex h-9 items-center justify-center gap-2 rounded-none border border-border-strong px-4 text-sm font-medium text-fg transition-colors hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-50"
           >
             <Download className="h-4 w-4" />
-            Export CSV
-          </a>
+            {downloading ? "Exporting…" : "Export CSV"}
+          </button>
           <Button variant="outline" onClick={() => window.print()} className="flex-1 sm:flex-none">
             <Printer className="h-4 w-4" />
             Print / PDF

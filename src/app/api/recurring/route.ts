@@ -1,11 +1,11 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { json, withUser } from "@/lib/api";
+import { BadRequestError, json, withUser } from "@/lib/api";
 import { assertAccountsOwned, assertCategoriesOwned } from "@/lib/ownership";
 import { recurringSchema } from "@/lib/validation";
 import { loadRecurring } from "@/lib/queries";
 import { computeNextOccurrence } from "@/lib/recurring";
-import { fromISODate } from "@/lib/dates";
+import { fromISODate, toISODate } from "@/lib/dates";
 import type { Frequency } from "@/lib/constants";
 
 export const GET = withUser(async (user) => {
@@ -14,6 +14,13 @@ export const GET = withUser(async (user) => {
 
 export const POST = withUser(async (user, req: NextRequest) => {
   const input = recurringSchema.parse(await req.json());
+  // Only enforced on create, not on the PATCH handler (which reuses this same
+  // schema) — backdating the end date of an already-running rule to "it
+  // actually ended last month" is a legitimate edit; creating a rule that's
+  // already fully expired, with no warning, is not.
+  if (input.endDate && input.endDate < toISODate(new Date())) {
+    throw new BadRequestError("End date can't be in the past");
+  }
 
   // SECURITY: verify every client-supplied foreign key belongs to this user.
   await assertAccountsOwned(user.id, [input.accountId, input.transferAccountId]);

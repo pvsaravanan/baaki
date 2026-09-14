@@ -7,6 +7,7 @@ import { Icon } from "@/components/icon";
 import { useAppData } from "./app-data";
 import { ApiError, apiPatch, apiPost } from "@/lib/http";
 import { toPaise, toRupees } from "@/lib/money";
+import { toISODate } from "@/lib/dates";
 import type { GoalDTO } from "@/lib/types";
 import { cn } from "@/lib/cn";
 
@@ -87,6 +88,13 @@ export function GoalForm({
       if (!localErrors.initialAmount && startPaise < 0) {
         localErrors.initialAmount = "Starting amount cannot be negative";
       }
+    }
+
+    // Only on create — a goal's target date already having lapsed on an
+    // existing, in-progress goal is fine (the user may just be catching up
+    // on data entry); creating one already overdue with no warning isn't.
+    if (!editing && targetDate && targetDate < toISODate(new Date())) {
+      localErrors.targetDate = "Target date can't be in the past";
     }
 
     if (Object.keys(localErrors).length) {
@@ -205,11 +213,13 @@ export function GoalForm({
           </div>
         </Field>
 
-        <Field label="Target date" htmlFor="goal-date" hint="Optional" className="col-span-2 sm:col-span-1">
+        <Field label="Target date" htmlFor="goal-date" hint="Optional" error={errors.targetDate} className="col-span-2 sm:col-span-1">
           <Input
             id="goal-date"
             type="date"
             value={targetDate}
+            min={editing ? undefined : toISODate(new Date())}
+            invalid={!!errors.targetDate}
             onChange={(e) => setTargetDate(e.target.value)}
           />
         </Field>

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp, Download, LogOut, Upload } from "lucide-react";
 import { DEFAULT_DASHBOARD_WIDGETS, WIDGET_LABELS, type WidgetKey } from "@/lib/constants";
-import { apiPatch, apiPost, ApiError } from "@/lib/http";
+import { apiPatch, apiPost, ApiError, downloadFile } from "@/lib/http";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/cn";
 import { useAppData } from "@/components/app/app-data";
@@ -51,8 +51,15 @@ export function SettingsView() {
   const nameDirty = name.trim().length > 0 && name.trim() !== user.name;
 
   const [showExport, setShowExport] = useState(false);
+  const [downloadingBackup, setDownloadingBackup] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  async function handleBackupDownload() {
+    setDownloadingBackup(true);
+    await downloadFile("/api/export?format=json", (message) => error(message));
+    setDownloadingBackup(false);
+  }
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const initials = user.name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
 
@@ -363,13 +370,15 @@ export function SettingsView() {
         <CardHeader title="Data & backup" subtitle="Your data is always yours — export everything any time." />
         <CardBody className="flex flex-col gap-3">
           <div className="flex flex-wrap gap-2">
-            <a
-              href="/api/export?format=json"
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-none border border-border bg-surface-2 px-4 text-sm font-medium text-fg transition-colors hover:bg-border/60"
+            <button
+              type="button"
+              onClick={handleBackupDownload}
+              disabled={downloadingBackup}
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-none border border-border bg-surface-2 px-4 text-sm font-medium text-fg transition-colors hover:bg-border/60 disabled:opacity-50"
             >
               <Download className="h-4 w-4" aria-hidden />
-              Download full backup (JSON)
-            </a>
+              {downloadingBackup ? "Downloading…" : "Download full backup (JSON)"}
+            </button>
             <button
               onClick={() => setShowExport(true)}
               className="inline-flex h-9 items-center justify-center gap-2 rounded-none border border-border bg-surface-2 px-4 text-sm font-medium text-fg transition-colors hover:bg-border/60"

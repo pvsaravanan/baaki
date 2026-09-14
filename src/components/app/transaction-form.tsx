@@ -7,7 +7,7 @@ import { Segmented } from "@/components/ui/segmented";
 import { useAppData } from "./app-data";
 import { ApiError, apiPatch, apiPost } from "@/lib/http";
 import { toISODate } from "@/lib/dates";
-import { toPaise, toRupees } from "@/lib/money";
+import { formatINR, toPaise, toRupees } from "@/lib/money";
 import { suggestCategory } from "@/lib/categorize";
 import { QuickCategoryModal } from "./quick-category-modal";
 import { PAYMENT_METHODS, PAYMENT_METHOD_LABELS, type TransactionType } from "@/lib/constants";
@@ -442,7 +442,7 @@ export function TransactionForm({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-label-md uppercase text-muted">Splits</span>
-            <span className="tnum text-sm font-semibold text-fg">Total: ₹{toRupees(partsTotal).toFixed(2)}</span>
+            <span className="tnum text-sm font-semibold text-fg">Total: {formatINR(partsTotal, { decimals: "always" })}</span>
           </div>
           {/* Quick equal-split: type a grand total, divide it across all parts. */}
           <div className="flex items-center gap-2">
@@ -637,11 +637,11 @@ export function TransactionForm({
                             onChange={(e) => updateShare(i, { percent: e.target.value.replace(/[^0-9.]/g, "") })}
                             className="w-16"
                           />
-                          <span className="tnum w-20 text-right text-xs text-muted">₹{toRupees(shareAmountPaise(row)).toFixed(2)}</span>
+                          <span className="tnum w-20 text-right text-xs text-muted">{formatINR(shareAmountPaise(row), { decimals: "always" })}</span>
                         </div>
                       )}
                       {shareMode === "equal" && (
-                        <span className="tnum w-28 text-right text-sm text-fg">₹{toRupees(shareAmountPaise(row)).toFixed(2)}</span>
+                        <span className="tnum w-28 text-right text-sm text-fg">{formatINR(shareAmountPaise(row), { decimals: "always" })}</span>
                       )}
                       <button type="button" onClick={() => removeShare(i)} aria-label="Remove share">
                         <X className="h-4 w-4 text-faint hover:text-expense" />
@@ -657,7 +657,7 @@ export function TransactionForm({
                   {errors.shares && <p className="text-xs text-expense">{errors.shares}</p>}
                   <div className="flex items-center justify-between border-t border-border-faint pt-2 text-sm">
                     <span className="text-muted">Your share</span>
-                    <span className="tnum font-semibold text-fg">₹{toRupees(yourShare).toFixed(2)}</span>
+                    <span className="tnum font-semibold text-fg">{formatINR(yourShare, { decimals: "always" })}</span>
                   </div>
                 </>
               )}

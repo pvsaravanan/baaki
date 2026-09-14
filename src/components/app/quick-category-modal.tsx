@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
@@ -52,6 +52,19 @@ export function QuickCategoryModal({
   const [color, setColor] = useState(SWATCHES[0]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // The modal stays mounted between opens (only `open` toggles), so without
+  // this, reopening it — even for a different defaultKind — would prefill
+  // every field with whatever was left over from the last time it was used.
+  useEffect(() => {
+    if (open) {
+      setName("");
+      setKind(defaultKind);
+      setIcon("tag");
+      setColor(SWATCHES[0]);
+      setError(null);
+    }
+  }, [open, defaultKind]);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();

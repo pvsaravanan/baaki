@@ -133,7 +133,12 @@ export async function settleShare(
   opts: { record?: boolean; accountId?: string | null },
 ): Promise<void> {
   const share = await prisma.expenseShare.findFirst({
-    where: { id: shareId, contact: { userId } },
+    // LIVE_SHARE excludes a share whose linked transaction was soft-deleted —
+    // without it, a direct API call could still settle a "phantom" share the
+    // UI never shows (loadContactShares/loadContacts already filter these
+    // out), recording a real settlement transaction for a purchase that no
+    // longer exists.
+    where: { id: shareId, contact: { userId }, ...LIVE_SHARE },
     include: { transaction: true, contact: true },
   });
   if (!share) throw new NotFoundError("Share not found");

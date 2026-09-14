@@ -114,6 +114,11 @@ export function RecurringForm({
     if (endDate && startDate && endDate < startDate) {
       localErrors.endDate = "End date must be after the start date";
     }
+    // Only on create — backdating an existing rule's end date to "it already
+    // ended" is a legitimate edit (see the matching check in the API route).
+    if (!initial && endDate && endDate < toISODate(new Date())) {
+      localErrors.endDate = "End date can't be in the past";
+    }
     if (Object.keys(localErrors).length) {
       setErrors(localErrors);
       return;

@@ -15,7 +15,10 @@ interface TransactionModalValue {
 
 const Ctx = createContext<TransactionModalValue | null>(null);
 
-type TxnList = { transactions: TransactionDTO[]; total: number };
+// `totals` (income/expense sums) is optional here since this file never
+// reads or writes it directly — the spreads above just need to not drop it
+// from whatever shape is actually cached.
+type TxnList = { transactions: TransactionDTO[]; total: number; totals?: { income: number; expense: number } };
 type ModalState =
   | { mode: "add"; prefillDate?: string }
   | { mode: "edit"; txn: TransactionDTO; group?: TransactionDTO[] | null }
@@ -67,31 +70,57 @@ export function TransactionModalProvider({ children }: { children: React.ReactNo
   const onSaved = (result: TransactionDTO | TransactionDTO[], mode: "add" | "edit") => {
     close();
     const saved = Array.isArray(result) ? result : [result];
-    // Paint the saved row(s) into every transactions-list cache immediately so
-    // the change shows the instant the modal closes, without waiting on the
-    // round trip to the hosted DB. `refresh()` below then reconciles in the
-    // background (ordering, filters, server-rendered tiles).
+
+    // A cache key with no filter params beyond paging — the "browse
+    // everything" view. Splicing a new row into every OTHER cached view too
+    // (a different category/account/type filter) would flash it into a list
+    // it doesn't actually belong to until refresh()'s revalidation corrects
+    // it a moment later, so a brand-new row is only optimistic here.
+    const isUnfilteredTxnListKey = (key: unknown): boolean => {
+      if (typeof key !== "string" || !key.startsWith("/api/transactions?")) return false;
+      const params = new URLSearchParams(key.slice(key.indexOf("?") + 1));
+      return [...params.keys()].every((k) => k === "take" || k === "skip");
+    };
+
+    // Update rows in place everywhere they already exist — that row was
+    // already legitimately part of that cached view before this edit, so
+    // patching it there (instead of only in the unfiltered view) is safe.
+    // Spreading `curr` (not replacing it) preserves fields like `totals`
+    // that this update doesn't otherwise touch.
     mutate(
       (key) => typeof key === "string" && key.startsWith("/api/transactions"),
       (curr?: TxnList) => {
         if (!curr) return curr;
-        let transactions = curr.transactions.slice();
-        let total = curr.total;
+        const transactions = curr.transactions.slice();
+        let changed = false;
         for (const txn of saved) {
           const idx = transactions.findIndex((t) => t.id === txn.id);
-          if (idx === -1) {
-            if (mode === "add") {
-              transactions = [txn, ...transactions];
-              total += 1;
-            }
-          } else {
+          if (idx !== -1) {
             transactions[idx] = txn;
+            changed = true;
           }
         }
-        return { transactions, total };
+        return changed ? { ...curr, transactions } : curr;
       },
       { revalidate: false },
     );
+
+    if (mode === "add") {
+      mutate(
+        isUnfilteredTxnListKey,
+        (curr?: TxnList) => {
+          if (!curr) return curr;
+          const existingIds = new Set(curr.transactions.map((t) => t.id));
+          const toAdd = saved.filter((t) => !existingIds.has(t.id));
+          if (toAdd.length === 0) return curr;
+          return { ...curr, transactions: [...toAdd, ...curr.transactions], total: curr.total + toAdd.length };
+        },
+        { revalidate: false },
+      );
+    }
+
+    // `refresh()` below then reconciles everything else (ordering, filtered
+    // views, totals, server-rendered tiles) with a real fetch in the background.
     refresh();
     toast.success(mode === "add" ? (saved.length > 1 ? "Split expense added" : "Transaction added") : "Changes saved");
   };

@@ -46,9 +46,11 @@ export function buildWhere(userId: string, params: URLSearchParams): Prisma.Tran
   const categories = csv("categoryId");
   if (categories.length) {
     if (categories.includes("none")) {
-      where.categoryId = { in: [...categories.filter((c) => c !== "none")] };
-      and.push({ OR: [{ categoryId: null }, { categoryId: { in: categories } }] });
-      delete where.categoryId;
+      // "none" isn't a real category id — it's the UI's stand-in for
+      // "uncategorized" (categoryId: null) — so it must be filtered out of
+      // the `in` list rather than passed through as a literal id to match.
+      const realIds = categories.filter((c) => c !== "none");
+      and.push({ OR: [{ categoryId: null }, { categoryId: { in: realIds } }] });
     } else {
       where.categoryId = { in: categories };
     }

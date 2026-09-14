@@ -4,7 +4,9 @@ import { Download } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/field";
+import { useToast } from "@/components/ui/toast";
 import { useAppData } from "./app-data";
+import { downloadFile } from "@/lib/http";
 import { toPaise } from "@/lib/money";
 import {
   TRANSACTION_TYPES,
@@ -74,7 +76,9 @@ export function ExportModal({
   initial?: Partial<ExportFilters>;
 }) {
   const { categories, accounts, tags } = useAppData();
+  const toast = useToast();
   const [filters, setFilters] = useState<ExportFilters>(() => ({ ...EMPTY, ...initial }));
+  const [downloading, setDownloading] = useState(false);
 
   // Reset when re-opened with different initial filters.
   const [lastOpen, setLastOpen] = useState(false);
@@ -84,6 +88,13 @@ export function ExportModal({
   if (open !== lastOpen) setLastOpen(open);
 
   const set = (patch: Partial<ExportFilters>) => setFilters((f) => ({ ...f, ...patch }));
+
+  async function handleDownload() {
+    setDownloading(true);
+    const ok = await downloadFile(buildExportUrl(filters), (message) => toast.error(message));
+    setDownloading(false);
+    if (ok) onClose();
+  }
 
   return (
     <Modal open={open} onClose={onClose} title="Export transactions" description="Choose filters to narrow the export, or download everything." size="lg">
@@ -155,12 +166,10 @@ export function ExportModal({
             </Button>
           )}
           <div className="flex-1" />
-          <a href={buildExportUrl(filters)} className="inline-flex" onClick={onClose}>
-            <Button>
-              <Download className="h-4 w-4" />
-              {hasAnyFilter(filters) ? "Download filtered CSV" : "Download all CSV"}
-            </Button>
-          </a>
+          <Button onClick={handleDownload} loading={downloading}>
+            <Download className="h-4 w-4" />
+            {hasAnyFilter(filters) ? "Download filtered CSV" : "Download all CSV"}
+          </Button>
         </div>
       </div>
     </Modal>

@@ -1,14 +1,28 @@
 import { NextRequest } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { json, withUser } from "@/lib/api";
 import { budgetSchema } from "@/lib/validation";
 import { loadBudget } from "@/lib/queries";
 
+// Matches the year/month bounds budgetSchema enforces on PUT — GET previously
+// used `Number(...) || fallback`, which silently substitutes the current
+// year/month for a NaN or 0 value but lets an out-of-range one (month=13)
+// straight through to loadBudget instead of rejecting it.
+const budgetQuerySchema = z.object({
+  year: z.coerce.number().int().min(2000).max(2100).optional(),
+  month: z.coerce.number().int().min(1).max(12).optional(),
+});
+
 export const GET = withUser(async (user, req: NextRequest) => {
   const params = req.nextUrl.searchParams;
   const now = new Date();
-  const year = Number(params.get("year")) || now.getFullYear();
-  const month = Number(params.get("month")) || now.getMonth() + 1;
+  const parsed = budgetQuerySchema.parse({
+    year: params.get("year") ?? undefined,
+    month: params.get("month") ?? undefined,
+  });
+  const year = parsed.year ?? now.getFullYear();
+  const month = parsed.month ?? now.getMonth() + 1;
   return json({ budget: await loadBudget(user.id, year, month) });
 });
 

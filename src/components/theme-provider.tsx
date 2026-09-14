@@ -19,6 +19,26 @@ function systemDark() {
   return typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
+// Storage access can throw (strict private browsing, site data blocked) —
+// the inline bootstrap script above already guards this with try/catch;
+// these mirror that so the same environments don't throw inside a React
+// effect and break theme switching for the rest of the session.
+function readStoredTheme(): Theme | null {
+  try {
+    return localStorage.getItem(STORAGE_KEY) as Theme | null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredTheme(t: Theme) {
+  try {
+    localStorage.setItem(STORAGE_KEY, t);
+  } catch {
+    // Theme still applies for this session via React state; it just won't persist.
+  }
+}
+
 function apply(theme: Theme) {
   const dark = theme === "dark" || (theme === "system" && systemDark());
   document.documentElement.classList.toggle("dark", dark);
@@ -36,7 +56,7 @@ export function ThemeProvider({
   const [resolved, setResolved] = useState<"light" | "dark">("light");
 
   useEffect(() => {
-    const stored = (localStorage.getItem(STORAGE_KEY) as Theme | null) ?? initialTheme;
+    const stored = readStoredTheme() ?? initialTheme;
     setThemeState(stored);
     setResolved(apply(stored) as "light" | "dark");
   }, [initialTheme]);
@@ -44,14 +64,14 @@ export function ThemeProvider({
   useEffect(() => {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const handler = () => {
-      if ((localStorage.getItem(STORAGE_KEY) as Theme) === "system") setResolved(apply("system") as "light" | "dark");
+      if (readStoredTheme() === "system") setResolved(apply("system") as "light" | "dark");
     };
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
   }, []);
 
   const setTheme = useCallback((t: Theme) => {
-    localStorage.setItem(STORAGE_KEY, t);
+    writeStoredTheme(t);
     setThemeState(t);
     setResolved(apply(t) as "light" | "dark");
     // Persist to the server preference too (best effort).
