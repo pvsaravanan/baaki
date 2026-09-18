@@ -37,6 +37,10 @@ export function withUser<T extends unknown[]>(
       if (err instanceof NotFoundError) return apiError(err.message, 404);
       if (err instanceof ConflictError) return apiError(err.message, 409);
       if (err instanceof BadRequestError) return apiError(err.message, 400);
+      if (err instanceof SyntaxError) return apiError("Invalid JSON request body", 400);
+      if (typeof err === "object" && err !== null && "code" in err && err.code === "P2034") {
+        return apiError("The data changed while saving. Please try again.", 409);
+      }
       // Prisma unique-constraint violation. This is the DB-level backstop for
       // the check-then-write races on (userId, name) — when two concurrent
       // requests both pass the app-level duplicate check, one create wins and

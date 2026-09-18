@@ -1,4 +1,5 @@
 "use client";
+import React from "react";
 import { cn } from "@/lib/cn";
 
 export function Segmented<T extends string>({
@@ -27,6 +28,7 @@ export function Segmented<T extends string>({
         return (
           <button
             key={opt.value}
+            type="button"
             role="tab"
             aria-selected={active}
             // Roving tabindex + arrow keys, per the tablist ARIA contract the

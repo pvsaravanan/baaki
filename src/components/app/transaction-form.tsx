@@ -13,6 +13,8 @@ import { QuickCategoryModal } from "./quick-category-modal";
 import { PAYMENT_METHODS, PAYMENT_METHOD_LABELS, type TransactionType } from "@/lib/constants";
 import type { TransactionDTO } from "@/lib/types";
 import { cn } from "@/lib/cn";
+import { calculateExpenseSplit, type ExpenseSplitMethod } from "@/lib/expense-split";
+import { ExpenseSplitMethodPicker } from "./expense-split-method";
 
 const TYPE_OPTIONS: { value: TransactionType; label: string }[] = [
   { value: "expense", label: "Expense" },
@@ -31,15 +33,8 @@ interface ShareRow {
   contactId: string;
   amount: string;
   percent: string;
+  weight: string;
 }
-
-type ShareMode = "equal" | "percent" | "custom";
-
-const SHARE_MODE_OPTIONS: { value: ShareMode; label: string }[] = [
-  { value: "equal", label: "Equal" },
-  { value: "percent", label: "%" },
-  { value: "custom", label: "Custom" },
-];
 
 /** Parse a rupee string to paise, or 0 if it doesn't parse — for running totals, not submission. */
 function safePaise(s: string): number {
@@ -132,9 +127,10 @@ export function TransactionForm({
   // Split-with-people. Shares live on the group's primary row (or the plain
   // transaction itself) and are capped against the group/transaction total.
   const [peopleEnabled, setPeopleEnabled] = useState(groupShares.length > 0);
-  const [shareMode, setShareMode] = useState<ShareMode>(groupShares.length > 0 ? "custom" : "equal");
+  const [shareMode, setShareMode] = useState<ExpenseSplitMethod>(groupShares.length > 0 ? "amounts" : "equal");
+  const [yourWeight, setYourWeight] = useState("1");
   const [shareRows, setShareRows] = useState<ShareRow[]>(
-    groupShares.map((s) => ({ contactId: s.contactId, amount: String(toRupees(s.amount)), percent: "" })),
+    groupShares.map((s) => ({ contactId: s.contactId, amount: String(toRupees(s.amount)), percent: "", weight: "1" })),
   );
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -216,7 +212,8 @@ export function TransactionForm({
   function addShareRow() {
     const used = new Set(shareRows.map((r) => r.contactId));
     const next = contacts.find((c) => !c.isArchived && !used.has(c.id));
-    setShareRows((prev) => [...prev, { contactId: next?.id ?? "", amount: "", percent: "" }]);
+    if (!next || shareRows.length >= 20) return;
+    setShareRows((prev) => [...prev, { contactId: next.id, amount: "", percent: "", weight: "1" }]);
   }
   function removeShare(i: number) {
     setShareRows((prev) => prev.filter((_, idx) => idx !== i));
@@ -225,26 +222,30 @@ export function TransactionForm({
   const partsTotal = useMemo(() => parts.reduce((s, p) => s + safePaise(p.amount), 0), [parts]);
   const mainAmountPaise = safePaise(amount);
   const totalForShares = splitEnabled ? partsTotal : mainAmountPaise;
-  const selectedShareCount = shareRows.filter((r) => r.contactId).length;
+  const selectedShareRows = useMemo(() => shareRows.filter((r) => r.contactId), [shareRows]);
+  const selectedShareCount = selectedShareRows.length;
+  const splitResult = useMemo(() => calculateExpenseSplit(
+    totalForShares,
+    shareMode,
+    selectedShareRows.map((row) => shareMode === "percent" ? row.percent : shareMode === "shares" ? row.weight : row.amount),
+    yourWeight,
+  ), [totalForShares, shareMode, selectedShareRows, yourWeight]);
+  useEffect(() => {
+    setErrors((previous) => previous.shares ? { ...previous, shares: "" } : previous);
+  }, [peopleEnabled, type, shareMode, shareRows, yourWeight, totalForShares]);
 
   /** A row's effective share in paise, derived from the active split mode. */
   function shareAmountPaise(row: ShareRow): number {
     if (!row.contactId) return 0;
-    if (shareMode === "equal") {
-      const n = selectedShareCount + 1; // participants include you
-      return n > 0 ? Math.floor(totalForShares / n) : 0;
-    }
-    if (shareMode === "percent") {
-      const pct = Number(row.percent || "0");
-      return Number.isFinite(pct) && pct > 0 ? Math.round((totalForShares * pct) / 100) : 0;
-    }
-    return safePaise(row.amount);
+    const index = selectedShareRows.indexOf(row) + 1; // participants include you
+    return splitResult.amounts[index] ?? 0;
   }
 
   const sharesTotal = shareRows.reduce((s, r) => s + shareAmountPaise(r), 0);
-  const yourShare = Math.max(0, totalForShares - sharesTotal);
+  const yourShare = splitResult.amounts[0];
 
-  const availableContacts = contacts.filter((c) => !c.isArchived);
+  const availableContacts = contacts.filter((c) => !c.isArchived || shareRows.some((row) => row.contactId === c.id));
+  const canAddPerson = shareRows.length < 20 && contacts.some((c) => !c.isArchived && !shareRows.some((row) => row.contactId === c.id));
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -253,22 +254,22 @@ export function TransactionForm({
 
     const localErrors: Record<string, string> = {};
 
-    if (peopleEnabled && shareRows.some((r) => !r.contactId)) {
+    const sharing = type === "expense" && peopleEnabled;
+    if (sharing && shareRows.some((r) => !r.contactId)) {
       localErrors.shares = "Choose a person for every split row";
     }
-    if (peopleEnabled && new Set(shareRows.map((r) => r.contactId).filter(Boolean)).size !== shareRows.filter((r) => r.contactId).length) {
+    if (sharing && new Set(selectedShareRows.map((r) => r.contactId)).size !== selectedShareCount) {
       localErrors.shares = "Each person can only appear once";
     }
-    if (peopleEnabled && sharesTotal > totalForShares) {
-      localErrors.shares = "Shared amounts can't exceed the total";
+    if (sharing && splitResult.error) {
+      localErrors.shares ??= splitResult.error;
     }
     const shares =
-      peopleEnabled && !localErrors.shares
-        ? shareRows
-            .filter((r) => r.contactId)
+      sharing && !localErrors.shares
+        ? selectedShareRows
             .map((r) => ({ contactId: r.contactId, amount: shareAmountPaise(r) }))
             .filter((s) => s.amount > 0)
-        : undefined;
+        : [];
 
     if (splitEnabled) {
       if (parts.length < 2) localErrors.parts = "Add at least 2 splits";
@@ -344,7 +345,7 @@ export function TransactionForm({
         : (methodSelect === "__custom__" ? customMethod.trim().toLowerCase() : methodSelect) || null,
       notes: notes.trim() || null,
       tags,
-      shares: type === "expense" ? shares : undefined,
+      shares,
     };
 
     setSaving(true);
@@ -601,66 +602,100 @@ export function TransactionForm({
       {type === "expense" && (
         <div className="space-y-2 rounded-none border border-border p-3">
           <label className="flex items-center gap-2 text-sm text-fg">
-            <input type="checkbox" checked={peopleEnabled} onChange={(e) => setPeopleEnabled(e.target.checked)} className="h-4 w-4" />
+            <input
+              type="checkbox"
+              checked={peopleEnabled}
+              onChange={(e) => {
+                setPeopleEnabled(e.target.checked);
+                if (e.target.checked && shareRows.length === 0) addShareRow();
+              }}
+              className="h-4 w-4"
+            />
             Split with people
           </label>
           {peopleEnabled && (
-            <div className="space-y-2 pt-1">
-              {contacts.length === 0 ? (
-                <p className="text-xs text-faint">No people yet — add one from the People page first.</p>
-              ) : (
-                <>
-                  <Segmented value={shareMode} onChange={setShareMode} options={SHARE_MODE_OPTIONS} size="sm" />
-                  {shareRows.map((row, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                      <Select value={row.contactId} onChange={(e) => updateShare(i, { contactId: e.target.value })} className="flex-1">
+            <div className="space-y-3 pt-1">
+              <ExpenseSplitMethodPicker value={shareMode} onChange={setShareMode} />
+              {availableContacts.length === 0 && (
+                <p className="text-xs text-faint">No active people yet — add one from the People page first.</p>
+              )}
+              {shareMode === "shares" && (
+                <Field label="Your shares" htmlFor="your-split-weight" hint="Use 0 if none of this expense is yours.">
+                  <Input id="your-split-weight" inputMode="decimal" maxLength={24} value={yourWeight} onChange={(e) => setYourWeight(e.target.value)} placeholder="1" />
+                </Field>
+              )}
+              {shareRows.map((row, i) => {
+                const inputField = shareMode === "percent" ? "percent" : shareMode === "shares" ? "weight" : "amount";
+                const personName = contacts.find((contact) => contact.id === row.contactId)?.name ?? `Person ${i + 1}`;
+                return (
+                  <div key={i} className="space-y-2 border border-border-faint bg-surface-2 p-2">
+                    <div className="flex items-center gap-2">
+                      <Select
+                        aria-label={`Person ${i + 1}`}
+                        value={row.contactId}
+                        onChange={(e) => updateShare(i, { contactId: e.target.value })}
+                        className="min-w-0 flex-1"
+                      >
                         <option value="">Choose person…</option>
                         {availableContacts.map((c) => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
+                          <option key={c.id} value={c.id} disabled={shareRows.some((other, index) => index !== i && other.contactId === c.id)}>
+                            {c.name}{c.isArchived ? " (archived)" : ""}
+                          </option>
                         ))}
                       </Select>
-                      {shareMode === "custom" && (
-                        <Input
-                          inputMode="decimal"
-                          placeholder="Share ₹"
-                          value={row.amount}
-                          onChange={(e) => updateShare(i, { amount: e.target.value.replace(/[^0-9.]/g, "") })}
-                          className="w-28"
-                        />
-                      )}
-                      {shareMode === "percent" && (
-                        <div className="flex items-center gap-1">
-                          <Input
-                            inputMode="decimal"
-                            placeholder="%"
-                            value={row.percent}
-                            onChange={(e) => updateShare(i, { percent: e.target.value.replace(/[^0-9.]/g, "") })}
-                            className="w-16"
-                          />
-                          <span className="tnum w-20 text-right text-xs text-muted">{formatINR(shareAmountPaise(row), { decimals: "always" })}</span>
-                        </div>
-                      )}
-                      {shareMode === "equal" && (
-                        <span className="tnum w-28 text-right text-sm text-fg">{formatINR(shareAmountPaise(row), { decimals: "always" })}</span>
-                      )}
-                      <button type="button" onClick={() => removeShare(i)} aria-label="Remove share">
+                      <button type="button" onClick={() => removeShare(i)} aria-label={`Remove ${personName} from split`} className="p-2">
                         <X className="h-4 w-4 text-faint hover:text-expense" />
                       </button>
                     </div>
-                  ))}
-                  <button type="button" onClick={addShareRow} className="text-label-sm uppercase text-brand-hover hover:underline">
-                    + Add person
-                  </button>
-                  {shareMode === "equal" && (
-                    <p className="text-2xs text-faint">Split equally between you and {selectedShareCount} {selectedShareCount === 1 ? "other" : "others"}.</p>
-                  )}
-                  {errors.shares && <p className="text-xs text-expense">{errors.shares}</p>}
-                  <div className="flex items-center justify-between border-t border-border-faint pt-2 text-sm">
-                    <span className="text-muted">Your share</span>
-                    <span className="tnum font-semibold text-fg">{formatINR(yourShare, { decimals: "always" })}</span>
+                    <div className="flex items-end justify-between gap-3">
+                      {shareMode !== "equal" && (
+                        <Field
+                          label={shareMode === "amounts" ? "Amount (₹)" : shareMode === "percent" ? "Percentage (%)" : "Shares"}
+                          htmlFor={`split-value-${i}`}
+                          className="w-36 min-w-0"
+                        >
+                          <Input
+                            id={`split-value-${i}`}
+                            aria-label={`${personName}: ${shareMode === "amounts" ? "amount" : shareMode === "percent" ? "percentage" : "shares"}`}
+                            inputMode="decimal"
+                            maxLength={24}
+                            placeholder={shareMode === "shares" ? "1" : "0"}
+                            value={row[inputField]}
+                            onChange={(e) => updateShare(i, { [inputField]: e.target.value })}
+                          />
+                        </Field>
+                      )}
+                      <div className="ml-auto min-w-0 text-right">
+                        <p className="text-2xs uppercase text-muted">Owes</p>
+                        <output aria-label={`${personName} owes`} className="tnum break-words text-sm font-semibold text-fg">
+                          {splitResult.error ? "—" : formatINR(shareAmountPaise(row), { decimals: "always" })}
+                        </output>
+                      </div>
+                    </div>
                   </div>
-                </>
+                );
+              })}
+              <button type="button" onClick={addShareRow} disabled={!canAddPerson} className="text-label-sm uppercase text-brand-hover hover:underline disabled:cursor-not-allowed disabled:opacity-50">
+                + Add person
+              </button>
+              {shareMode === "equal" && (
+                <p className="text-2xs text-faint">Split equally between you and {selectedShareCount} {selectedShareCount === 1 ? "other" : "others"}.</p>
               )}
+              {(errors.shares || splitResult.error) && <p role="alert" className="text-xs text-expense">{errors.shares || splitResult.error}</p>}
+              <div className="space-y-2 border-t border-border-faint pt-2 text-sm" aria-live="polite">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-muted">Others owe</span>
+                  <span className="tnum text-fg">{splitResult.error ? "—" : formatINR(sharesTotal, { decimals: "always" })}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-muted">Your share{shareMode === "percent" && splitResult.yourPercentage !== null ? ` (${splitResult.yourPercentage}%)` : ""}</span>
+                  <span className="tnum font-semibold text-fg">{splitResult.error ? "—" : formatINR(yourShare, { decimals: "always" })}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-muted">Expense total</span>
+                  <span className="tnum text-fg">{formatINR(totalForShares, { decimals: "always" })}</span>
+                </div>
+              </div>
             </div>
           )}
         </div>

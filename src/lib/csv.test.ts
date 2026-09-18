@@ -40,6 +40,12 @@ describe("normalizeDate & detectDateFormat", () => {
     const fmt = detectDateFormat(dates);
     expect(fmt).toBe("DD/MM/YYYY");
   });
+  it.each(["2026/02/30", "2026.02.30", "2026-2-30"])("rejects impossible year-first dates: %s", (value) => {
+    expect(normalizeDate(value)).toBeNull();
+  });
+  it("accepts valid unpadded year-first dates", () => {
+    expect(normalizeDate("2026/9/8")).toBe("2026-09-08");
+  });
   it("rejects impossible dates", () => {
     expect(normalizeDate("2026-02-30")).toBeNull();
     expect(normalizeDate("not a date")).toBeNull();
@@ -69,6 +75,12 @@ describe("validateImportRows", () => {
     expect(result.valid).toHaveLength(0);
     expect(result.invalid).toHaveLength(1);
     expect(result.invalid[0].errors.join(" ")).toMatch(/blank/i);
+  });
+
+  it.each(["exepnse", "unknown"])("rejects an unrecognized explicit type: %s", (type) => {
+    const result = validateImportRows([{ "Txn Date": "2026-08-01", Details: "Purchase", Amount: "500", Type: type }], mapping);
+    expect(result.valid).toHaveLength(0);
+    expect(result.invalid[0].errors.join(" ")).toMatch(/type/i);
   });
 
   it("honors an explicit type column (debit/credit)", () => {

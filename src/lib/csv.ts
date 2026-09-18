@@ -184,6 +184,7 @@ export function validateImportRows(
       if (isTransactionType(normalized)) type = normalized;
       else if (["debit", "dr", "withdrawal", "spent"].includes(rawType)) type = "expense";
       else if (["credit", "cr", "deposit", "received"].includes(rawType)) type = "income";
+      else errors.push(`Unknown transaction type: "${rawType}"`);
     }
     // A Type column is mapped but this particular cell is blank: the
     // file-wide ambiguity check above only fires when NO Type column is
@@ -232,7 +233,12 @@ export function validateImportRows(
 export function normalizeDate(input: string, formatHint: DateFormatHint = "auto"): string | null {
   const s = input.trim();
   if (!s) return null;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return fromISODate(s) ? s : null;
+  const yearFirst = /^(\d{4})[/\-.](\d{1,2})[/\-.](\d{1,2})$/.exec(s);
+  if (yearFirst) {
+    const [, year, month, day] = yearFirst;
+    const iso = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+    return fromISODate(iso) ? iso : null;
+  }
 
   const m = /^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})$/.exec(s);
   if (m) {

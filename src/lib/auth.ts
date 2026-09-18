@@ -45,7 +45,7 @@ function identityFromClaims(claims: JwtPayload): AuthIdentity {
  * - otherwise creates a fresh profile with starter data (first email/Google
  *   sign-in).
  */
-async function resolveProfile({ authId, email, name }: AuthIdentity): Promise<SessionUser> {
+async function resolveProfile({ authId, email, name }: AuthIdentity, emailVerified: boolean): Promise<SessionUser> {
   const byAuthId = await prisma.user.findUnique({
     where: { authId },
     select: { id: true, email: true, name: true, avatarUrl: true },
@@ -55,11 +55,18 @@ async function resolveProfile({ authId, email, name }: AuthIdentity): Promise<Se
   if (email) {
     const byEmail = await prisma.user.findUnique({ where: { email } });
     if (byEmail) {
-      return prisma.user.update({
-        where: { id: byEmail.id },
+      if (byEmail.authId && byEmail.authId !== authId) throw new UnauthorizedError();
+      if (!emailVerified) throw new UnauthorizedError();
+      await prisma.user.updateMany({
+        where: { id: byEmail.id, authId: null },
         data: { authId },
+      });
+      const linked = await prisma.user.findUnique({
+        where: { authId },
         select: { id: true, email: true, name: true, avatarUrl: true },
       });
+      if (!linked) throw new UnauthorizedError();
+      return linked;
     }
   }
 
@@ -70,12 +77,12 @@ async function resolveProfile({ authId, email, name }: AuthIdentity): Promise<Se
  * Resolve the current signed-in user, or null. Wrapped in React `cache()` so a
  * single render (layout + page + any server component) shares one lookup.
  *
- * Uses `getClaims()`, which verifies the access-token JWT against the project's
- * signing key. With asymmetric signing keys enabled this is a local WebCrypto
- * verification — no round trip to the Auth server on every render/handler,
- * unlike `getUser()`. The authoritative, revocation-aware `getUser()` check
- * still runs in middleware (`updateSession`) on every request, so a
- * revoked/banned session is rejected at the edge; app queries are additionally
+ * Uses `getClaims()` to verify the access-token JWT against the project's
+ * signing key, then checks `getUser()` before resolving a local profile.
+ * Middleware refreshes cookies, but its result alone is not authorization:
+ * it may be skipped, and a signed token can outlive a deleted or banned user.
+ * The Auth server's current email is used for legacy profile linking rather
+ * than a potentially stale email in the token. App queries are additionally
  * scoped by userId. A forged or tampered token fails signature verification
  * here and yields null.
  */
@@ -84,7 +91,10 @@ export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
   const { data, error } = await supabase.auth.getClaims();
   const claims = data?.claims;
   if (error || !claims?.sub) return null;
-  return resolveProfile(identityFromClaims(claims));
+  const { data: current, error: userError } = await supabase.auth.getUser();
+  if (userError || !current.user || current.user.id !== claims.sub) return null;
+  const identity = identityFromClaims({ ...claims, email: current.user.email });
+  return resolveProfile(identity, Boolean(current.user.email_confirmed_at));
 });
 
 /** Require an authenticated user in API routes; throws a tagged error otherwise. */

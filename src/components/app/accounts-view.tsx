@@ -11,7 +11,8 @@ import { useToast } from "@/components/ui/toast";
 import { useConfirm } from "@/components/ui/confirm";
 import { useAppData } from "./app-data";
 import { ApiError, apiDelete, apiPatch, apiPost } from "@/lib/http";
-import { toPaise, toRupees } from "@/lib/money";
+import { toRupees } from "@/lib/money";
+import { accountNameField, parseAccountForm } from "@/lib/account-form";
 import {
   ACCOUNT_TYPES,
   ACCOUNT_TYPE_LABELS,
@@ -20,6 +21,8 @@ import {
 } from "@/lib/constants";
 import type { AccountDTO } from "@/lib/types";
 import { cn } from "@/lib/cn";
+import { BANKS, BANK_ICON_PREFIX, getBankByIcon, type Bank } from "@/lib/banks";
+import { BankLogo } from "./bank-logo";
 
 const SWATCHES = [
   "#0d9488", "#6366f1", "#f97316", "#84cc16", "#06b6d4",
@@ -30,6 +33,10 @@ const ACCOUNT_ICONS = [
   "landmark", "wallet", "credit-card", "piggy-bank",
   "banknote", "building", "smartphone", "trending-up", "briefcase", "receipt",
 ];
+
+// Sentinel for "my bank isn't in the list" — falls back to a plain, manually
+// named bank account instead of a picked one.
+const OTHER_BANK = "__other__";
 
 export function AccountsView({ accounts: initial }: { accounts: AccountDTO[] }) {
   const { refresh } = useAppData();
@@ -136,7 +143,7 @@ export function AccountsView({ accounts: initial }: { accounts: AccountDTO[] }) 
         open={formOpen}
         onClose={() => setFormOpen(false)}
         title={editing ? "Edit account" : "Add account"}
-        description={editing ? undefined : "Give the account a name, type and opening balance."}
+        description={editing ? undefined : "Choose an account type, select your bank and enter an opening balance."}
         busy={busy}
       >
         <AccountForm
@@ -156,6 +163,19 @@ export function AccountsView({ accounts: initial }: { accounts: AccountDTO[] }) 
   );
 }
 
+function AccountIcon({ account }: { account: AccountDTO }) {
+  const bank = account.type === "bank" ? getBankByIcon(account.icon) : undefined;
+  if (bank) return <BankLogo bank={bank} size={40} />;
+  return (
+    <span
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-none"
+      style={{ color: account.color }}
+    >
+      <Icon name={account.icon} size={22} />
+    </span>
+  );
+}
+
 function AccountCard({
   account,
   onEdit,
@@ -168,12 +188,7 @@ function AccountCard({
   return (
     <li className={cn("group relative rounded-none border border-border bg-surface p-4 shadow-card", account.isArchived && "opacity-70")}>
       <div className="flex items-start gap-3">
-        <span
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-none"
-          style={{ color: account.color }}
-        >
-          <Icon name={account.icon} size={22} />
-        </span>
+        <AccountIcon account={account} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className="truncate text-sm font-semibold text-fg">{account.name}</p>
@@ -213,41 +228,67 @@ function AccountForm({
 }) {
   const editing = !!initial;
   const initialIsCustom = initial ? !ACCOUNT_TYPES.includes(initial.type as any) : false;
+  const initialBank = initial ? getBankByIcon(initial.icon) : undefined;
   const [name, setName] = useState(initial?.name ?? "");
   const [typeSelect, setTypeSelect] = useState<string>(initialIsCustom ? "__custom__" : initial?.type ?? "bank");
   const [customType, setCustomType] = useState<string>(initialIsCustom ? initial?.type ?? "" : "");
   const [balance, setBalance] = useState(initial ? String(toRupees(initial.openingBalance)) : "");
   const [color, setColor] = useState(initial?.color ?? SWATCHES[0]);
   const [icon, setIcon] = useState(initial?.icon ?? ACCOUNT_ICONS[0]);
+  // For the "bank" type, the account's display name comes from the picked
+  // bank (or a manually-typed name for "other bank") rather than a free-text
+  // Name field — see pickBank / the name/nickname block below.
+  const [bankId, setBankId] = useState<string | null>(() => {
+    if (!initial) return null;
+    if (initialBank) return initialBank.id;
+    return initial.type === "bank" ? OTHER_BANK : null;
+  });
+  const [bankQuery, setBankQuery] = useState("");
+  const [nickname, setNickname] = useState(() =>
+    initialBank && initial && initial.name !== initialBank.name ? initial.name : "",
+  );
+  const [otherBankName, setOtherBankName] = useState(() =>
+    initial && initial.type === "bank" && !initialBank ? initial.name : "",
+  );
+
+  const selectedBank = typeSelect === "bank" && bankId && bankId !== OTHER_BANK ? BANKS.find((b) => b.id === bankId) ?? null : null;
+  const isOtherBank = bankId === OTHER_BANK;
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   useEffect(() => onBusyChange?.(saving), [saving, onBusyChange]);
 
+  function pickBank(bank: Bank | "other" | null) {
+    if (bank === "other") {
+      setBankId(OTHER_BANK);
+      setIcon("landmark");
+      setBankQuery("");
+      return;
+    }
+    if (bank === null) {
+      setBankId(null);
+      return;
+    }
+    setBankId(bank.id);
+    setColor(bank.color);
+    setIcon(BANK_ICON_PREFIX + bank.id); // logo renders from this — see AccountIcon
+    setBankQuery("");
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErrors({});
     setFormError(null);
 
-    const localErrors: Record<string, string> = {};
-    if (!name.trim()) localErrors.name = "Name is required";
-
-    const finalType = typeSelect === "__custom__" ? customType.trim().toLowerCase() : typeSelect;
-    if (!finalType) localErrors.type = "Account type is required";
-
-    let openingBalance = 0;
-    try {
-      openingBalance = balance.trim() ? toPaise(balance) : 0;
-    } catch {
-      localErrors.openingBalance = "Enter a valid amount";
-    }
-    if (Object.keys(localErrors).length) {
-      setErrors(localErrors);
+    const result = parseAccountForm({
+      name, nickname, otherBankName, typeSelect, customType, bankId, balance, color, icon,
+    });
+    if (!result.success) {
+      setErrors(result.errors);
       return;
     }
-
-    const payload = { name: name.trim(), type: finalType, openingBalance, color, icon };
+    const payload = result.data;
 
     setSaving(true);
     try {
@@ -258,7 +299,15 @@ function AccountForm({
     } catch (err) {
       if (err instanceof ApiError) {
         setFormError(err.message);
-        if (err.fields) setErrors(err.fields);
+        if (err.fields) {
+          const fields = { ...err.fields };
+          if (fields.name) {
+            const message = fields.name;
+            delete fields.name;
+            fields[accountNameField(typeSelect, bankId)] = message;
+          }
+          setErrors(fields);
+        }
       } else setFormError("Could not save. Please try again.");
       setSaving(false);
     }
@@ -272,22 +321,27 @@ function AccountForm({
         </div>
       )}
 
-      <Field label="Name" htmlFor="acc-name" error={errors.name} required>
-        <Input
-          id="acc-name"
-          value={name}
-          invalid={!!errors.name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. HDFC Savings, Cash Wallet"
-        />
-      </Field>
+      {typeSelect !== "bank" && (
+        <Field label="Name" htmlFor="acc-name" error={errors.name} required>
+          <Input
+            id="acc-name"
+            value={name}
+            invalid={!!errors.name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Cash Wallet, Office Card"
+          />
+        </Field>
+      )}
 
       <div className="grid grid-cols-2 gap-3">
         <Field label="Account Type" htmlFor="acc-type" error={errors.type}>
           <Select
             id="acc-type"
             value={typeSelect}
-            onChange={(e) => setTypeSelect(e.target.value)}
+            onChange={(e) => {
+              setTypeSelect(e.target.value);
+              if (e.target.value !== "bank" && icon.startsWith(BANK_ICON_PREFIX)) setIcon("landmark");
+            }}
           >
             {ACCOUNT_TYPES.map((t) => (
               <option key={t} value={t}>
@@ -315,6 +369,49 @@ function AccountForm({
         </Field>
       </div>
 
+      {typeSelect === "bank" && (
+        <>
+          <BankPicker
+            bankId={bankId}
+            query={bankQuery}
+            onQueryChange={setBankQuery}
+            onPick={pickBank}
+            error={errors.bank}
+          />
+
+          {selectedBank && (
+            <Field
+              label="Nickname"
+              htmlFor="acc-nickname"
+              error={errors.nickname}
+              hint={`Optional — defaults to "${selectedBank.name}"`}
+            >
+              <Input
+                id="acc-nickname"
+                value={nickname}
+                invalid={!!errors.nickname}
+                maxLength={80}
+                onChange={(e) => setNickname(e.target.value)}
+                placeholder="e.g. Salary account"
+              />
+            </Field>
+          )}
+
+          {isOtherBank && (
+            <Field label="Bank name" htmlFor="acc-other-bank-name" error={errors.otherBankName} required>
+              <Input
+                id="acc-other-bank-name"
+                value={otherBankName}
+                invalid={!!errors.otherBankName}
+                onChange={(e) => setOtherBankName(e.target.value)}
+                placeholder="e.g. Community Co-operative Bank"
+                autoFocus
+              />
+            </Field>
+          )}
+        </>
+      )}
+
       {typeSelect === "__custom__" && (
         <Field label="Custom Type Name" htmlFor="custom-type" error={errors.type} required>
           <Input
@@ -327,44 +424,50 @@ function AccountForm({
         </Field>
       )}
 
-      <Field label="Color">
-        <div className="flex flex-wrap gap-2">
-          {SWATCHES.map((c) => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => setColor(c)}
-              aria-label={`Use color ${c}`}
-              aria-pressed={color === c}
-              className={cn(
-                "h-8 w-8 rounded-none ring-offset-2 ring-offset-surface transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
-                color === c && "ring-2 ring-fg",
-              )}
-              style={{ backgroundColor: c }}
-            />
-          ))}
-        </div>
-      </Field>
+      {/* A picked bank already carries its own brand color — asking the
+          user to also pick one would just be redundant/inconsistent. */}
+      {!selectedBank && (
+        <Field label="Color">
+          <div className="flex flex-wrap gap-2">
+            {SWATCHES.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setColor(c)}
+                aria-label={`Use color ${c}`}
+                aria-pressed={color === c}
+                className={cn(
+                  "h-8 w-8 rounded-none ring-offset-2 ring-offset-surface transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+                  color === c && "ring-2 ring-fg",
+                )}
+                style={{ backgroundColor: c }}
+              />
+            ))}
+          </div>
+        </Field>
+      )}
 
-      <Field label="Icon">
-        <div className="flex flex-wrap gap-2">
-          {ACCOUNT_ICONS.map((name) => (
-            <button
-              key={name}
-              type="button"
-              onClick={() => setIcon(name)}
-              aria-label={`Use icon ${name}`}
-              aria-pressed={icon === name}
-              className={cn(
-                "flex h-10 w-10 items-center justify-center rounded-none border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
-                icon === name ? "border-brand bg-brand-soft text-brand-hover" : "border-border text-muted hover:bg-surface-2",
-              )}
-            >
-              <Icon name={name} size={18} />
-            </button>
-          ))}
-        </div>
-      </Field>
+      {typeSelect !== "bank" && (
+        <Field label="Icon">
+          <div className="flex flex-wrap gap-2">
+            {ACCOUNT_ICONS.map((name) => (
+              <button
+                key={name}
+                type="button"
+                onClick={() => setIcon(name)}
+                aria-label={`Use icon ${name}`}
+                aria-pressed={icon === name}
+                className={cn(
+                  "flex h-10 w-10 items-center justify-center rounded-none border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+                  icon === name ? "border-brand bg-brand-soft text-brand-hover" : "border-border text-muted hover:bg-surface-2",
+                )}
+              >
+                <Icon name={name} size={18} />
+              </button>
+            ))}
+          </div>
+        </Field>
+      )}
 
       <div className="flex gap-2 pt-1">
         <Button type="button" variant="secondary" onClick={onCancel} disabled={saving} className="flex-1">
@@ -375,5 +478,89 @@ function AccountForm({
         </Button>
       </div>
     </form>
+  );
+}
+
+function BankPicker({
+  bankId,
+  query,
+  onQueryChange,
+  onPick,
+  error,
+}: {
+  bankId: string | null;
+  query: string;
+  onQueryChange: (q: string) => void;
+  onPick: (bank: Bank | "other" | null) => void;
+  error?: string;
+}) {
+  const q = query.trim().toLowerCase();
+  const matches = q
+    ? BANKS.filter((b) => b.name.toLowerCase().includes(q) || b.shortName.toLowerCase().includes(q))
+    : BANKS;
+
+  const selected = bankId && bankId !== OTHER_BANK ? BANKS.find((b) => b.id === bankId) : null;
+  const isOther = bankId === OTHER_BANK;
+
+  return (
+    <Field label="Bank" error={error} hint={error ? undefined : "Pick your bank — its name, color and logo are filled in automatically."}>
+      {selected ? (
+        <div className="flex items-center gap-3 rounded-none border border-border bg-surface-2 px-3 py-2">
+          <BankLogo bank={selected} size={32} />
+          <p className="flex-1 truncate text-sm text-fg">{selected.name}</p>
+          <Button type="button" variant="ghost" size="sm" onClick={() => onPick(null)}>
+            Change
+          </Button>
+        </div>
+      ) : isOther ? (
+        <div className="flex items-center gap-3 rounded-none border border-border bg-surface-2 px-3 py-2">
+          <span className="flex h-8 w-8 items-center justify-center text-muted">
+            <Icon name="landmark" size={18} />
+          </span>
+          <p className="flex-1 truncate text-sm text-fg">Other bank</p>
+          <Button type="button" variant="ghost" size="sm" onClick={() => onPick(null)}>
+            Change
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <Input
+            value={query}
+            onChange={(e) => onQueryChange(e.target.value)}
+            placeholder="Search banks…"
+            aria-label="Search banks"
+          />
+          <ul className="max-h-48 overflow-y-auto rounded-none border border-border">
+            {matches.map((bank) => (
+              <li key={bank.id}>
+                <button
+                  type="button"
+                  onClick={() => onPick(bank)}
+                  className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-fg hover:bg-surface-2 focus:bg-surface-2 focus:outline-none"
+                >
+                  <BankLogo bank={bank} size={28} />
+                  {bank.name}
+                </button>
+              </li>
+            ))}
+            {matches.length === 0 && (
+              <li className="px-3 py-2 text-sm text-muted">No matching banks.</li>
+            )}
+            <li>
+              <button
+                type="button"
+                onClick={() => onPick("other")}
+                className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-muted hover:bg-surface-2 focus:bg-surface-2 focus:outline-none"
+              >
+                <span className="flex h-7 w-7 items-center justify-center text-muted">
+                  <Icon name="landmark" size={18} />
+                </span>
+                Other bank (not listed)
+              </button>
+            </li>
+          </ul>
+        </div>
+      )}
+    </Field>
   );
 }

@@ -115,7 +115,10 @@ export async function updateTransaction(userId: string, id: string, input: Trans
   const shares = input.type === "transfer" ? [] : input.shares;
   // Validate shares before mutating the row so invalid shares don't commit the
   // edit (and blow away the old tags) and only then throw.
-  if (shares !== undefined) await assertSharesValid(userId, shares, input.amount);
+  const retainedShares = shares === undefined
+    ? await prisma.expenseShare.findMany({ where: { transactionId: id }, select: { contactId: true, amount: true } })
+    : shares;
+  await assertSharesValid(userId, retainedShares, input.amount);
   const tagIds = await resolveTagIds(userId, input.tags ?? []);
   await prisma.$transaction([
     prisma.transactionTag.deleteMany({ where: { transactionId: id } }),
@@ -156,6 +159,7 @@ export async function assertSharesValid(userId: string, shares: ShareInput[], ca
   const sum = shares.reduce((s, x) => s + x.amount, 0);
   if (sum > cap) throw new BadRequestError("Shared amounts can't exceed the total");
   const contactIds = [...new Set(shares.map((s) => s.contactId))];
+  if (contactIds.length !== shares.length) throw new BadRequestError("Each person can only have one share");
   const contacts = await prisma.contact.findMany({ where: { id: { in: contactIds }, userId }, select: { id: true } });
   if (contacts.length !== contactIds.length) throw new NotFoundError("Contact not found");
 }

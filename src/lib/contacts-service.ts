@@ -1,7 +1,7 @@
 import "server-only";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "./db";
-import { NotFoundError } from "./api";
+import { BadRequestError, NotFoundError } from "./api";
 import { serializeContact } from "./serialize";
 import { toISODate } from "./dates";
 import type { ContactDTO, ShareDirection } from "./types";
@@ -148,7 +148,8 @@ export async function settleShare(
   // account id never leaves the share marked settled with no transaction
   // recorded to back it.
   let accountId: string | null = null;
-  if (opts.record && opts.accountId) {
+  if (opts.record) {
+    if (!opts.accountId?.trim()) throw new BadRequestError("Choose an account to record the settlement");
     const account = await prisma.account.findFirst({ where: { id: opts.accountId, userId }, select: { id: true } });
     if (!account) throw new NotFoundError("Account not found");
     accountId = account.id;

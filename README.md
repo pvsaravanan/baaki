@@ -21,7 +21,9 @@ npm run dev            # http://localhost:3000
 2. In the dashboard, open **Connect → ORM** (Prisma) and copy the two strings into `.env`:
    - `DATABASE_URL` — Transaction pooler (port `6543`), ends with `?pgbouncer=true`.
    - `DIRECT_URL` — Session pooler / direct (port `5432`), used by `prisma db push`.
-3. Run `npm run setup` to create the tables.
+3. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` from your project's API settings. Set `SUPABASE_SERVICE_ROLE_KEY` on the server for avatar storage administration; never expose it to the browser.
+4. Configure Supabase Auth's site URL and allowed redirect URLs for your deployment, including `/auth/callback` and `/reset`.
+5. Run `npm run setup` to create the tables.
 
 The database starts empty. Create an account at `/register` — you begin with a set of
 default categories and two starter accounts (a bank account and cash), ready to record
@@ -51,7 +53,9 @@ shipped with the code — configure these in your host's environment settings:
 | --- | --- |
 | `DATABASE_URL` | Supabase **transaction pooler** (port `6543`), ending in `?pgbouncer=true`. Used by the app at runtime. |
 | `DIRECT_URL` | Supabase **session pooler / direct** (port `5432`). Used only by `prisma db push`. |
-| `AUTH_SECRET` | A long random string (32+ chars). Generate one with `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"`. |
+| `NEXT_PUBLIC_SUPABASE_URL` | Project API URL, used by Supabase Auth and Storage. |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public Supabase API key for browser/server auth clients. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-only privileged key for avatar storage. Never expose it in client code. |
 
 **2. Build.** `npm run build` runs `prisma generate` then `next build`.
 
@@ -66,7 +70,9 @@ Notes:
 
 - On serverless (e.g. Vercel), always use the **pooled** `DATABASE_URL` (`6543`) so
   functions don't exhaust direct connections. `DIRECT_URL` is only for schema pushes.
-- Changing `AUTH_SECRET` invalidates all existing sessions (everyone must sign in again).
+- Supabase Auth owns passwords, sessions, email delivery and password recovery.
+  The legacy `AUTH_SECRET`, `RESEND_API_KEY` and `EMAIL_FROM` entries in `.env.example`
+  are not used by the current application.
 - Never commit real secrets. Keep them in the host's env config and in your local
   gitignored `.env`; `.env.example` documents the shape with placeholders.
 
@@ -81,32 +87,43 @@ uses the Indian numbering system (`₹1,00,000`).
 Clean separation of concerns:
 
 - `src/lib/calculations.ts` — pure, dependency-free financial calculations (balance, summaries,
-  category totals, budgets, savings rate, date-range filtering). Fully unit-tested.
+  category totals, budgets, savings rate, date-range filtering). Unit-tested.
 - `src/lib/analytics.ts` — server-side monthly analytics composed from the calc layer.
 - `src/lib/insights.ts` — deterministic insight generation from real aggregates (no AI).
 - `src/lib/categorize.ts` — rule-based auto-categorization (no AI required).
 - `src/lib/csv.ts` — CSV export + import validation/mapping (pure, tested).
 - `src/lib/queries.ts` — server data loaders; `src/lib/tx-service.ts` — transaction business logic.
-- `src/lib/auth.ts` — session auth (hashed passwords + DB-backed sessions, httpOnly cookie).
-- `src/app/api/**` — REST route handlers (all authenticated + row-isolated per user).
-- `src/components/**` — reusable UI kit and feature components; business logic stays out of UI.
+- `src/lib/auth.ts` — verified Supabase identity mapped to the local user profile.
+- `src/lib/account-form.ts` — account form validation, optional bank nicknames and bank-icon selection.
+- `src/app/api/**` — REST route handlers with authentication and per-user ownership checks.
+- `src/components/**` — reusable UI kit and feature components.
 
-## Tests
+## Verification
 
 ```bash
-npm run test
+npm test
+npx tsc --noEmit --incremental false
+npm run build
 ```
 
-Covers balances, monthly totals, transfers, refunds, savings rate, budgets, date-range
-filtering (month/year boundaries, leap years), goal math, CSV import and duplicate detection.
+Tests cover financial calculations, CSV validation, account form behavior, profile linking,
+API errors and shared-expense guards. Database and auth interactions in service tests are
+mocked; these tests do not modify a live database or replace integration testing.
+
+`npm run lint` currently invokes `next lint`, but ESLint dependencies/configuration have
+not been set up. It prompts for configuration instead of running a lint check.
+Do not run `setup`, `db:push` or `db:reset` as verification: they change the database.
+On Windows, Prisma generation can fail with `EPERM` when replacing its query-engine DLL.
+Close any running app process holding that DLL before retrying `npm run build`.
+`npx next build` can check application compilation with an existing generated Prisma client,
+but does not verify the Prisma generation step.
 
 ## Security notes
 
-- Every API route requires a valid session and scopes all queries to the current user
-  (`userId`), so one user can never see another's data.
-- Passwords are hashed with bcrypt; sessions are random tokens stored hashed (SHA-256) in the
-  database and delivered as `httpOnly`, `sameSite=lax` cookies.
-- Set a strong `AUTH_SECRET` in `.env` for any real deployment.
+- API handlers require a valid Supabase identity and scope data access to the local user.
+- Profile linking requires a confirmed email and cannot overwrite another auth identity.
+- Passwords and session lifecycle are managed by Supabase Auth, not local bcrypt sessions.
+- Keep the service-role key server-only and configure Supabase Auth redirect URLs for each deployment.
 
 ## License
 

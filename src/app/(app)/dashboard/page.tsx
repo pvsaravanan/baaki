@@ -82,7 +82,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           <Card>
             <CardHeader
               title="Spending calendar"
-              subtitle="Daily spending intensity"
+              subtitle="Daily spending amounts, net of refunds"
               action={<span className="text-label-sm uppercase text-muted">{a.transactionCount} txns</span>}
             />
             <CardBody className="pt-2">
