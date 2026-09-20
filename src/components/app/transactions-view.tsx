@@ -4,6 +4,7 @@ import useSWR from "swr";
 import { CheckSquare, Filter, Search, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/field";
+import { Modal } from "@/components/ui/modal";
 import { EmptyState, Skeleton } from "@/components/ui/misc";
 import { Money } from "@/components/money";
 import { useConfirm } from "@/components/ui/confirm";
@@ -123,6 +124,14 @@ export function TransactionsView({
 
   const grouped = useMemo(() => groupByDay(txns), [txns]);
 
+  // Categories on offer in the filter follow the selected transaction Type,
+  // same as the add/edit form: transfers never carry a category, income
+  // filters to income/both-kind categories, expense/refund to expense/both.
+  const eligibleCategories = useMemo(
+    () => categories.filter((c) => categoryKindMatches(c.kind, filters.type)),
+    [categories, filters.type],
+  );
+
   const activeChips = buildChips(filters, { categories, accounts });
   const set = (patch: Partial<Filters>) => setFilters((f) => ({ ...f, ...patch }));
 
@@ -205,10 +214,34 @@ export function TransactionsView({
       )}
 
       {/* Filter panel */}
-      {showFilters && (
-        <div className="grid gap-3 rounded-none border border-border bg-surface p-4 sm:grid-cols-2 lg:grid-cols-3 animate-fade-in">
+      <Modal
+        open={showFilters}
+        onClose={() => setShowFilters(false)}
+        title="Filters"
+        size="lg"
+        footer={
+          <div className="flex items-center justify-between gap-2">
+            <Button variant="ghost" onClick={() => setFilters(EMPTY)}>Clear all</Button>
+            <Button onClick={() => setShowFilters(false)}>Done</Button>
+          </div>
+        }
+      >
+        <div className="grid grid-cols-2 gap-3">
           <FilterField label="Type">
-            <Select value={filters.type} onChange={(e) => set({ type: e.target.value })}>
+            <Select
+              value={filters.type}
+              onChange={(e) => {
+                const type = e.target.value;
+                setFilters((f) => {
+                  const cat = categories.find((c) => c.id === f.categoryId);
+                  // Switching to a type the current category doesn't fit (e.g.
+                  // an expense category while Type is now Income) — clear it
+                  // rather than silently keep filtering on a mismatched pair.
+                  const stillFits = !cat || categoryKindMatches(cat.kind, type);
+                  return { ...f, type, categoryId: stillFits ? f.categoryId : "" };
+                });
+              }}
+            >
               <option value="">All types</option>
               {TRANSACTION_TYPES.map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
             </Select>
@@ -216,7 +249,7 @@ export function TransactionsView({
           <FilterField label="Category">
             <Select value={filters.categoryId} onChange={(e) => set({ categoryId: e.target.value })}>
               <option value="">All categories</option>
-              {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {eligibleCategories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </Select>
           </FilterField>
           <FilterField label="Account">
@@ -232,22 +265,32 @@ export function TransactionsView({
             </Select>
           </FilterField>
           {tags.length > 0 && (
-            <FilterField label="Tag">
+            <FilterField label="Tag" className="col-span-2">
               <Select value={filters.tag} onChange={(e) => set({ tag: e.target.value })}>
                 <option value="">Any tag</option>
                 {tags.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
               </Select>
             </FilterField>
           )}
-          <FilterField label="From date"><Input type="date" value={filters.start} onChange={(e) => set({ start: e.target.value })} /></FilterField>
-          <FilterField label="To date"><Input type="date" value={filters.end} onChange={(e) => set({ end: e.target.value })} /></FilterField>
-          <FilterField label="Min amount (₹)"><Input inputMode="decimal" value={filters.min} onChange={(e) => set({ min: e.target.value.replace(/[^0-9.]/g, "") })} placeholder="0" /></FilterField>
-          <FilterField label="Max amount (₹)"><Input inputMode="decimal" value={filters.max} onChange={(e) => set({ max: e.target.value.replace(/[^0-9.]/g, "") })} placeholder="Any" /></FilterField>
-          <div className="flex items-end">
-            <Button variant="ghost" onClick={() => setFilters(EMPTY)}>Clear all</Button>
-          </div>
+          {/* Date and amount ranges share one labeled row each (two inputs
+              side by side) instead of four separate label+field rows — the
+              biggest win for vertical space on a phone-height sheet. */}
+          <FilterField label="Date range" className="col-span-2">
+            <div className="flex items-center gap-2">
+              <Input type="date" aria-label="From date" value={filters.start} onChange={(e) => set({ start: e.target.value })} className="min-w-0 flex-1" />
+              <span className="shrink-0 text-xs text-faint">to</span>
+              <Input type="date" aria-label="To date" value={filters.end} onChange={(e) => set({ end: e.target.value })} className="min-w-0 flex-1" />
+            </div>
+          </FilterField>
+          <FilterField label="Amount (₹)" className="col-span-2">
+            <div className="flex items-center gap-2">
+              <Input inputMode="decimal" aria-label="Min amount" value={filters.min} onChange={(e) => set({ min: e.target.value.replace(/[^0-9.]/g, "") })} placeholder="Min" className="min-w-0 flex-1" />
+              <span className="shrink-0 text-xs text-faint">to</span>
+              <Input inputMode="decimal" aria-label="Max amount" value={filters.max} onChange={(e) => set({ max: e.target.value.replace(/[^0-9.]/g, "") })} placeholder="Max" className="min-w-0 flex-1" />
+            </div>
+          </FilterField>
         </div>
-      )}
+      </Modal>
 
       {/* Active chips */}
       {activeChips.length > 0 && (
@@ -320,13 +363,21 @@ export function TransactionsView({
   );
 }
 
-function FilterField({ label, children }: { label: string; children: React.ReactNode }) {
+function FilterField({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
   return (
-    <div className="space-y-1">
+    <div className={cn("space-y-1", className)}>
       <label className="block text-xs font-medium text-muted">{label}</label>
       {children}
     </div>
   );
+}
+
+/** Whether a category's kind is a sensible filter option for a transaction type. */
+function categoryKindMatches(kind: string, type: string): boolean {
+  if (type === "transfer") return false; // transfers never carry a category
+  if (type === "income") return kind === "income" || kind === "both";
+  if (type === "expense" || type === "refund") return kind === "expense" || kind === "both";
+  return true; // "" = all types — no restriction
 }
 
 interface DayGroup { date: string; items: TransactionDTO[]; net: number }
