@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowLeftRight, LayoutDashboard, MoreHorizontal, PieChart, Plus } from "lucide-react";
 import { Sheet } from "./sheet";
-import { ALL_NAV } from "./nav-items";
+import { MORE_SHEET_GROUPS } from "./nav-items";
 import { useTransactionModal } from "./add-transaction";
 import { cn } from "@/lib/cn";
 
@@ -51,25 +51,32 @@ export function BottomNav() {
       </nav>
 
       <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} title="Menu">
-        <div className="grid grid-cols-3 gap-2 pb-2">
-          {ALL_NAV.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setMoreOpen(false)}
-                className={cn(
-                  "flex flex-col items-center gap-2 rounded-none border border-border p-4 text-label-sm uppercase transition-all active:translate-x-px active:translate-y-px active:shadow-none",
-                  active ? "bg-brand text-brand-fg shadow-stamp-sm" : "text-muted hover:bg-brand-soft hover:text-secondary",
-                )}
-              >
-                <Icon className="h-5 w-5" />
-                {item.label}
-              </Link>
-            );
-          })}
+        <div className="space-y-5 pb-2">
+          {MORE_SHEET_GROUPS.map((group) => (
+            <div key={group.label}>
+              <p className="mb-2 text-label-sm uppercase text-faint">{group.label}</p>
+              <div className="grid grid-cols-3 gap-2">
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  const active = isActive(item.href);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setMoreOpen(false)}
+                      className={cn(
+                        "flex flex-col items-center gap-2 rounded-none border border-border p-4 text-label-sm uppercase transition-all active:translate-x-px active:translate-y-px active:shadow-none",
+                        active ? "bg-brand text-brand-fg shadow-stamp-sm" : "text-muted hover:bg-brand-soft hover:text-secondary",
+                      )}
+                    >
+                      <Icon className="h-5 w-5" />
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       </Sheet>
     </>
