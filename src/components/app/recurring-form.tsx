@@ -60,7 +60,7 @@ export function RecurringForm({
     initial?.accountId ?? fallbackAccountId,
   );
   const [transferAccountId, setTransferAccountId] = useState(initial?.transferAccountId ?? "");
-  const initialMethodIsCustom = initial?.paymentMethod ? !PAYMENT_METHODS.includes(initial.paymentMethod as any) : false;
+  const initialMethodIsCustom = initial?.paymentMethod ? !(PAYMENT_METHODS as readonly string[]).includes(initial.paymentMethod) : false;
   const [methodSelect, setMethodSelect] = useState<string>(initialMethodIsCustom ? "__custom__" : initial?.paymentMethod ?? "upi");
   const [customMethod, setCustomMethod] = useState<string>(initialMethodIsCustom ? initial?.paymentMethod ?? "" : "");
   const [frequency, setFrequency] = useState<Frequency>(initial?.frequency ?? "monthly");

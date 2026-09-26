@@ -15,7 +15,7 @@ import {
   type CalcTxn,
   type PeriodSummary,
 } from "./calculations";
-import { addMonths, monthName, monthRange, monthKeyOf, startOfDay, type MonthKey } from "./dates";
+import { addMonths, monthName, monthRange, monthKeyOf, endOfDayExclusive, type MonthKey } from "./dates";
 import { generateInsights, type Insight } from "./insights";
 import type { CategoryDTO } from "./types";
 import { serializeCategory } from "./serialize";
@@ -390,7 +390,7 @@ export async function getRangeAnalytics(
 function cappedEnd(start: Date, end: Date): Date {
   const now = new Date();
   if (now < start || now >= end) return end;
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  return endOfDayExclusive(now);
 }
 
 export interface CategoryDetail {

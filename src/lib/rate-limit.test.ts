@@ -1,45 +1,90 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// Fakes the RateLimitBucket table with an in-memory Map, replicating the
+// atomic upsert's semantics (fresh window vs increment-in-place) so these
+// tests exercise the real calling code's logic, not just the mock.
+const table = vi.hoisted(() => new Map<string, { count: number; resetAt: Date }>());
+
+const db = vi.hoisted(() => ({
+  rateLimitBucket: {
+    deleteMany: vi.fn(async ({ where }: { where: { key?: string; resetAt?: { lte: Date } } }) => {
+      let count = 0;
+      for (const [k, v] of table) {
+        if (where.key !== undefined ? k === where.key : v.resetAt.getTime() <= where.resetAt!.lte.getTime()) {
+          table.delete(k);
+          count += 1;
+        }
+      }
+      return { count };
+    }),
+  },
+  // The real query interpolates `now` and `freshResetAt` more than once
+  // (each `${...}` is its own bound parameter), so pick them out by value
+  // rather than by position: `now` is always the earlier of the two.
+  $queryRaw: vi.fn(async (_strings: TemplateStringsArray, ...values: unknown[]) => {
+    const key = values.find((v): v is string => typeof v === "string")!;
+    const dates = values.filter((v): v is Date => v instanceof Date);
+    const now = dates.reduce((a, b) => (a.getTime() < b.getTime() ? a : b));
+    const freshResetAt = dates.reduce((a, b) => (a.getTime() > b.getTime() ? a : b));
+
+    const existing = table.get(key);
+    if (!existing || existing.resetAt.getTime() <= now.getTime()) {
+      table.set(key, { count: 1, resetAt: freshResetAt });
+    } else {
+      existing.count += 1;
+    }
+    const row = table.get(key)!;
+    return [{ count: row.count, resetAt: row.resetAt }];
+  }),
+}));
+vi.mock("./db", () => ({ prisma: db }));
+
 import { clientKey, rateLimit, resetRateLimit } from "./rate-limit";
 
+beforeEach(() => {
+  table.clear();
+  vi.clearAllMocks();
+});
+
 describe("rateLimit", () => {
-  it("allows up to the limit then blocks", () => {
+  it("allows up to the limit then blocks", async () => {
     const key = `t1-${Math.random()}`;
-    for (let i = 0; i < 5; i++) expect(rateLimit(key, 5, 60_000).ok).toBe(true);
-    const blocked = rateLimit(key, 5, 60_000);
+    for (let i = 0; i < 5; i++) expect((await rateLimit(key, 5, 60_000)).ok).toBe(true);
+    const blocked = await rateLimit(key, 5, 60_000);
     expect(blocked.ok).toBe(false);
     expect(blocked.retryAfter).toBeGreaterThan(0);
   });
 
-  it("reports remaining attempts", () => {
+  it("reports remaining attempts", async () => {
     const key = `t2-${Math.random()}`;
-    expect(rateLimit(key, 3, 60_000).remaining).toBe(2);
-    expect(rateLimit(key, 3, 60_000).remaining).toBe(1);
-    expect(rateLimit(key, 3, 60_000).remaining).toBe(0);
+    expect((await rateLimit(key, 3, 60_000)).remaining).toBe(2);
+    expect((await rateLimit(key, 3, 60_000)).remaining).toBe(1);
+    expect((await rateLimit(key, 3, 60_000)).remaining).toBe(0);
   });
 
-  it("keeps separate counters per key", () => {
+  it("keeps separate counters per key", async () => {
     const a = `t3a-${Math.random()}`;
     const b = `t3b-${Math.random()}`;
-    rateLimit(a, 1, 60_000);
-    expect(rateLimit(a, 1, 60_000).ok).toBe(false);
-    expect(rateLimit(b, 1, 60_000).ok).toBe(true);
+    await rateLimit(a, 1, 60_000);
+    expect((await rateLimit(a, 1, 60_000)).ok).toBe(false);
+    expect((await rateLimit(b, 1, 60_000)).ok).toBe(true);
   });
 
-  it("resets a key on demand (successful login)", () => {
+  it("resets a key on demand (successful login)", async () => {
     const key = `t4-${Math.random()}`;
-    rateLimit(key, 1, 60_000);
-    expect(rateLimit(key, 1, 60_000).ok).toBe(false);
-    resetRateLimit(key);
-    expect(rateLimit(key, 1, 60_000).ok).toBe(true);
+    await rateLimit(key, 1, 60_000);
+    expect((await rateLimit(key, 1, 60_000)).ok).toBe(false);
+    await resetRateLimit(key);
+    expect((await rateLimit(key, 1, 60_000)).ok).toBe(true);
   });
 
-  it("starts a fresh window once the old one expires", () => {
+  it("starts a fresh window once the old one expires", async () => {
     const key = `t5-${Math.random()}`;
-    expect(rateLimit(key, 1, 1).ok).toBe(true);
-    expect(rateLimit(key, 1, 1).ok).toBe(false);
+    expect((await rateLimit(key, 1, 1)).ok).toBe(true);
+    expect((await rateLimit(key, 1, 1)).ok).toBe(false);
     const start = Date.now();
     while (Date.now() - start < 5) { /* let the 1ms window lapse */ }
-    expect(rateLimit(key, 1, 1).ok).toBe(true);
+    expect((await rateLimit(key, 1, 1)).ok).toBe(true);
   });
 });
 

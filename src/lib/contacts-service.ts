@@ -3,7 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "./db";
 import { BadRequestError, NotFoundError } from "./api";
 import { serializeContact } from "./serialize";
-import { toISODate } from "./dates";
+import { toISODate, fromISODate } from "./dates";
 import type { ContactDTO, ShareDirection } from "./types";
 
 export interface ContactShareRow {
@@ -108,7 +108,7 @@ export async function createStandaloneShare(
 ): Promise<void> {
   const contact = await prisma.contact.findFirst({ where: { id: contactId, userId }, select: { id: true } });
   if (!contact) throw new NotFoundError("Contact not found");
-  const date = input.date ? new Date(`${input.date}T00:00:00`) : new Date();
+  const date = input.date ? fromISODate(input.date) ?? new Date() : new Date();
   await prisma.expenseShare.create({
     data: {
       contactId,

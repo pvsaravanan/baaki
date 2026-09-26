@@ -242,7 +242,7 @@ export function normalizeDate(input: string, formatHint: DateFormatHint = "auto"
 
   const m = /^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})$/.exec(s);
   if (m) {
-    let [, a, b, y] = m;
+    const [, a, b, y] = m;
     let year = Number(y);
     if (year < 100) year += 2000;
     const num1 = Number(a);

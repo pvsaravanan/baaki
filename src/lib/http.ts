@@ -15,7 +15,7 @@ export class ApiError extends Error {
 
 async function handle<T>(res: Response): Promise<T> {
   const text = await res.text();
-  let data: any = null;
+  let data: { error?: string; fields?: Record<string, string> } | null = null;
   if (text) {
     try {
       data = JSON.parse(text);

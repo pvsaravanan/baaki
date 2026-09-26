@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { json, withUser } from "@/lib/api";
 import { budgetSchema } from "@/lib/validation";
 import { loadBudget } from "@/lib/queries";
+import { monthKeyOf } from "@/lib/dates";
 
 // Matches the year/month bounds budgetSchema enforces on PUT — GET previously
 // used `Number(...) || fallback`, which silently substitutes the current
@@ -21,8 +22,9 @@ export const GET = withUser(async (user, req: NextRequest) => {
     year: params.get("year") ?? undefined,
     month: params.get("month") ?? undefined,
   });
-  const year = parsed.year ?? now.getFullYear();
-  const month = parsed.month ?? now.getMonth() + 1;
+  const nowKey = monthKeyOf(now);
+  const year = parsed.year ?? nowKey.year;
+  const month = parsed.month ?? nowKey.month;
   return json({ budget: await loadBudget(user.id, year, month) });
 });
 

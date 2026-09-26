@@ -1,4 +1,5 @@
 import "server-only";
+import { prisma } from "./db";
 
 /**
  * Generic fixed-window rate limiter for our own API routes.
@@ -11,25 +12,23 @@ import "server-only";
  * to attach this limiter to. If a custom server-side auth route is added
  * later, this is the place to rate-limit it.
  *
- * NOTE: state is per-process and in-memory. That is sufficient for a single
- * instance (the SQLite deployment this app targets), but a multi-instance
- * deployment needs a shared store (Redis) — swap `hits` for that and keep this
- * interface.
+ * State lives in the RateLimitBucket table (Postgres, shared by every
+ * instance) rather than in-process memory: a serverless deployment runs many
+ * short-lived instances behind the same routes, each with its own memory, so
+ * an in-memory counter only ever sees the fraction of traffic that landed on
+ * that particular instance and silently under-enforces the limit. The
+ * increment itself is a single atomic `INSERT ... ON CONFLICT` upsert so two
+ * concurrent requests (different instances or not) can't both read the same
+ * count and both write back the same increment, losing a hit.
  */
 
-interface Window {
-  count: number;
-  resetAt: number;
-}
-
-const hits = new Map<string, Window>();
 let lastSweep = 0;
 
-/** Drop expired windows occasionally so the map cannot grow without bound. */
-function sweep(now: number) {
-  if (now - lastSweep < 60_000) return;
-  lastSweep = now;
-  for (const [key, w] of hits) if (w.resetAt <= now) hits.delete(key);
+/** Drop expired windows occasionally so the table cannot grow without bound. */
+async function sweep(now: Date) {
+  if (now.getTime() - lastSweep < 60_000) return;
+  lastSweep = now.getTime();
+  await prisma.rateLimitBucket.deleteMany({ where: { resetAt: { lte: now } } });
 }
 
 export interface RateLimitResult {
@@ -43,30 +42,37 @@ export interface RateLimitResult {
  * Consume one unit against `key`. Returns ok:false once `limit` is exceeded
  * within `windowMs`.
  */
-export function rateLimit(key: string, limit: number, windowMs: number): RateLimitResult {
-  const now = Date.now();
-  sweep(now);
+export async function rateLimit(key: string, limit: number, windowMs: number): Promise<RateLimitResult> {
+  const now = new Date();
+  await sweep(now);
 
-  const existing = hits.get(key);
-  if (!existing || existing.resetAt <= now) {
-    hits.set(key, { count: 1, resetAt: now + windowMs });
-    return { ok: true, retryAfter: 0, remaining: limit - 1 };
-  }
+  const freshResetAt = new Date(now.getTime() + windowMs);
+  // One round trip, race-free: start a fresh window (count 1) if none exists
+  // or the existing one has expired, otherwise increment in place — decided
+  // and applied atomically by Postgres, not read-then-written by us.
+  const rows = await prisma.$queryRaw<{ count: number; resetAt: Date }[]>`
+    INSERT INTO "RateLimitBucket" ("key", "count", "resetAt")
+    VALUES (${key}, 1, ${freshResetAt})
+    ON CONFLICT ("key") DO UPDATE SET
+      "count" = CASE WHEN "RateLimitBucket"."resetAt" <= ${now} THEN 1 ELSE "RateLimitBucket"."count" + 1 END,
+      "resetAt" = CASE WHEN "RateLimitBucket"."resetAt" <= ${now} THEN ${freshResetAt} ELSE "RateLimitBucket"."resetAt" END
+    RETURNING "count", "resetAt"
+  `;
+  const { count, resetAt } = rows[0];
 
-  existing.count += 1;
-  if (existing.count > limit) {
+  if (count > limit) {
     return {
       ok: false,
-      retryAfter: Math.max(1, Math.ceil((existing.resetAt - now) / 1000)),
+      retryAfter: Math.max(1, Math.ceil((resetAt.getTime() - now.getTime()) / 1000)),
       remaining: 0,
     };
   }
-  return { ok: true, retryAfter: 0, remaining: limit - existing.count };
+  return { ok: true, retryAfter: 0, remaining: limit - count };
 }
 
 /** Clear a key's window — call after a successful login so honest users reset. */
-export function resetRateLimit(key: string): void {
-  hits.delete(key);
+export async function resetRateLimit(key: string): Promise<void> {
+  await prisma.rateLimitBucket.deleteMany({ where: { key } });
 }
 
 /**

@@ -3,7 +3,7 @@ import { ArrowUpRight, CalendarClock } from "lucide-react";
 import { requireUserOrRedirect } from "@/lib/auth";
 import { getMonthlyAnalytics } from "@/lib/analytics";
 import { loadGoals, loadPreference, loadRecurring, loadTransactions } from "@/lib/queries";
-import { monthKeyOf, monthKeyString, parseMonthKey, fromISODate, formatDate, type MonthKey } from "@/lib/dates";
+import { monthKeyOf, monthKeyString, parseMonthKey, fromISODate, formatDate, addDays, zonedParts, type MonthKey } from "@/lib/dates";
 import { monthlyContributionNeeded } from "@/lib/calculations";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Money } from "@/components/money";
@@ -38,8 +38,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const budgetRemaining = budgetLimit - a.budget.overallSpent;
 
   // Upcoming recurring within ~45 days.
-  const horizon = new Date();
-  horizon.setDate(horizon.getDate() + 45);
+  const horizon = addDays(new Date(), 45);
   const upcoming = recurring
     .filter((r) => r.isActive)
     // fromISODate can return null on an unparseable date; skip those rows
@@ -280,7 +279,7 @@ function BudgetRemainingCard({ remaining, limit }: { remaining: number; limit: n
 }
 
 function greeting() {
-  const h = new Date().getHours();
+  const h = zonedParts(new Date()).hour;
   if (h < 12) return "Good morning";
   if (h < 17) return "Good afternoon";
   return "Good evening";

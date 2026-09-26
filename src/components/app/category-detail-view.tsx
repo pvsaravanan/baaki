@@ -36,7 +36,7 @@ export function CategoryDetailView({ category, detail }: { category: CategoryDTO
             <h1 className="text-headline-md text-fg sm:text-headline-lg">{category.name}</h1>
             <p className="mt-1 text-body-sm text-muted">
               {!category.isActive && "Inactive · "}
-              How this category's spend has moved over time.
+              How this category&apos;s spend has moved over time.
             </p>
           </div>
         </div>
@@ -105,7 +105,7 @@ export function CategoryDetailView({ category, detail }: { category: CategoryDTO
                   height={200}
                 />
                 <p className="text-body-sm text-muted">
-                  <span className="font-semibold text-fg">{shareOfMonthExpenses.toFixed(1)}%</span> of this month's spending
+                  <span className="font-semibold text-fg">{shareOfMonthExpenses.toFixed(1)}%</span> of this month&apos;s spending
                 </p>
               </div>
             ) : (

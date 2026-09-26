@@ -576,7 +576,7 @@ function MapStep({
             <Select
               id="date-format"
               value={dateFormat}
-              onChange={(e) => setDateFormat(e.target.value as any)}
+              onChange={(e) => setDateFormat(e.target.value as "auto" | "DD/MM/YYYY" | "MM/DD/YYYY" | "YYYY-MM-DD")}
             >
               <option value="auto">Auto-detect format</option>
               <option value="DD/MM/YYYY">DD/MM/YYYY (e.g. 31/07/2026)</option>

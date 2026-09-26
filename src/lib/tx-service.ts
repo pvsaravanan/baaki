@@ -88,13 +88,22 @@ export async function createTransaction(userId: string, input: TransactionInput)
   // instead of leaving an orphaned transaction behind.
   if (shares?.length) await assertSharesValid(userId, shares, input.amount);
   const tagIds = await resolveTagIds(userId, input.tags ?? []);
-  const created = await prisma.transaction.create({
-    data: {
-      ...toData(userId, input),
-      tags: { create: tagIds.map((tagId) => ({ tagId })) },
-    },
+  // The transaction row and its shares are created in one DB transaction so a
+  // failure creating shares can't leave a shareless transaction behind.
+  const created = await prisma.$transaction(async (tx) => {
+    const txn = await tx.transaction.create({
+      data: {
+        ...toData(userId, input),
+        tags: { create: tagIds.map((tagId) => ({ tagId })) },
+      },
+    });
+    if (shares?.length) {
+      await tx.expenseShare.createMany({
+        data: shares.map((s) => ({ transactionId: txn.id, contactId: s.contactId, amount: s.amount })),
+      });
+    }
+    return txn;
   });
-  if (shares?.length) await attachShares(userId, created.id, shares);
   return created.id;
 }
 
@@ -324,27 +333,42 @@ export async function createSplitTransaction(
   const priorByContact = new Map(priorShares.map((s) => [s.contactId, { settled: s.settled, settledAt: s.settledAt }]));
 
   const tagIds = await resolveTagIds(userId, input.tags ?? []);
-  const creates = input.parts.map((part) =>
-    prisma.transaction.create({
-      data: {
-        ...toSplitPartData(userId, input, part, date, splitGroupId),
-        tags: { create: tagIds.map((tagId) => ({ tagId })) },
-      },
-    }),
-  );
-  // Prepend the delete(s) (when converting/replacing) so they commit
-  // atomically with the new parts. Every op returns a Transaction, so the
-  // array is uniformly typed.
-  const deletes = opts.replaceId
-    ? [prisma.transaction.delete({ where: { id: opts.replaceId } })]
-    : (opts.replaceIds ?? []).map((id) => prisma.transaction.delete({ where: { id } }));
-  const ops = [...deletes, ...creates];
-  const results = await prisma.$transaction(ops);
-  const rows = results.slice(deletes.length);
 
-  if (input.shares?.length) {
-    await attachShares(userId, rows[0].id, input.shares, partsTotal, priorByContact);
-  }
+  // Deletes, part creates, and the shares on the first part all commit in one
+  // DB transaction — otherwise a failure attaching shares after the parts are
+  // already written would leave a split expense with missing shares.
+  const rows = await prisma.$transaction(async (tx) => {
+    for (const id of replacedIds) await tx.transaction.delete({ where: { id } });
+
+    const created: { id: string }[] = [];
+    for (const part of input.parts) {
+      created.push(
+        await tx.transaction.create({
+          data: {
+            ...toSplitPartData(userId, input, part, date, splitGroupId),
+            tags: { create: tagIds.map((tagId) => ({ tagId })) },
+          },
+        }),
+      );
+    }
+
+    if (input.shares?.length) {
+      await tx.expenseShare.createMany({
+        data: input.shares.map((s) => {
+          const prior = priorByContact.get(s.contactId);
+          return {
+            transactionId: created[0].id,
+            contactId: s.contactId,
+            amount: s.amount,
+            settled: prior?.settled ?? false,
+            settledAt: prior?.settledAt ?? null,
+          };
+        }),
+      });
+    }
+
+    return created;
+  });
 
   return rows.map((r) => r.id);
 }
@@ -437,6 +461,23 @@ export async function restoreTransaction(userId: string, id: string): Promise<vo
   await prisma.transaction.update({ where: { id }, data: { deletedAt: null } });
 }
 
+/**
+ * One-click copy of a transaction (see the "Duplicate" row menu item) — for
+ * logging a similar purchase again, not for re-creating everything about the
+ * original. Two things are deliberately NOT carried over:
+ *
+ *  - Shares: the duplicate is a new, separate purchase. There's no follow-up
+ *    step in the UI to confirm who it's shared with, so silently attaching
+ *    the same contacts/amounts would create a fresh, un-reviewed debt (e.g.
+ *    duplicating a past split dinner would owe your friend money again for
+ *    nothing they agreed to). Add sharing to the copy explicitly if needed.
+ *  - splitGroupId: duplicating one part of a split expense produces a
+ *    standalone transaction, not a new part of the original group — the
+ *    parts already in that group still add up to the original purchase, and
+ *    editing/deleting that group (updateSplitTransaction, softDeleteSplitGroup)
+ *    only ever touches rows that share its id, so a carried-over id would
+ *    silently pull the copy into edits/deletes of a purchase it isn't part of.
+ */
 export async function duplicateTransaction(userId: string, id: string): Promise<string> {
   const original = await prisma.transaction.findFirst({
     where: { id, userId, deletedAt: null },

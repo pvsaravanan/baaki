@@ -9,11 +9,13 @@ import { NextResponse, type NextRequest } from "next/server";
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
 
-  // No-op until a real anon key is configured (real Supabase keys are JWTs that
-  // start with "eyJ"). Prevents failing auth calls on every request while the
-  // migration is mid-setup.
+  // No-op until a real anon key is configured (the .env.example placeholder is
+  // "[ANON-PUBLIC-KEY]"). Prevents failing auth calls on every request while
+  // the migration is mid-setup. Don't gate on the legacy "eyJ..." JWT prefix:
+  // newer Supabase projects issue "sb_publishable_..." keys, which would make
+  // this skip silently and stop sessions from refreshing.
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!anonKey || !anonKey.startsWith("eyJ")) return response;
+  if (!anonKey || anonKey.startsWith("[")) return response;
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

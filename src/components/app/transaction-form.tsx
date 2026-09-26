@@ -94,7 +94,7 @@ export function TransactionForm({
   const fallbackExpenseCategoryId = categories.find((c) => c.isActive && (c.kind === "expense" || c.kind === "both"))?.id ?? "";
   const [accountId, setAccountId] = useState(primary?.accountId ?? fallbackAccountId);
   const [transferAccountId, setTransferAccountId] = useState(primary?.transferAccountId ?? "");
-  const initialMethodIsCustom = primary?.paymentMethod ? !PAYMENT_METHODS.includes(primary.paymentMethod as any) : false;
+  const initialMethodIsCustom = primary?.paymentMethod ? !(PAYMENT_METHODS as readonly string[]).includes(primary.paymentMethod) : false;
   const [methodSelect, setMethodSelect] = useState<string>(initialMethodIsCustom ? "__custom__" : primary?.paymentMethod ?? "upi");
   const [customMethod, setCustomMethod] = useState<string>(initialMethodIsCustom ? primary?.paymentMethod ?? "" : "");
   const [notes, setNotes] = useState(primary?.notes ?? "");

@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    # No real database is touched: prisma generate only reads schema.prisma,
+    # and these routes render dynamically (cookie-based auth) rather than
+    # statically, so `next build` never needs a live connection either — these
+    # placeholders just satisfy env var presence checks at build time.
+    env:
+      DATABASE_URL: "postgresql://user:pass@localhost:5432/db?pgbouncer=true"
+      DIRECT_URL: "postgresql://user:pass@localhost:5432/db"
+      NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co"
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "sb_publishable_ci_placeholder"
+      SUPABASE_SERVICE_ROLE_KEY: "ci-placeholder-service-role-key"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm test
+      - run: npm run build

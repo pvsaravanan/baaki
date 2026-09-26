@@ -276,6 +276,20 @@ model TransactionTag {
   @@index([tagId])
 }
 
+/**
+ * Backing store for the fixed-window rate limiter (see src/lib/rate-limit.ts).
+ * A real table rather than in-process state so a limit holds across the
+ * multiple serverless instances one deployment can run behind, instead of
+ * each instance keeping (and under-enforcing against) its own count.
+ */
+model RateLimitBucket {
+  key     String   @id
+  count   Int
+  resetAt DateTime
+
+  @@index([resetAt])
+}
+
 /** A person you split expenses with. No login of their own — a label + ledger. */
 model Contact {
   id         String   @id @default(cuid())

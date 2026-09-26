@@ -227,7 +227,7 @@ function AccountForm({
   onBusyChange?: (busy: boolean) => void;
 }) {
   const editing = !!initial;
-  const initialIsCustom = initial ? !ACCOUNT_TYPES.includes(initial.type as any) : false;
+  const initialIsCustom = initial ? !(ACCOUNT_TYPES as readonly string[]).includes(initial.type) : false;
   const initialBank = initial ? getBankByIcon(initial.icon) : undefined;
   const [name, setName] = useState(initial?.name ?? "");
   const [typeSelect, setTypeSelect] = useState<string>(initialIsCustom ? "__custom__" : initial?.type ?? "bank");

@@ -12,7 +12,7 @@ import { postDueRecurring } from "@/lib/recurring";
  */
 export const POST = withUser(async (user, req) => {
   // Cheap guard so a client loop cannot hammer this.
-  const check = rateLimit(clientKey(req as Request, `run-due:${user.id}`), 5, 60_000);
+  const check = await rateLimit(clientKey(req as Request, `run-due:${user.id}`), 5, 60_000);
   if (!check.ok) return json({ posted: 0, throttled: true });
 
   const posted = await postDueRecurring(user.id, new Date());

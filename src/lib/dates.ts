@@ -1,7 +1,19 @@
 /**
- * Date helpers. Financial periods are handled in local time. A "month key" is
- * { year, month(1-12) }. All range boundaries are inclusive-start / exclusive-end.
+ * Date helpers. Financial periods ("today", "this month") are anchored to a
+ * single fixed application timezone (IST, UTC+5:30, no DST) rather than the
+ * server process's own timezone. A host like Vercel runs its Node process in
+ * UTC — reading "today" via the process-local Date getters would then hand
+ * an IST user the previous calendar day for the first 5.5 hours after
+ * midnight IST, and make recurring rules come due late. Routing every
+ * calendar computation through `zonedParts`/`fromZonedParts` below keeps the
+ * app's notion of "today"/"this month" correct regardless of where the
+ * server actually runs.
+ *
+ * A "month key" is { year, month(1-12) }. All range boundaries are
+ * inclusive-start / exclusive-end.
  */
+
+const APP_TZ_OFFSET_MINUTES = 330; // Asia/Kolkata, UTC+5:30, no DST
 
 export interface MonthKey {
   year: number;
@@ -13,18 +25,54 @@ export interface DateRange {
   end: Date; // exclusive
 }
 
-export function monthKeyOf(date: Date): MonthKey {
-  return { year: date.getFullYear(), month: date.getMonth() + 1 };
+export interface ZonedParts {
+  year: number;
+  month: number; // 1-12
+  day: number;
+  hour: number;
+  minute: number;
+  second: number;
+  ms: number;
 }
 
-/** Start of the given month (00:00:00.000 local). */
+/** Read a Date's calendar/time-of-day components as they fall in the app's fixed timezone. */
+export function zonedParts(date: Date): ZonedParts {
+  const shifted = new Date(date.getTime() + APP_TZ_OFFSET_MINUTES * 60_000);
+  return {
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth() + 1,
+    day: shifted.getUTCDate(),
+    hour: shifted.getUTCHours(),
+    minute: shifted.getUTCMinutes(),
+    second: shifted.getUTCSeconds(),
+    ms: shifted.getUTCMilliseconds(),
+  };
+}
+
+/** Build a Date from calendar/time-of-day components interpreted in the app's fixed timezone. */
+export function fromZonedParts(year: number, month: number, day: number, hour = 0, minute = 0, second = 0, ms = 0): Date {
+  return new Date(Date.UTC(year, month - 1, day, hour, minute, second, ms) - APP_TZ_OFFSET_MINUTES * 60_000);
+}
+
+/** Add whole days to a Date, preserving its time-of-day in the app timezone. */
+export function addDays(date: Date, days: number): Date {
+  const p = zonedParts(date);
+  return fromZonedParts(p.year, p.month, p.day + days, p.hour, p.minute, p.second, p.ms);
+}
+
+export function monthKeyOf(date: Date): MonthKey {
+  const { year, month } = zonedParts(date);
+  return { year, month };
+}
+
+/** Start of the given month (00:00:00.000 in the app timezone). */
 export function monthStart({ year, month }: MonthKey): Date {
-  return new Date(year, month - 1, 1, 0, 0, 0, 0);
+  return fromZonedParts(year, month, 1);
 }
 
 /** Exclusive end of the given month == start of next month. */
 export function monthEndExclusive({ year, month }: MonthKey): Date {
-  return new Date(year, month, 1, 0, 0, 0, 0);
+  return fromZonedParts(year, month + 1, 1);
 }
 
 export function monthRange(key: MonthKey): DateRange {
@@ -46,9 +94,9 @@ export function nextMonth(key: MonthKey): MonthKey {
   return addMonths(key, 1);
 }
 
-/** Number of days in a given month (handles leap years). */
+/** Number of days in a given month (handles leap years). Pure calendar math, timezone-independent. */
 export function daysInMonth({ year, month }: MonthKey): number {
-  return new Date(year, month, 0).getDate();
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
 }
 
 export function isLeapYear(year: number): boolean {
@@ -85,44 +133,42 @@ export function parseMonthKey(s: string | null | undefined): MonthKey | null {
   return { year, month };
 }
 
-/** Format a Date as YYYY-MM-DD in local time (for <input type=date> and CSV). */
+/** Format a Date as YYYY-MM-DD in the app timezone (for <input type=date> and CSV). */
 export function toISODate(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+  const { year, month, day } = zonedParts(date);
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
-/** Parse a YYYY-MM-DD string into a local Date at midnight. Returns null if invalid. */
+/** Parse a YYYY-MM-DD string into a Date at midnight in the app timezone. Returns null if invalid. */
 export function fromISODate(s: string): Date | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s.trim());
   if (!m) return null;
   const year = Number(m[1]);
   const month = Number(m[2]);
   const day = Number(m[3]);
-  const d = new Date(year, month - 1, day, 0, 0, 0, 0);
-  if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day) return null;
+  const d = fromZonedParts(year, month, day);
+  const check = zonedParts(d);
+  if (check.year !== year || check.month !== month || check.day !== day) return null;
   return d;
 }
 
 export function startOfDay(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
+  const { year, month, day } = zonedParts(date);
+  return fromZonedParts(year, month, day);
 }
 
 export function endOfDayExclusive(date: Date): Date {
-  const d = startOfDay(date);
-  d.setDate(d.getDate() + 1);
-  return d;
+  return addDays(startOfDay(date), 1);
 }
 
 const DISPLAY_MONTHS = MONTH_NAMES.map((m) => m.slice(0, 3));
 
-/** Human date like "11 Aug 2026". */
+/** Human date like "11 Aug 2026", in the app timezone. */
 export function formatDate(date: Date, opts: { withYear?: boolean } = {}): string {
   const { withYear = true } = opts;
-  const d = date.getDate();
-  const m = DISPLAY_MONTHS[date.getMonth()];
-  return withYear ? `${d} ${m} ${date.getFullYear()}` : `${d} ${m}`;
+  const { year, month, day } = zonedParts(date);
+  const m = DISPLAY_MONTHS[month - 1];
+  return withYear ? `${day} ${m} ${year}` : `${day} ${m}`;
 }
 
 /** Relative-ish label: Today / Yesterday / weekday / full date. */
@@ -133,7 +179,7 @@ export function formatRelativeDay(date: Date, now: Date): string {
   if (diffDays === 0) return "Today";
   if (diffDays === 1) return "Yesterday";
   if (diffDays === -1) return "Tomorrow";
-  return formatDate(date, { withYear: date.getFullYear() !== now.getFullYear() });
+  return formatDate(date, { withYear: zonedParts(date).year !== zonedParts(now).year });
 }
 
 /**
@@ -145,31 +191,29 @@ export function advanceByFrequency(
   frequency: "daily" | "weekly" | "monthly" | "quarterly" | "yearly",
   interval = 1,
 ): Date {
-  const d = new Date(date.getTime());
   switch (frequency) {
     case "daily":
-      d.setDate(d.getDate() + interval);
-      return d;
+      return addDays(date, interval);
     case "weekly":
-      d.setDate(d.getDate() + 7 * interval);
-      return d;
+      return addDays(date, 7 * interval);
     case "monthly":
-      return addMonthsToDate(d, interval);
+      return addMonthsToDate(date, interval);
     case "quarterly":
-      return addMonthsToDate(d, 3 * interval);
+      return addMonthsToDate(date, 3 * interval);
     case "yearly":
-      return addMonthsToDate(d, 12 * interval);
+      return addMonthsToDate(date, 12 * interval);
   }
 }
 
 /** Add months to a Date, clamping the day to the target month's length. */
 export function addMonthsToDate(date: Date, months: number): Date {
-  const targetMonthIndex = date.getMonth() + months;
-  const targetYear = date.getFullYear() + Math.floor(targetMonthIndex / 12);
+  const p = zonedParts(date);
+  const targetMonthIndex = p.month - 1 + months;
+  const targetYear = p.year + Math.floor(targetMonthIndex / 12);
   const normalizedMonth = ((targetMonthIndex % 12) + 12) % 12;
-  const lastDay = new Date(targetYear, normalizedMonth + 1, 0).getDate();
-  const day = Math.min(date.getDate(), lastDay);
-  return new Date(targetYear, normalizedMonth, day, date.getHours(), date.getMinutes(), 0, 0);
+  const lastDay = daysInMonth({ year: targetYear, month: normalizedMonth + 1 });
+  const day = Math.min(p.day, lastDay);
+  return fromZonedParts(targetYear, normalizedMonth + 1, day, p.hour, p.minute, 0, 0);
 }
 
 /**
@@ -195,16 +239,10 @@ export function occurrenceAt(
 ): Date {
   const start = startOfDay(startDate);
   switch (frequency) {
-    case "daily": {
-      const d = new Date(start);
-      d.setDate(d.getDate() + interval * n);
-      return d;
-    }
-    case "weekly": {
-      const d = new Date(start);
-      d.setDate(d.getDate() + interval * n * 7);
-      return d;
-    }
+    case "daily":
+      return addDays(start, interval * n);
+    case "weekly":
+      return addDays(start, interval * n * 7);
     case "monthly":
       return addMonthsToDate(start, interval * n);
     case "quarterly":

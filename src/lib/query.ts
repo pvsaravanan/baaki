@@ -3,7 +3,7 @@
  * (/api/transactions) and the CSV export (/api/export).
  */
 import type { Prisma } from "@prisma/client";
-import { fromISODate } from "./dates";
+import { fromISODate, endOfDayExclusive } from "./dates";
 
 /** Parse a query param as a finite integer, or null when absent/non-numeric. */
 export function toFiniteInt(raw: string | null): number | null {
@@ -27,10 +27,7 @@ export function buildWhere(userId: string, params: URLSearchParams): Prisma.Tran
     }
     if (end) {
       const d = fromISODate(end);
-      if (d) {
-        d.setDate(d.getDate() + 1); // make `end` inclusive of the whole day
-        dateFilter.lt = d;
-      }
+      if (d) dateFilter.lt = endOfDayExclusive(d); // make `end` inclusive of the whole day
     }
     where.date = dateFilter;
   }

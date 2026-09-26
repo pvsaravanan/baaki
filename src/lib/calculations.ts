@@ -14,7 +14,7 @@
  */
 
 import type { TransactionType } from "./constants";
-import { daysBetween, startOfDay, toISODate } from "./dates";
+import { addDays, daysBetween, startOfDay, toISODate, zonedParts } from "./dates";
 
 /** Minimal transaction shape the calc layer needs. Framework-agnostic. */
 export interface CalcTxn {
@@ -202,7 +202,7 @@ export function dailySeries(txns: CalcTxn[], start: Date, end: Date): DailyPoint
   while (cursor.getTime() < end.getTime()) {
     const key = toISODate(cursor);
     byDay.set(key, { date: key, expense: 0, income: 0, count: 0 });
-    cursor.setDate(cursor.getDate() + 1);
+    cursor.setTime(addDays(cursor, 1).getTime());
   }
   for (const t of txns) {
     if (!isActive(t)) continue;
@@ -276,8 +276,10 @@ export function monthlyContributionNeeded(
 /** Whole months from `from` to `to`, minimum 0. Partial months round up to 1. */
 export function monthsBetween(from: Date, to: Date): number {
   if (to.getTime() <= from.getTime()) return 0;
-  let months = (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth());
-  if (to.getDate() > from.getDate()) months += 1;
+  const f = zonedParts(from);
+  const t = zonedParts(to);
+  let months = (t.year - f.year) * 12 + (t.month - f.month);
+  if (t.day > f.day) months += 1;
   return Math.max(months, 1);
 }
 
