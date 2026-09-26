@@ -256,7 +256,7 @@ export function AccountForm({
                 aria-pressed={icon === name}
                 className={cn(
                   "flex h-10 w-10 items-center justify-center rounded-none border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
-                  icon === name ? "border-brand bg-brand-soft text-brand-hover" : "border-border text-muted hover:bg-surface-2",
+                  icon === name ? "border-brand bg-brand-soft text-brand-hover" : "border-border text-muted hover:text-fg",
                 )}
               >
                 <Icon name={name} size={18} />

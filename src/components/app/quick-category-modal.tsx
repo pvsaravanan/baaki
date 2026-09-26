@@ -162,7 +162,7 @@ export function QuickCategoryModal({
                 type="button"
                 onClick={() => setIcon(i)}
                 className={cn(
-                  "flex h-10 w-10 items-center justify-center rounded-none border border-border bg-surface text-muted transition-colors active:scale-95 hover:bg-surface-2 hover:text-fg",
+                  "flex h-10 w-10 items-center justify-center rounded-none border border-border bg-surface text-muted transition-colors active:scale-95 hover:text-fg",
                   icon === i && "border-brand bg-brand text-brand-fg",
                 )}
                 aria-label={`Icon ${i}`}

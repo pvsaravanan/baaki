@@ -86,7 +86,7 @@ export function MonthYearPicker({
           <button
             onClick={() => setViewYear((y) => y - 1)}
             disabled={viewYear <= MIN_YEAR}
-            className="flex h-9 w-9 items-center justify-center rounded-none text-muted transition-colors hover:bg-surface-2 hover:text-fg disabled:opacity-30 disabled:hover:bg-transparent active:bg-surface-2"
+            className="flex h-9 w-9 items-center justify-center rounded-none text-muted transition-colors hover:text-fg disabled:opacity-30 active:text-fg"
             aria-label="Previous year"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -95,7 +95,7 @@ export function MonthYearPicker({
           <button
             onClick={() => setViewYear((y) => y + 1)}
             disabled={viewYear >= nowKey.year}
-            className="flex h-9 w-9 items-center justify-center rounded-none text-muted transition-colors hover:bg-surface-2 hover:text-fg disabled:opacity-30 disabled:hover:bg-transparent active:bg-surface-2"
+            className="flex h-9 w-9 items-center justify-center rounded-none text-muted transition-colors hover:text-fg disabled:opacity-30 active:text-fg"
             aria-label="Next year"
           >
             <ChevronRight className="h-4 w-4" />

@@ -163,7 +163,7 @@ export function Modal({
             <button
               onClick={onClose}
               disabled={busy}
-              className="rounded-none border border-transparent p-1 text-muted transition-colors hover:border-border hover:bg-surface-2 hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-none p-1 text-muted transition-colors hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="Close"
             >
               <X className="h-5 w-5" />

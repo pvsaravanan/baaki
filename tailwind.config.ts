@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import plugin from "tailwindcss/plugin";
 
 const config: Config = {
   darkMode: "class",
@@ -121,7 +122,19 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    // Every `hover:` utility in the app compiles to plain `:hover` by
+    // default. On a touchscreen there's no mouse-leave event to clear that
+    // once you tap a button, so its hover background/shadow "sticks" until
+    // you tap something else — the boxed-highlight-after-tapping bug seen
+    // across the app (chevrons, nav items, etc). Redefining the variant here
+    // scopes every `hover:` utility to devices that support real hovering
+    // (mouse/trackpad), fixing it everywhere in one place instead of
+    // patching each component.
+    plugin(({ addVariant }) => {
+      addVariant("hover", "@media (hover: hover) { &:hover }");
+    }),
+  ],
 };
 
 export default config;

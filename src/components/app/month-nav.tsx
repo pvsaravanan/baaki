@@ -23,7 +23,7 @@ export function MonthNav({ monthKey, isCurrent, className }: { monthKey: MonthKe
     <div className={cn("relative inline-flex items-center justify-between gap-1 rounded-none border border-border bg-surface p-1", className)}>
       <button
         onClick={() => go(addMonths(monthKey, -1))}
-        className="flex h-9 w-9 items-center justify-center rounded-none p-1.5 text-muted transition-colors hover:bg-surface-2 hover:text-fg active:bg-surface-2"
+        className="flex h-9 w-9 items-center justify-center rounded-none p-1.5 text-muted transition-colors hover:text-fg active:text-fg"
         aria-label="Previous month"
       >
         <ChevronLeft className="h-4 w-4" />
@@ -39,7 +39,7 @@ export function MonthNav({ monthKey, isCurrent, className }: { monthKey: MonthKe
       <button
         onClick={() => go(addMonths(monthKey, 1))}
         disabled={isCurrent}
-        className="flex h-9 w-9 items-center justify-center rounded-none p-1.5 text-muted transition-colors hover:bg-surface-2 hover:text-fg disabled:opacity-30 disabled:hover:bg-transparent active:bg-surface-2"
+        className="flex h-9 w-9 items-center justify-center rounded-none p-1.5 text-muted transition-colors hover:text-fg disabled:opacity-30 active:text-fg"
         aria-label="Next month"
       >
         <ChevronRight className="h-4 w-4" />

@@ -187,7 +187,7 @@ export function TransactionRow({
         <div className="relative">
           <button
             onClick={() => setMenuOpen((o) => !o)}
-            className="flex h-9 w-9 items-center justify-center rounded-none p-1 text-faint opacity-100 sm:opacity-0 transition-opacity hover:bg-surface hover:text-fg focus:opacity-100 sm:group-hover:opacity-100 active:bg-surface-2"
+            className="flex h-9 w-9 items-center justify-center rounded-none p-1 text-faint opacity-100 sm:opacity-0 transition-opacity hover:text-fg focus:opacity-100 sm:group-hover:opacity-100 active:text-fg"
             aria-label="Transaction actions"
           >
             <MoreVertical className="h-4 w-4" />

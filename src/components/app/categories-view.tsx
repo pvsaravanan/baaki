@@ -346,7 +346,7 @@ function CategoryForm({
               aria-pressed={icon === n}
               className={cn(
                 "flex h-9 w-9 items-center justify-center rounded-none border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
-                icon === n ? "border-brand bg-brand-soft text-brand-hover" : "border-border text-muted hover:bg-surface-2",
+                icon === n ? "border-brand bg-brand-soft text-brand-hover" : "border-border text-muted hover:text-fg",
               )}
             >
               <Icon name={n} size={16} />

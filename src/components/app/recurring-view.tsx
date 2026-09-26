@@ -326,7 +326,7 @@ function RecurringRow({
         <button
           onClick={() => setMenuOpen((o) => !o)}
           disabled={busy}
-          className="flex h-9 w-9 items-center justify-center rounded-none text-faint transition-colors hover:bg-surface-2 hover:text-fg"
+          className="flex h-9 w-9 items-center justify-center rounded-none text-faint transition-colors hover:text-fg"
           aria-label={`Actions for ${rule.name}`}
         >
           <MoreVertical className="h-4 w-4" />
