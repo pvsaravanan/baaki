@@ -1,40 +1,24 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { Sparkles, X } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Field, Input, Select, Textarea } from "@/components/ui/field";
-import { Segmented } from "@/components/ui/segmented";
+import { Field, Input, Textarea } from "@/components/ui/field";
 import { useAppData } from "./app-data";
 import { ApiError, apiPatch, apiPost } from "@/lib/http";
 import { toISODate } from "@/lib/dates";
-import { formatINR, toPaise, toRupees } from "@/lib/money";
+import { toPaise, toRupees } from "@/lib/money";
 import { suggestCategory } from "@/lib/categorize";
 import { QuickCategoryModal } from "./quick-category-modal";
-import { PAYMENT_METHODS, PAYMENT_METHOD_LABELS, type TransactionType } from "@/lib/constants";
+import { PAYMENT_METHODS, type TransactionType } from "@/lib/constants";
 import type { TransactionDTO } from "@/lib/types";
-import { cn } from "@/lib/cn";
 import { calculateExpenseSplit, type ExpenseSplitMethod } from "@/lib/expense-split";
-import { ExpenseSplitMethodPicker } from "./expense-split-method";
-
-const TYPE_OPTIONS: { value: TransactionType; label: string }[] = [
-  { value: "expense", label: "Expense" },
-  { value: "income", label: "Income" },
-  { value: "transfer", label: "Transfer" },
-  { value: "refund", label: "Refund" },
-];
-
-interface PartRow {
-  amount: string;
-  categoryId: string;
-  accountId: string;
-}
-
-interface ShareRow {
-  contactId: string;
-  amount: string;
-  percent: string;
-  weight: string;
-}
+import { TypeAndAmountFields } from "./transaction-form/type-amount-fields";
+import { CategoryAccountFields } from "./transaction-form/category-account-fields";
+import { SplitPartsEditor } from "./transaction-form/split-parts-editor";
+import { DateMethodFields } from "./transaction-form/date-method-fields";
+import { PeopleSplitSection } from "./transaction-form/people-split-section";
+import { TagsInput } from "./transaction-form/tags-input";
+import type { PartRow, ShareRow } from "./transaction-form/types";
 
 /** Parse a rupee string to paise, or 0 if it doesn't parse — for running totals, not submission. */
 function safePaise(s: string): number {
@@ -371,56 +355,17 @@ export function TransactionForm({
         </div>
       )}
 
-      {splitEnabled ? (
-        <div className="rounded-none border border-border bg-surface-2 px-3 py-2 text-sm font-medium text-fg">
-          Split expense
-        </div>
-      ) : (
-        <Segmented
-          value={type}
-          onChange={(v) => {
-            setType(v);
-            setCategoryId((prev) => {
-              if (v === "transfer") return "";
-              const wantIncome = v === "income";
-              const matches = (c: (typeof categories)[number]) =>
-                wantIncome ? c.kind === "income" || c.kind === "both" : c.kind === "expense" || c.kind === "both";
-              const cat = categories.find((c) => c.id === prev);
-              if (cat && matches(cat)) return prev;
-              // Switching to a type the current category doesn't fit — clear
-              // the selection so the user (or auto-suggest) can pick anew.
-              return "";
-            });
-          }}
-          options={TYPE_OPTIONS}
-          className="w-full [&>button]:flex-1"
-        />
-      )}
-
-      {!splitEnabled && (
-        <div>
-          <label htmlFor="amount" className="block text-label-md uppercase text-muted">
-            Amount
-          </label>
-          <div className="relative mt-1.5">
-            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-headline-sm text-muted">₹</span>
-            <input
-              id="amount"
-              inputMode="decimal"
-              autoFocus={!editing}
-              value={amount}
-              onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
-              placeholder="0"
-              className={cn(
-                "tnum w-full rounded-none border-2 bg-surface py-2.5 pl-10 pr-4 text-headline-md tracking-tight text-fg",
-                "focus:outline-none focus:ring-2 focus:ring-ring/25",
-                errors.amount ? "border-expense" : "border-border focus:border-brand",
-              )}
-            />
-          </div>
-          {errors.amount && <p className="mt-1 text-body-sm text-expense">{errors.amount}</p>}
-        </div>
-      )}
+      <TypeAndAmountFields
+        splitEnabled={splitEnabled}
+        type={type}
+        setType={setType}
+        categories={categories}
+        setCategoryId={setCategoryId}
+        amount={amount}
+        setAmount={setAmount}
+        amountError={errors.amount}
+        editing={editing}
+      />
 
       <Field label="Description" htmlFor="description" error={errors.description} required>
         <Input
@@ -440,144 +385,47 @@ export function TransactionForm({
       )}
 
       {splitEnabled ? (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-label-md uppercase text-muted">Splits</span>
-            <span className="tnum text-sm font-semibold text-fg">Total: {formatINR(partsTotal, { decimals: "always" })}</span>
-          </div>
-          {/* Quick equal-split: type a grand total, divide it across all parts. */}
-          <div className="flex items-center gap-2">
-            <Input
-              inputMode="decimal"
-              placeholder="Total ₹"
-              value={splitTotal}
-              onChange={(e) => setSplitTotal(e.target.value.replace(/[^0-9.]/g, ""))}
-              className="w-32"
-            />
-            <Button type="button" variant="outline" size="sm" onClick={splitPartsEqually}>
-              Split {parts.length} ways
-            </Button>
-          </div>
-          {parts.map((part, i) => (
-            <div key={i} className="relative space-y-2 rounded-none border border-border bg-surface-2/40 p-3">
-              {parts.length > 2 && (
-                <button
-                  type="button"
-                  onClick={() => removePart(i)}
-                  aria-label={`Remove split ${i + 1}`}
-                  className="absolute right-2 top-2 text-faint hover:text-expense"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-              <p className="text-2xs font-medium uppercase text-faint">Split {i + 1}</p>
-              <div className="grid grid-cols-2 gap-2">
-                <Input
-                  inputMode="decimal"
-                  placeholder="Amount ₹"
-                  value={part.amount}
-                  onChange={(e) => updatePart(i, { amount: e.target.value.replace(/[^0-9.]/g, "") })}
-                />
-                <Select value={part.accountId} onChange={(e) => updatePart(i, { accountId: e.target.value })}>
-                  {accounts.map((a) => (
-                    <option key={a.id} value={a.id}>{a.name}</option>
-                  ))}
-                </Select>
-              </div>
-              <Select
-                value={part.categoryId}
-                invalid={!!errors.parts && !part.categoryId}
-                onChange={(e) => updatePart(i, { categoryId: e.target.value })}
-              >
-                {!part.categoryId && <option value="">Choose a category…</option>}
-                {eligibleCategories.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </Select>
-            </div>
-          ))}
-          {errors.parts && <p className="text-xs text-expense">{errors.parts}</p>}
-          <button type="button" onClick={addPart} className="text-label-sm uppercase text-brand-hover hover:underline">
-            + Add split
-          </button>
-        </div>
+        <SplitPartsEditor
+          parts={parts}
+          partsTotal={partsTotal}
+          partsError={errors.parts}
+          splitTotal={splitTotal}
+          setSplitTotal={setSplitTotal}
+          onSplitEqually={splitPartsEqually}
+          accounts={accounts}
+          eligibleCategories={eligibleCategories}
+          updatePart={updatePart}
+          addPart={addPart}
+          removePart={removePart}
+        />
       ) : (
-        <div className="grid grid-cols-2 gap-3">
-          {!isTransfer && (
-            <div className="col-span-2 sm:col-span-1 space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label htmlFor="category" className="block text-label-md uppercase text-muted">
-                  Category
-                </label>
-                <button type="button" onClick={() => setNewCatOpen(true)} className="text-label-sm uppercase text-brand-hover hover:underline">
-                  + New
-                </button>
-              </div>
-              <Select
-                id="category"
-                value={categoryId}
-                invalid={!!errors.categoryId}
-                onChange={(e) => {
-                  if (e.target.value === "__new__") {
-                    setNewCatOpen(true);
-                  } else {
-                    setCategoryId(e.target.value);
-                    setTouchedCategory(true);
-                  }
-                }}
-              >
-                {!categoryId && <option value="">Choose a category…</option>}
-                {eligibleCategories.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-                <option value="__new__">+ Create new category…</option>
-              </Select>
-              {errors.categoryId && <p className="text-xs text-expense">{errors.categoryId}</p>}
-            </div>
-          )}
-
-          <Field label={isTransfer ? "From account" : "Account"} htmlFor="account" error={errors.accountId} className="col-span-2 sm:col-span-1">
-            <Select id="account" value={accountId} invalid={!!errors.accountId} onChange={(e) => setAccountId(e.target.value)}>
-              {accounts.map((a) => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </Select>
-          </Field>
-
-          {isTransfer && (
-            <Field label="To account" htmlFor="toAccount" error={errors.transferAccountId} className="col-span-2 sm:col-span-1">
-              <Select id="toAccount" value={transferAccountId} invalid={!!errors.transferAccountId} onChange={(e) => setTransferAccountId(e.target.value)}>
-                <option value="">Select…</option>
-                {accounts.filter((a) => a.id !== accountId).map((a) => (
-                  <option key={a.id} value={a.id}>{a.name}</option>
-                ))}
-              </Select>
-            </Field>
-          )}
-        </div>
+        <CategoryAccountFields
+          isTransfer={isTransfer}
+          categoryId={categoryId}
+          setCategoryId={setCategoryId}
+          setTouchedCategory={setTouchedCategory}
+          categoryError={errors.categoryId}
+          eligibleCategories={eligibleCategories}
+          onNewCategory={() => setNewCatOpen(true)}
+          accountId={accountId}
+          setAccountId={setAccountId}
+          accountError={errors.accountId}
+          accounts={accounts}
+          transferAccountId={transferAccountId}
+          setTransferAccountId={setTransferAccountId}
+          transferAccountError={errors.transferAccountId}
+        />
       )}
 
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Date" htmlFor="date" className="col-span-2 sm:col-span-1">
-          <Input id="date" type="date" value={date} max={toISODate(new Date())} onChange={(e) => setDate(e.target.value)} />
-        </Field>
-
-        {!isTransfer && (
-          <div className="col-span-2 sm:col-span-1 space-y-1.5">
-            <Field label="Payment method" htmlFor="method">
-              <Select id="method" value={methodSelect} onChange={(e) => setMethodSelect(e.target.value)}>
-                {PAYMENT_METHODS.map((m) => (
-                  <option key={m} value={m}>{PAYMENT_METHOD_LABELS[m]}</option>
-                ))}
-                <option value="__custom__">+ Custom payment type…</option>
-              </Select>
-            </Field>
-            {methodSelect === "__custom__" && (
-              <Input placeholder="e.g. Sodexo, Forex, Crypto, Cheque" value={customMethod} onChange={(e) => setCustomMethod(e.target.value)} autoFocus />
-            )}
-          </div>
-        )}
-      </div>
+      <DateMethodFields
+        date={date}
+        setDate={setDate}
+        isTransfer={isTransfer}
+        methodSelect={methodSelect}
+        setMethodSelect={setMethodSelect}
+        customMethod={customMethod}
+        setCustomMethod={setCustomMethod}
+      />
 
       {/* Split toggle — new expenses, or converting a saved single expense.
           An existing split group stays locked on. */}
@@ -598,137 +446,32 @@ export function TransactionForm({
         </label>
       )}
 
-      {/* Split with people — works whether or not the expense is also split by category/account. */}
-      {type === "expense" && (
-        <div className="space-y-2 rounded-none border border-border p-3">
-          <label className="flex items-center gap-2 text-sm text-fg">
-            <input
-              type="checkbox"
-              checked={peopleEnabled}
-              onChange={(e) => {
-                setPeopleEnabled(e.target.checked);
-                if (e.target.checked && shareRows.length === 0) addShareRow();
-              }}
-              className="h-4 w-4"
-            />
-            Split with people
-          </label>
-          {peopleEnabled && (
-            <div className="space-y-3 pt-1">
-              <ExpenseSplitMethodPicker value={shareMode} onChange={setShareMode} />
-              {availableContacts.length === 0 && (
-                <p className="text-xs text-faint">No active people yet — add one from the People page first.</p>
-              )}
-              {shareMode === "shares" && (
-                <Field label="Your shares" htmlFor="your-split-weight" hint="Use 0 if none of this expense is yours.">
-                  <Input id="your-split-weight" inputMode="decimal" maxLength={24} value={yourWeight} onChange={(e) => setYourWeight(e.target.value)} placeholder="1" />
-                </Field>
-              )}
-              {shareRows.map((row, i) => {
-                const inputField = shareMode === "percent" ? "percent" : shareMode === "shares" ? "weight" : "amount";
-                const personName = contacts.find((contact) => contact.id === row.contactId)?.name ?? `Person ${i + 1}`;
-                return (
-                  <div key={i} className="space-y-2 border border-border-faint bg-surface-2 p-2">
-                    <div className="flex items-center gap-2">
-                      <Select
-                        aria-label={`Person ${i + 1}`}
-                        value={row.contactId}
-                        onChange={(e) => updateShare(i, { contactId: e.target.value })}
-                        className="min-w-0 flex-1"
-                      >
-                        <option value="">Choose person…</option>
-                        {availableContacts.map((c) => (
-                          <option key={c.id} value={c.id} disabled={shareRows.some((other, index) => index !== i && other.contactId === c.id)}>
-                            {c.name}{c.isArchived ? " (archived)" : ""}
-                          </option>
-                        ))}
-                      </Select>
-                      <button type="button" onClick={() => removeShare(i)} aria-label={`Remove ${personName} from split`} className="p-2">
-                        <X className="h-4 w-4 text-faint hover:text-expense" />
-                      </button>
-                    </div>
-                    <div className="flex items-end justify-between gap-3">
-                      {shareMode !== "equal" && (
-                        <Field
-                          label={shareMode === "amounts" ? "Amount (₹)" : shareMode === "percent" ? "Percentage (%)" : "Shares"}
-                          htmlFor={`split-value-${i}`}
-                          className="w-36 min-w-0"
-                        >
-                          <Input
-                            id={`split-value-${i}`}
-                            aria-label={`${personName}: ${shareMode === "amounts" ? "amount" : shareMode === "percent" ? "percentage" : "shares"}`}
-                            inputMode="decimal"
-                            maxLength={24}
-                            placeholder={shareMode === "shares" ? "1" : "0"}
-                            value={row[inputField]}
-                            onChange={(e) => updateShare(i, { [inputField]: e.target.value })}
-                          />
-                        </Field>
-                      )}
-                      <div className="ml-auto min-w-0 text-right">
-                        <p className="text-2xs uppercase text-muted">Owes</p>
-                        <output aria-label={`${personName} owes`} className="tnum break-words text-sm font-semibold text-fg">
-                          {splitResult.error ? "—" : formatINR(shareAmountPaise(row), { decimals: "always" })}
-                        </output>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-              <button type="button" onClick={addShareRow} disabled={!canAddPerson} className="text-label-sm uppercase text-brand-hover hover:underline disabled:cursor-not-allowed disabled:opacity-50">
-                + Add person
-              </button>
-              {shareMode === "equal" && (
-                <p className="text-2xs text-faint">Split equally between you and {selectedShareCount} {selectedShareCount === 1 ? "other" : "others"}.</p>
-              )}
-              {(errors.shares || splitResult.error) && <p role="alert" className="text-xs text-expense">{errors.shares || splitResult.error}</p>}
-              <div className="space-y-2 border-t border-border-faint pt-2 text-sm" aria-live="polite">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-muted">Others owe</span>
-                  <span className="tnum text-fg">{splitResult.error ? "—" : formatINR(sharesTotal, { decimals: "always" })}</span>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-muted">Your share{shareMode === "percent" && splitResult.yourPercentage !== null ? ` (${splitResult.yourPercentage}%)` : ""}</span>
-                  <span className="tnum font-semibold text-fg">{splitResult.error ? "—" : formatINR(yourShare, { decimals: "always" })}</span>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-muted">Expense total</span>
-                  <span className="tnum text-fg">{formatINR(totalForShares, { decimals: "always" })}</span>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+      <PeopleSplitSection
+        type={type}
+        peopleEnabled={peopleEnabled}
+        setPeopleEnabled={setPeopleEnabled}
+        shareMode={shareMode}
+        setShareMode={setShareMode}
+        yourWeight={yourWeight}
+        setYourWeight={setYourWeight}
+        shareRows={shareRows}
+        addShareRow={addShareRow}
+        updateShare={updateShare}
+        removeShare={removeShare}
+        contacts={contacts}
+        availableContacts={availableContacts}
+        canAddPerson={canAddPerson}
+        selectedShareCount={selectedShareCount}
+        shareAmountPaise={shareAmountPaise}
+        sharesTotal={sharesTotal}
+        yourShare={yourShare}
+        yourPercentage={splitResult.yourPercentage}
+        totalForShares={totalForShares}
+        sharesError={errors.shares}
+        splitError={splitResult.error}
+      />
 
-      {/* Tags */}
-      <Field label="Tags" hint="Press Enter or comma to add.">
-        <div className={cn("flex flex-wrap items-center gap-1.5 rounded-none border border-border bg-surface px-2 py-1.5")}>
-          {tags.map((t) => (
-            <span key={t} className="inline-flex items-center gap-1 rounded bg-surface-2 px-2 py-0.5 text-xs text-fg">
-              {t}
-              <button type="button" onClick={() => setTags((prev) => prev.filter((x) => x !== t))} aria-label={`Remove ${t}`}>
-                <X className="h-3 w-3 text-faint hover:text-fg" />
-              </button>
-            </span>
-          ))}
-          <input
-            value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === ",") {
-                e.preventDefault();
-                addTag(tagInput);
-              } else if (e.key === "Backspace" && !tagInput && tags.length) {
-                setTags((prev) => prev.slice(0, -1));
-              }
-            }}
-            onBlur={() => tagInput && addTag(tagInput)}
-            placeholder={tags.length ? "" : "Add a tag…"}
-            className="min-w-[80px] flex-1 bg-transparent py-0.5 text-sm text-fg placeholder:text-faint focus:outline-none"
-          />
-        </div>
-      </Field>
+      <TagsInput tags={tags} setTags={setTags} tagInput={tagInput} setTagInput={setTagInput} addTag={addTag} />
 
       {showNotes ? (
         <Field label="Notes" htmlFor="notes">
