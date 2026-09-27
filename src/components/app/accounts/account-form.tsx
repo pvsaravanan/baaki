@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Field, Input, Select } from "@/components/ui/field";
+import { Field, Input } from "@/components/ui/field";
+import { SelectMenu } from "@/components/ui/select-menu";
 import { Icon } from "@/components/icon";
 import { ApiError, apiPatch, apiPost } from "@/lib/http";
 import { toRupees } from "@/lib/money";
@@ -132,21 +133,18 @@ export function AccountForm({
 
       <div className="grid grid-cols-2 gap-3">
         <Field label="Account Type" htmlFor="acc-type" error={errors.type}>
-          <Select
+          <SelectMenu
             id="acc-type"
             value={typeSelect}
-            onChange={(e) => {
-              setTypeSelect(e.target.value);
-              if (e.target.value !== "bank" && icon.startsWith(BANK_ICON_PREFIX)) setIcon("landmark");
+            onChange={(v) => {
+              setTypeSelect(v);
+              if (v !== "bank" && icon.startsWith(BANK_ICON_PREFIX)) setIcon("landmark");
             }}
-          >
-            {ACCOUNT_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {ACCOUNT_TYPE_LABELS[t]}
-              </option>
-            ))}
-            <option value="__custom__">+ Custom account type…</option>
-          </Select>
+            options={[
+              ...ACCOUNT_TYPES.map((t) => ({ value: t, label: ACCOUNT_TYPE_LABELS[t] })),
+              { value: "__custom__", label: "+ Custom account type…" },
+            ]}
+          />
         </Field>
 
         <Field

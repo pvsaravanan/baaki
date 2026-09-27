@@ -11,7 +11,8 @@ import { useAppData } from "@/components/app/app-data";
 import { ThemeSelector } from "@/components/app/theme-selector";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Field, Input, Select } from "@/components/ui/field";
+import { Field, Input } from "@/components/ui/field";
+import { SelectMenu } from "@/components/ui/select-menu";
 import { Switch } from "@/components/ui/switch";
 import { AvatarCropModal } from "./avatar-crop-modal";
 import { ExportModal } from "./export-modal";
@@ -290,19 +291,13 @@ export function SettingsView() {
         <CardHeader title="Default account" subtitle="Pre-selected when adding new transactions." />
         <CardBody>
           <Field label="Default account" htmlFor="default-account">
-            <Select
+            <SelectMenu
               id="default-account"
               value={preference.defaultAccountId ?? ""}
               disabled={savingAccount}
-              onChange={(e) => handleDefaultAccount(e.target.value)}
-            >
-              <option value="">No default</option>
-              {accounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
-              ))}
-            </Select>
+              onChange={handleDefaultAccount}
+              options={[{ value: "", label: "No default" }, ...accounts.map((a) => ({ value: a.id, label: a.name }))]}
+            />
           </Field>
         </CardBody>
       </Card>

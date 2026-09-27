@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { IncomeExpenseBars } from "@/components/charts/chart-kit";
+import { SelectMenu } from "@/components/ui/select-menu";
 
 type Range = "1m" | "3m" | "6m" | "1y";
 
@@ -12,9 +13,6 @@ const OPTIONS: { value: Range; label: string }[] = [
   { value: "1y", label: "Last 12 months" },
 ];
 const MONTHS: Record<Range, number> = { "1m": 1, "3m": 3, "6m": 6, "1y": 12 };
-
-const CHEVRON =
-  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")";
 
 type Point = { label: string; month: number; year: number; income: number; expense: number };
 
@@ -37,19 +35,14 @@ export function IncomeExpenseCard({ trend }: { trend: Point[] }) {
       <CardHeader
         title="Income vs expenses"
         action={
-          <select
-            aria-label="Timeline"
+          <SelectMenu
+            ariaLabel="Timeline"
             value={range}
-            onChange={(e) => setRange(e.target.value as Range)}
-            className="cursor-pointer appearance-none rounded-none border border-border bg-surface bg-[right_0.6rem_center] bg-no-repeat py-1.5 pl-3 pr-9 text-label-md uppercase text-fg transition-colors hover:bg-surface-2 focus:border-brand focus:outline-none focus:ring-2 focus:ring-ring/25"
-            style={{ backgroundImage: CHEVRON, backgroundSize: "0.85rem" }}
-          >
-            {OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => setRange(v as Range)}
+            options={OPTIONS}
+            size="sm"
+            className="min-w-[150px]"
+          />
         }
       />
       <CardBody className="pt-2">

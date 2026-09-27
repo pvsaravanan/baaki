@@ -1,7 +1,8 @@
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Field, Select } from "@/components/ui/field";
+import { Field } from "@/components/ui/field";
+import { SelectMenu } from "@/components/ui/select-menu";
 import type { ImportField } from "@/lib/csv";
 import { FIELDS, type DateFormat } from "./types";
 
@@ -48,19 +49,13 @@ export function MapStep({
         <div className="grid gap-4 sm:grid-cols-2">
           {FIELDS.map((f) => (
             <Field key={f.key} label={f.label} required={f.required} htmlFor={`map-${f.key}`}>
-              <Select
+              <SelectMenu
                 id={`map-${f.key}`}
                 value={mapping[f.key]}
                 invalid={f.required && !mapping[f.key]}
-                onChange={(e) => setMapping((m) => ({ ...m, [f.key]: e.target.value }))}
-              >
-                <option value="">— Not mapped —</option>
-                {headers.map((h) => (
-                  <option key={h} value={h}>
-                    {h}
-                  </option>
-                ))}
-              </Select>
+                onChange={(v) => setMapping((m) => ({ ...m, [f.key]: v }))}
+                options={[{ value: "", label: "— Not mapped —" }, ...headers.map((h) => ({ value: h, label: h }))]}
+              />
             </Field>
           ))}
         </div>
@@ -71,16 +66,17 @@ export function MapStep({
             htmlFor="date-format"
             hint="How dates are written in your CSV."
           >
-            <Select
+            <SelectMenu
               id="date-format"
               value={dateFormat}
-              onChange={(e) => setDateFormat(e.target.value as DateFormat)}
-            >
-              <option value="auto">Auto-detect format</option>
-              <option value="DD/MM/YYYY">DD/MM/YYYY (e.g. 31/07/2026)</option>
-              <option value="MM/DD/YYYY">MM/DD/YYYY (e.g. 07/31/2026)</option>
-              <option value="YYYY-MM-DD">YYYY-MM-DD (e.g. 2026-07-31)</option>
-            </Select>
+              onChange={(v) => setDateFormat(v as DateFormat)}
+              options={[
+                { value: "auto", label: "Auto-detect format" },
+                { value: "DD/MM/YYYY", label: "DD/MM/YYYY (e.g. 31/07/2026)" },
+                { value: "MM/DD/YYYY", label: "MM/DD/YYYY (e.g. 07/31/2026)" },
+                { value: "YYYY-MM-DD", label: "YYYY-MM-DD (e.g. 2026-07-31)" },
+              ]}
+            />
           </Field>
 
           <Field
@@ -91,17 +87,12 @@ export function MapStep({
             {accounts.length === 0 ? (
               <p className="text-sm text-muted">No accounts yet — create one first.</p>
             ) : (
-              <Select
+              <SelectMenu
                 id="default-account"
                 value={defaultAccountId}
-                onChange={(e) => setDefaultAccountId(e.target.value)}
-              >
-                {accounts.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-              </Select>
+                onChange={setDefaultAccountId}
+                options={accounts.map((a) => ({ value: a.id, label: a.name }))}
+              />
             )}
           </Field>
 

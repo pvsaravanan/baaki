@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Field, Input, Select } from "@/components/ui/field";
+import { Field, Input } from "@/components/ui/field";
+import { SelectMenu } from "@/components/ui/select-menu";
 import { Segmented } from "@/components/ui/segmented";
 import { useAppData } from "./app-data";
 import { ApiError, apiPatch, apiPost } from "@/lib/http";
@@ -237,26 +238,23 @@ export function RecurringForm({
                 + New
               </button>
             </div>
-            <Select
+            <SelectMenu
               id="category"
               value={categoryId}
               invalid={!!errors.categoryId}
-              onChange={(e) => {
-                if (e.target.value === "__new__") {
+              onChange={(v) => {
+                if (v === "__new__") {
                   setNewCatOpen(true);
                 } else {
-                  setCategoryId(e.target.value);
+                  setCategoryId(v);
                 }
               }}
-            >
-              {!categoryId && <option value="">Choose a category…</option>}
-              {eligibleCategories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-              <option value="__new__">+ Create new category…</option>
-            </Select>
+              options={[
+                ...(!categoryId ? [{ value: "", label: "Choose a category…" }] : []),
+                ...eligibleCategories.map((c) => ({ value: c.id, label: c.name })),
+                { value: "__new__", label: "+ Create new category…" },
+              ]}
+            />
             {errors.categoryId && <p className="text-xs text-expense">{errors.categoryId}</p>}
           </div>
         )}
@@ -267,50 +265,42 @@ export function RecurringForm({
           error={errors.accountId}
           className="col-span-2 sm:col-span-1"
         >
-          <Select id="account" value={accountId} invalid={!!errors.accountId} onChange={(e) => setAccountId(e.target.value)}>
-            {accounts.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-          </Select>
+          <SelectMenu
+            id="account"
+            value={accountId}
+            invalid={!!errors.accountId}
+            onChange={setAccountId}
+            options={accounts.map((a) => ({ value: a.id, label: a.name }))}
+          />
         </Field>
 
         {isTransfer && (
           <Field label="To account" htmlFor="toAccount" error={errors.transferAccountId} className="col-span-2 sm:col-span-1">
-            <Select
+            <SelectMenu
               id="toAccount"
               value={transferAccountId}
               invalid={!!errors.transferAccountId}
-              onChange={(e) => setTransferAccountId(e.target.value)}
-            >
-              <option value="">Select…</option>
-              {accounts
-                .filter((a) => a.id !== accountId)
-                .map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-            </Select>
+              onChange={setTransferAccountId}
+              options={[
+                { value: "", label: "Select…" },
+                ...accounts.filter((a) => a.id !== accountId).map((a) => ({ value: a.id, label: a.name })),
+              ]}
+            />
           </Field>
         )}
 
         {!isTransfer && (
           <div className="col-span-2 sm:col-span-1 space-y-1.5">
             <Field label="Payment method" htmlFor="method">
-              <Select
+              <SelectMenu
                 id="method"
                 value={methodSelect}
-                onChange={(e) => setMethodSelect(e.target.value)}
-              >
-                {PAYMENT_METHODS.map((m) => (
-                  <option key={m} value={m}>
-                    {PAYMENT_METHOD_LABELS[m]}
-                  </option>
-                ))}
-                <option value="__custom__">+ Custom payment type…</option>
-              </Select>
+                onChange={setMethodSelect}
+                options={[
+                  ...PAYMENT_METHODS.map((m) => ({ value: m, label: PAYMENT_METHOD_LABELS[m] })),
+                  { value: "__custom__", label: "+ Custom payment type…" },
+                ]}
+              />
             </Field>
             {methodSelect === "__custom__" && (
               <Input
@@ -327,13 +317,12 @@ export function RecurringForm({
       {/* Schedule */}
       <div className="grid grid-cols-2 gap-3">
         <Field label="Frequency" htmlFor="frequency" className="col-span-2 sm:col-span-1">
-          <Select id="frequency" value={frequency} onChange={(e) => setFrequency(e.target.value as Frequency)}>
-            {FREQUENCIES.map((f) => (
-              <option key={f} value={f}>
-                {FREQUENCY_LABELS[f]}
-              </option>
-            ))}
-          </Select>
+          <SelectMenu
+            id="frequency"
+            value={frequency}
+            onChange={(v) => setFrequency(v as Frequency)}
+            options={FREQUENCIES.map((f) => ({ value: f, label: FREQUENCY_LABELS[f] }))}
+          />
         </Field>
 
         <Field label="Repeat every" htmlFor="interval" error={errors.interval} hint="Number of periods between occurrences" className="col-span-2 sm:col-span-1">

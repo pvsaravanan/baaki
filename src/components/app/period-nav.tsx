@@ -2,7 +2,7 @@
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { addMonths, monthKeyString, monthLabel, type MonthKey } from "@/lib/dates";
-import { Select } from "@/components/ui/field";
+import { SelectMenu } from "@/components/ui/select-menu";
 import { cn } from "@/lib/cn";
 
 export type Period = "1m" | "3m" | "6m" | "1y";
@@ -58,15 +58,13 @@ export function PeriodNav({
 
   return (
     <div className={cn("inline-flex items-center gap-2", className)}>
-      <Select
+      <SelectMenu
         value={period}
-        onChange={(e) => handlePeriodChange(e.target.value)}
-        className="min-w-[150px] text-sm"
-      >
-        {(Object.entries(PERIOD_LABELS) as [Period, string][]).map(([value, label]) => (
-          <option key={value} value={value}>{label}</option>
-        ))}
-      </Select>
+        onChange={handlePeriodChange}
+        options={(Object.entries(PERIOD_LABELS) as [Period, string][]).map(([value, label]) => ({ value, label }))}
+        size="sm"
+        className="min-w-[150px]"
+      />
 
       {/* Month arrows only in single-month mode */}
       {period === "1m" && (

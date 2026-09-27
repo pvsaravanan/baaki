@@ -1,5 +1,6 @@
 import { X } from "lucide-react";
-import { Field, Input, Select } from "@/components/ui/field";
+import { Field, Input } from "@/components/ui/field";
+import { SelectMenu } from "@/components/ui/select-menu";
 import { formatINR } from "@/lib/money";
 import type { ContactDTO } from "@/lib/types";
 import type { TransactionType } from "@/lib/constants";
@@ -88,19 +89,20 @@ export function PeopleSplitSection({
             return (
               <div key={i} className="space-y-2 border border-border-faint bg-surface-2 p-2">
                 <div className="flex items-center gap-2">
-                  <Select
-                    aria-label={`Person ${i + 1}`}
+                  <SelectMenu
+                    ariaLabel={`Person ${i + 1}`}
                     value={row.contactId}
-                    onChange={(e) => updateShare(i, { contactId: e.target.value })}
+                    onChange={(v) => updateShare(i, { contactId: v })}
                     className="min-w-0 flex-1"
-                  >
-                    <option value="">Choose person…</option>
-                    {availableContacts.map((c) => (
-                      <option key={c.id} value={c.id} disabled={shareRows.some((other, index) => index !== i && other.contactId === c.id)}>
-                        {c.name}{c.isArchived ? " (archived)" : ""}
-                      </option>
-                    ))}
-                  </Select>
+                    options={[
+                      { value: "", label: "Choose person…" },
+                      ...availableContacts.map((c) => ({
+                        value: c.id,
+                        label: `${c.name}${c.isArchived ? " (archived)" : ""}`,
+                        disabled: shareRows.some((other, index) => index !== i && other.contactId === c.id),
+                      })),
+                    ]}
+                  />
                   <button type="button" onClick={() => removeShare(i)} aria-label={`Remove ${personName} from split`} className="p-2">
                     <X className="h-4 w-4 text-faint hover:text-expense" />
                   </button>

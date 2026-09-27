@@ -1,6 +1,7 @@
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input, Select } from "@/components/ui/field";
+import { Input } from "@/components/ui/field";
+import { SelectMenu } from "@/components/ui/select-menu";
 import { formatINR } from "@/lib/money";
 import type { AccountDTO, CategoryDTO } from "@/lib/types";
 import type { PartRow } from "./types";
@@ -70,22 +71,21 @@ export function SplitPartsEditor({
               value={part.amount}
               onChange={(e) => updatePart(i, { amount: e.target.value.replace(/[^0-9.]/g, "") })}
             />
-            <Select value={part.accountId} onChange={(e) => updatePart(i, { accountId: e.target.value })}>
-              {accounts.map((a) => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </Select>
+            <SelectMenu
+              value={part.accountId}
+              onChange={(v) => updatePart(i, { accountId: v })}
+              options={accounts.map((a) => ({ value: a.id, label: a.name }))}
+            />
           </div>
-          <Select
+          <SelectMenu
             value={part.categoryId}
             invalid={!!partsError && !part.categoryId}
-            onChange={(e) => updatePart(i, { categoryId: e.target.value })}
-          >
-            {!part.categoryId && <option value="">Choose a category…</option>}
-            {eligibleCategories.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </Select>
+            onChange={(v) => updatePart(i, { categoryId: v })}
+            options={[
+              ...(!part.categoryId ? [{ value: "", label: "Choose a category…" }] : []),
+              ...eligibleCategories.map((c) => ({ value: c.id, label: c.name })),
+            ]}
+          />
         </div>
       ))}
       {partsError && <p className="text-xs text-expense">{partsError}</p>}

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Field, Select } from "@/components/ui/field";
+import { Field } from "@/components/ui/field";
+import { SelectMenu } from "@/components/ui/select-menu";
 import { Modal } from "@/components/ui/modal";
 import { Money } from "@/components/money";
 import { useToast } from "@/components/ui/toast";
@@ -91,11 +92,12 @@ export function SettleModal({
           )}
           {record && hasAccounts && (
             <Field label={youOwe ? "Pay from" : "Deposit into"} htmlFor="settle-account">
-              <Select id="settle-account" value={accountId} onChange={(e) => setAccountId(e.target.value)}>
-                {accounts.map((a) => (
-                  <option key={a.id} value={a.id}>{a.name}</option>
-                ))}
-              </Select>
+              <SelectMenu
+                id="settle-account"
+                value={accountId}
+                onChange={setAccountId}
+                options={accounts.map((a) => ({ value: a.id, label: a.name }))}
+              />
             </Field>
           )}
         </div>

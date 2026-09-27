@@ -3,7 +3,8 @@ import { useState } from "react";
 import { Download } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import { Input, Select } from "@/components/ui/field";
+import { Input } from "@/components/ui/field";
+import { SelectMenu } from "@/components/ui/select-menu";
 import { useToast } from "@/components/ui/toast";
 import { useAppData } from "./app-data";
 import { downloadFile } from "@/lib/http";
@@ -107,45 +108,40 @@ export function ExportModal({
             <Input type="date" value={filters.end} onChange={(e) => set({ end: e.target.value })} />
           </FilterField>
           <FilterField label="Type">
-            <Select value={filters.type} onChange={(e) => set({ type: e.target.value })}>
-              <option value="">All types</option>
-              {TRANSACTION_TYPES.map((t) => (
-                <option key={t} value={t}>{TYPE_LABELS[t]}</option>
-              ))}
-            </Select>
+            <SelectMenu
+              value={filters.type}
+              onChange={(v) => set({ type: v })}
+              options={[{ value: "", label: "All types" }, ...TRANSACTION_TYPES.map((t) => ({ value: t, label: TYPE_LABELS[t] }))]}
+            />
           </FilterField>
           <FilterField label="Category">
-            <Select value={filters.categoryId} onChange={(e) => set({ categoryId: e.target.value })}>
-              <option value="">All categories</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </Select>
+            <SelectMenu
+              value={filters.categoryId}
+              onChange={(v) => set({ categoryId: v })}
+              options={[{ value: "", label: "All categories" }, ...categories.map((c) => ({ value: c.id, label: c.name }))]}
+            />
           </FilterField>
           <FilterField label="Account">
-            <Select value={filters.accountId} onChange={(e) => set({ accountId: e.target.value })}>
-              <option value="">All accounts</option>
-              {accounts.map((a) => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </Select>
+            <SelectMenu
+              value={filters.accountId}
+              onChange={(v) => set({ accountId: v })}
+              options={[{ value: "", label: "All accounts" }, ...accounts.map((a) => ({ value: a.id, label: a.name }))]}
+            />
           </FilterField>
           <FilterField label="Payment method">
-            <Select value={filters.paymentMethod} onChange={(e) => set({ paymentMethod: e.target.value })}>
-              <option value="">Any method</option>
-              {PAYMENT_METHODS.map((m) => (
-                <option key={m} value={m}>{PAYMENT_METHOD_LABELS[m]}</option>
-              ))}
-            </Select>
+            <SelectMenu
+              value={filters.paymentMethod}
+              onChange={(v) => set({ paymentMethod: v })}
+              options={[{ value: "", label: "Any method" }, ...PAYMENT_METHODS.map((m) => ({ value: m, label: PAYMENT_METHOD_LABELS[m] }))]}
+            />
           </FilterField>
           {tags.length > 0 && (
             <FilterField label="Tag">
-              <Select value={filters.tag} onChange={(e) => set({ tag: e.target.value })}>
-                <option value="">Any tag</option>
-                {tags.map((t) => (
-                  <option key={t.id} value={t.name}>{t.name}</option>
-                ))}
-              </Select>
+              <SelectMenu
+                value={filters.tag}
+                onChange={(v) => set({ tag: v })}
+                options={[{ value: "", label: "Any tag" }, ...tags.map((t) => ({ value: t.name, label: t.name }))]}
+              />
             </FilterField>
           )}
           <FilterField label="Search text">

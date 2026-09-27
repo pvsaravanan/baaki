@@ -3,7 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Field, Input, Select } from "@/components/ui/field";
+import { Field, Input } from "@/components/ui/field";
+import { SelectMenu } from "@/components/ui/select-menu";
 import { Badge, EmptyState } from "@/components/ui/misc";
 import { Modal } from "@/components/ui/modal";
 import { Switch } from "@/components/ui/switch";
@@ -309,13 +310,12 @@ function CategoryForm({
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label="Kind" htmlFor="cat-kind">
-          <Select id="cat-kind" value={kind} onChange={(e) => setKind(e.target.value as CategoryKind)}>
-            {CATEGORY_KINDS.map((k) => (
-              <option key={k} value={k}>
-                {KIND_LABELS[k]}
-              </option>
-            ))}
-          </Select>
+          <SelectMenu
+            id="cat-kind"
+            value={kind}
+            onChange={(v) => setKind(v as CategoryKind)}
+            options={CATEGORY_KINDS.map((k) => ({ value: k, label: KIND_LABELS[k] }))}
+          />
         </Field>
 
         <Field
