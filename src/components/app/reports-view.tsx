@@ -1,9 +1,8 @@
 "use client";
 import { useMemo, useState } from "react";
-import { Download, Printer } from "lucide-react";
+import { Download } from "lucide-react";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Money } from "@/components/money";
-import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/segmented";
 import { StatCard } from "@/components/app/stat-card";
 import { EmptyState } from "@/components/ui/misc";
@@ -54,8 +53,6 @@ export function ReportsView({
   const [downloading, setDownloading] = useState(false);
   const toast = useToast();
 
-  const reportLabel = REPORT_OPTIONS.find((o) => o.value === report)?.label ?? "Overview";
-
   async function handleExport() {
     setDownloading(true);
     await downloadFile("/api/export?format=csv", (message) => toast.error(message));
@@ -64,36 +61,24 @@ export function ReportsView({
 
   return (
     <div className="space-y-5">
-      {/* Print-only header: visible in PDF, hidden on screen */}
-      <div className="hidden print:block print:mb-2">
-        <h1 className="text-xl font-bold text-fg"><span className="text-brand-hover">baaki</span> — {reportLabel} Report</h1>
-        <p className="mt-1 text-sm text-muted">{monthLabel}</p>
-        <hr className="mt-3 border-border" />
-      </div>
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between print:hidden">
-        <div className="relative w-full sm:w-auto">
-          <Segmented value={report} onChange={setReport} options={REPORT_OPTIONS} size="sm" className="w-full sm:w-auto" />
-          {/* Fade hint that more tabs sit off-screen — the scrollbar itself is
-              hidden, so without this the last tab reads as clipped/broken
-              rather than scrollable. */}
-          <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-surface to-transparent sm:hidden" aria-hidden />
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleExport}
-            disabled={downloading}
-            className="flex-1 sm:flex-none inline-flex h-9 items-center justify-center gap-2 rounded-none border border-border-strong px-4 text-sm font-medium text-fg transition-colors hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-50"
-          >
-            <Download className="h-4 w-4" />
-            {downloading ? "Exporting…" : "Export CSV"}
-          </button>
-          <Button variant="outline" onClick={() => window.print()} className="flex-1 sm:flex-none">
-            <Printer className="h-4 w-4" />
-            Print / PDF
-          </Button>
-        </div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <Segmented
+          value={report}
+          onChange={setReport}
+          options={REPORT_OPTIONS}
+          size="sm"
+          wrap
+          className="w-full grid-cols-3 sm:w-[22rem]"
+        />
+        <button
+          type="button"
+          onClick={handleExport}
+          disabled={downloading}
+          className="inline-flex h-9 items-center justify-center gap-2 rounded-none border border-border-strong px-4 text-sm font-medium text-fg transition-colors hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-50"
+        >
+          <Download className="h-4 w-4" />
+          {downloading ? "Exporting…" : "Export CSV"}
+        </button>
       </div>
 
       {report === "overview" && <OverviewReport a={analytics} label={monthLabel} />}
@@ -232,30 +217,35 @@ function CategoryReport({ a, title }: { a: ReportsAnalytics; title: string }) {
           <CardHeader title="Breakdown" subtitle={`${rows.length} categories`} />
           <CardBody className="px-0 py-0">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              {/* table-fixed + an explicit width on every column except Category
+                  makes Category the only flexible one, so its name actually
+                  truncates to fit instead of forcing the whole table (and page)
+                  wider than the viewport. Txns hides below sm — least essential
+                  column, and the first to go on a narrow phone. */}
+              <table className="w-full table-fixed text-sm">
                 <thead>
                   <tr className="border-b border-border text-left text-xs text-muted">
-                    <th className="px-5 py-2.5 font-medium">Category</th>
-                    <th className="px-3 py-2.5 text-right font-medium">Txns</th>
-                    <th className="px-3 py-2.5 text-right font-medium">% of spend</th>
-                    <th className="px-5 py-2.5 text-right font-medium">Amount</th>
+                    <th className="px-3 py-2.5 font-medium sm:px-5">Category</th>
+                    <th className="hidden w-14 px-3 py-2.5 text-right font-medium sm:table-cell">Txns</th>
+                    <th className="w-16 px-2 py-2.5 text-right font-medium sm:w-20 sm:px-3">% of spend</th>
+                    <th className="w-28 px-2 py-2.5 text-right font-medium sm:w-32 sm:px-5">Amount</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {rows.map((c) => (
                     <tr key={c.categoryId ?? "none"}>
-                      <td className="px-5 py-2.5">
-                        <div className="flex items-center gap-2">
+                      <td className="min-w-0 px-3 py-2.5 sm:px-5">
+                        <div className="flex min-w-0 items-center gap-2">
                           <span className="h-2.5 w-2.5 shrink-0 rounded-none" style={{ backgroundColor: c.color }} />
-                          <Icon name={c.icon} size={15} className="text-muted" />
+                          <Icon name={c.icon} size={15} className="shrink-0 text-muted" />
                           <span className="truncate text-fg">{c.name}</span>
                         </div>
                       </td>
-                      <td className="px-3 py-2.5 text-right tabular-nums text-muted">{c.count}</td>
-                      <td className="px-3 py-2.5 text-right tabular-nums text-muted">
+                      <td className="hidden py-2.5 px-3 text-right tabular-nums text-muted sm:table-cell">{c.count}</td>
+                      <td className="px-2 py-2.5 text-right tabular-nums text-muted sm:px-3">
                         {totalSpend > 0 ? formatPercent((c.net / totalSpend) * 100) : "—"}
                       </td>
-                      <td className="px-5 py-2.5 text-right">
+                      <td className="px-2 py-2.5 text-right sm:px-5">
                         <Money paise={c.net} tone="default" className="font-medium" />
                       </td>
                     </tr>
@@ -263,12 +253,12 @@ function CategoryReport({ a, title }: { a: ReportsAnalytics; title: string }) {
                 </tbody>
                 <tfoot>
                   <tr className="border-t border-border font-medium">
-                    <td className="px-5 py-2.5 text-fg">Total</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums text-muted">
+                    <td className="px-3 py-2.5 text-fg sm:px-5">Total</td>
+                    <td className="hidden py-2.5 px-3 text-right tabular-nums text-muted sm:table-cell">
                       {rows.reduce((s, c) => s + c.count, 0)}
                     </td>
-                    <td className="px-3 py-2.5 text-right tabular-nums text-muted">100%</td>
-                    <td className="px-5 py-2.5 text-right">
+                    <td className="px-2 py-2.5 text-right tabular-nums text-muted sm:px-3">100%</td>
+                    <td className="px-2 py-2.5 text-right sm:px-5">
                       <Money paise={totalSpend} tone="default" className="font-semibold" />
                     </td>
                   </tr>
@@ -315,14 +305,22 @@ function AccountReport({ perAccount }: { perAccount: PerAccountRow[] }) {
         <CardHeader title="Accounts" subtitle="Balances and period activity" />
         <CardBody className="px-0 py-0">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            {/* table-fixed + an explicit width on every column but Account
+                keeps Account as the only flexible one, so a long name
+                truncates instead of forcing the table (and page) wider than
+                the viewport. Type/Txns hide below sm — the least essential
+                columns, and the first to go on a narrow phone. Every row
+                (including the footer) keeps the same cells with the same
+                hidden classes so column counts always line up — no colSpan
+                arithmetic to keep in sync with what's hidden. */}
+            <table className="w-full table-fixed text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs text-muted">
-                  <th className="px-5 py-2.5 font-medium">Account</th>
-                  <th className="px-3 py-2.5 font-medium">Type</th>
-                  <th className="px-3 py-2.5 text-right font-medium">Spent</th>
-                  <th className="px-3 py-2.5 text-right font-medium">Txns</th>
-                  <th className="px-5 py-2.5 text-right font-medium">Balance</th>
+                  <th className="px-3 py-2.5 font-medium sm:px-5">Account</th>
+                  <th className="hidden w-28 px-3 py-2.5 font-medium sm:table-cell">Type</th>
+                  <th className="w-24 px-2 py-2.5 text-right font-medium sm:w-28 sm:px-3">Spent</th>
+                  <th className="hidden w-14 px-3 py-2.5 text-right font-medium sm:table-cell">Txns</th>
+                  <th className="w-24 px-2 py-2.5 text-right font-medium sm:w-32 sm:px-5">Balance</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -330,19 +328,19 @@ function AccountReport({ perAccount }: { perAccount: PerAccountRow[] }) {
                   const p = spendById.get(acc.id);
                   return (
                     <tr key={acc.id}>
-                      <td className="px-5 py-2.5">
-                        <div className="flex items-center gap-2">
+                      <td className="min-w-0 px-3 py-2.5 sm:px-5">
+                        <div className="flex min-w-0 items-center gap-2">
                           <span className="h-2.5 w-2.5 shrink-0 rounded-none" style={{ backgroundColor: acc.color }} />
-                          <Icon name={acc.icon} size={15} className="text-muted" />
+                          <Icon name={acc.icon} size={15} className="shrink-0 text-muted" />
                           <span className="truncate text-fg">{acc.name}</span>
                         </div>
                       </td>
-                      <td className="px-3 py-2.5 text-muted">{formatAccountType(acc.type)}</td>
-                      <td className="px-3 py-2.5 text-right">
+                      <td className="hidden py-2.5 px-3 text-muted sm:table-cell">{formatAccountType(acc.type)}</td>
+                      <td className="px-2 py-2.5 text-right sm:px-3">
                         <Money paise={Math.max(0, p?.expense ?? 0)} tone={p && p.expense > 0 ? "expense" : "muted"} />
                       </td>
-                      <td className="px-3 py-2.5 text-right tabular-nums text-muted">{p?.count ?? 0}</td>
-                      <td className="px-5 py-2.5 text-right">
+                      <td className="hidden py-2.5 px-3 text-right tabular-nums text-muted sm:table-cell">{p?.count ?? 0}</td>
+                      <td className="px-2 py-2.5 text-right sm:px-5">
                         <Money paise={acc.balance} tone={acc.balance >= 0 ? "default" : "expense"} className="font-medium" />
                       </td>
                     </tr>
@@ -351,10 +349,11 @@ function AccountReport({ perAccount }: { perAccount: PerAccountRow[] }) {
               </tbody>
               <tfoot>
                 <tr className="border-t border-border font-medium">
-                  <td className="px-5 py-2.5 text-fg" colSpan={4}>
-                    Total balance
-                  </td>
-                  <td className="px-5 py-2.5 text-right">
+                  <td className="px-3 py-2.5 text-fg sm:px-5">Total balance</td>
+                  <td className="hidden sm:table-cell" />
+                  <td className="px-2 py-2.5 sm:px-3" />
+                  <td className="hidden sm:table-cell" />
+                  <td className="px-2 py-2.5 text-right sm:px-5">
                     <Money paise={totalBalance} tone="default" className="font-semibold" />
                   </td>
                 </tr>
