@@ -238,7 +238,7 @@ function CategoryForm({
   const [name, setName] = useState(initial?.name ?? "");
   const [kind, setKind] = useState<CategoryKind>(initial?.kind ?? "expense");
   const [icon, setIcon] = useState(initial?.icon ?? CATEGORY_ICONS[0]);
-  const [color, setColor] = useState(initial?.color ?? SWATCHES[0]);
+  const [color] = useState(initial?.color ?? SWATCHES[Math.floor(Math.random() * SWATCHES.length)]);
   const [budget, setBudget] = useState(
     initial?.monthlyBudget != null ? String(toRupees(initial.monthlyBudget)) : "",
   );
@@ -351,25 +351,6 @@ function CategoryForm({
             >
               <Icon name={n} size={16} />
             </button>
-          ))}
-        </div>
-      </Field>
-
-      <Field label="Color">
-        <div className="flex flex-wrap gap-2">
-          {SWATCHES.map((c) => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => setColor(c)}
-              aria-label={`Use color ${c}`}
-              aria-pressed={color === c}
-              className={cn(
-                "h-8 w-8 rounded-none ring-offset-2 ring-offset-surface transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
-                color === c && "ring-2 ring-fg",
-              )}
-              style={{ backgroundColor: c }}
-            />
           ))}
         </div>
       </Field>

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Check, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
 import { SelectMenu } from "@/components/ui/select-menu";
@@ -49,7 +49,7 @@ export function GoalForm({
 
   const [name, setName] = useState(initial?.name ?? "");
   const [icon, setIcon] = useState(initial?.icon ?? "target");
-  const [color, setColor] = useState(initial?.color ?? COLOR_OPTIONS[0]);
+  const [color] = useState(initial?.color ?? COLOR_OPTIONS[Math.floor(Math.random() * COLOR_OPTIONS.length)]);
   const [targetAmount, setTargetAmount] = useState(
     initial ? String(toRupees(initial.targetAmount)) : "",
   );
@@ -168,30 +168,6 @@ export function GoalForm({
                 )}
               >
                 <Icon name={opt} size={18} />
-              </button>
-            );
-          })}
-        </div>
-      </Field>
-
-      <Field label="Color">
-        <div className="flex flex-wrap gap-2">
-          {COLOR_OPTIONS.map((opt) => {
-            const active = opt.toLowerCase() === color.toLowerCase();
-            return (
-              <button
-                key={opt}
-                type="button"
-                onClick={() => setColor(opt)}
-                aria-label={`Color ${opt}`}
-                aria-pressed={active}
-                className={cn(
-                  "flex h-8 w-8 items-center justify-center rounded-none ring-offset-2 ring-offset-surface transition-shadow",
-                  active ? "ring-2 ring-fg" : "hover:ring-2 hover:ring-border",
-                )}
-                style={{ backgroundColor: opt }}
-              >
-                {active && <Check className="h-4 w-4 text-white" />}
               </button>
             );
           })}

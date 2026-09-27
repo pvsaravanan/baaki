@@ -31,7 +31,7 @@ export function AccountForm({
   const [typeSelect, setTypeSelect] = useState<string>(initialIsCustom ? "__custom__" : initial?.type ?? "bank");
   const [customType, setCustomType] = useState<string>(initialIsCustom ? initial?.type ?? "" : "");
   const [balance, setBalance] = useState(initial ? String(toRupees(initial.openingBalance)) : "");
-  const [color, setColor] = useState(initial?.color ?? SWATCHES[0]);
+  const [color, setColor] = useState(initial?.color ?? SWATCHES[Math.floor(Math.random() * SWATCHES.length)]);
   const [icon, setIcon] = useState(initial?.icon ?? ACCOUNT_ICONS[0]);
   // For the "bank" type, the account's display name comes from the picked
   // bank (or a manually-typed name for "other bank") rather than a free-text
@@ -216,29 +216,6 @@ export function AccountForm({
             placeholder="e.g. Mutual Fund, PF, Crypto, Gold, Chit Fund"
             autoFocus
           />
-        </Field>
-      )}
-
-      {/* A picked bank already carries its own brand color — asking the
-          user to also pick one would just be redundant/inconsistent. */}
-      {!selectedBank && (
-        <Field label="Color">
-          <div className="flex flex-wrap gap-2">
-            {SWATCHES.map((c) => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => setColor(c)}
-                aria-label={`Use color ${c}`}
-                aria-pressed={color === c}
-                className={cn(
-                  "h-8 w-8 rounded-none ring-offset-2 ring-offset-surface transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
-                  color === c && "ring-2 ring-fg",
-                )}
-                style={{ backgroundColor: c }}
-              />
-            ))}
-          </div>
         </Field>
       )}
 

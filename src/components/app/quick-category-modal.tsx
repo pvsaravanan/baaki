@@ -49,7 +49,6 @@ export function QuickCategoryModal({
   const [name, setName] = useState("");
   const [kind, setKind] = useState<CategoryKind>(defaultKind);
   const [icon, setIcon] = useState("tag");
-  const [color, setColor] = useState(SWATCHES[0]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,7 +60,6 @@ export function QuickCategoryModal({
       setName("");
       setKind(defaultKind);
       setIcon("tag");
-      setColor(SWATCHES[0]);
       setError(null);
     }
   }, [open, defaultKind]);
@@ -79,7 +77,7 @@ export function QuickCategoryModal({
         name: name.trim(),
         kind,
         icon,
-        color,
+        color: SWATCHES[Math.floor(Math.random() * SWATCHES.length)],
         isActive: true,
       });
       refresh();
@@ -132,26 +130,6 @@ export function QuickCategoryModal({
             autoFocus
           />
         </Field>
-
-        <div>
-          <label className="block text-label-sm uppercase text-muted">Color</label>
-          <div className="mt-1.5 flex flex-wrap gap-2">
-            {SWATCHES.map((hex) => (
-              <button
-                key={hex}
-                type="button"
-                onClick={() => setColor(hex)}
-                className={cn(
-                  "h-8 w-8 rounded-none border border-border transition-transform active:scale-95",
-                  color === hex && "ring-2 ring-fg ring-offset-2",
-                )}
-                style={{ backgroundColor: hex }}
-                aria-label={`Color ${hex}`}
-                aria-pressed={color === hex}
-              />
-            ))}
-          </div>
-        </div>
 
         <div>
           <label className="block text-label-sm uppercase text-muted">Icon</label>
