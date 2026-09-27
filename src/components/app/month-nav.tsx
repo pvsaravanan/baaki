@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { addMonths, monthKeyString, monthLabel, type MonthKey } from "@/lib/dates";
+import { addMonths, monthKeyOf, monthKeyString, monthLabel, type MonthKey } from "@/lib/dates";
 import { cn } from "@/lib/cn";
 import { MonthYearPicker } from "./month-year-picker";
 
@@ -49,6 +49,7 @@ export function MonthNav({ monthKey, isCurrent, className }: { monthKey: MonthKe
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
         value={monthKey}
+        maxMonth={monthKeyOf(new Date())}
         onSelect={(key) => {
           go(key);
           setPickerOpen(false);

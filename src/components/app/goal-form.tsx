@@ -1,13 +1,15 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Check } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Field, Input, Select } from "@/components/ui/field";
+import { Field, Input } from "@/components/ui/field";
+import { SelectMenu } from "@/components/ui/select-menu";
 import { Icon } from "@/components/icon";
 import { useAppData } from "./app-data";
+import { DatePicker } from "./date-picker";
 import { ApiError, apiPatch, apiPost } from "@/lib/http";
 import { toPaise, toRupees } from "@/lib/money";
-import { toISODate } from "@/lib/dates";
+import { toISODate, fromISODate, formatDate } from "@/lib/dates";
 import type { GoalDTO } from "@/lib/types";
 import { cn } from "@/lib/cn";
 
@@ -52,6 +54,7 @@ export function GoalForm({
     initial ? String(toRupees(initial.targetAmount)) : "",
   );
   const [targetDate, setTargetDate] = useState(initial?.targetDate ?? "");
+  const [targetPickerOpen, setTargetPickerOpen] = useState(false);
   const [accountId, setAccountId] = useState(initial?.accountId ?? "");
   const [initialAmount, setInitialAmount] = useState("");
 
@@ -214,26 +217,45 @@ export function GoalForm({
         </Field>
 
         <Field label="Target date" htmlFor="goal-date" hint="Optional" error={errors.targetDate} className="col-span-2 sm:col-span-1">
-          <Input
-            id="goal-date"
-            type="date"
-            value={targetDate}
-            min={editing ? undefined : toISODate(new Date())}
-            invalid={!!errors.targetDate}
-            onChange={(e) => setTargetDate(e.target.value)}
-          />
+          <div className="relative">
+            <button
+              type="button"
+              id="goal-date"
+              onClick={() => setTargetPickerOpen((o) => !o)}
+              aria-haspopup="true"
+              aria-expanded={targetPickerOpen}
+              className={cn(
+                "flex w-full items-center justify-between rounded-none border bg-surface px-4 py-3 text-left text-[16px] transition-colors focus:outline-none focus:ring-2 focus:ring-ring/25 sm:text-body-md",
+                errors.targetDate ? "border-expense focus:border-expense" : "border-border focus:border-brand",
+                targetDate ? "text-fg" : "text-faint",
+              )}
+            >
+              {targetDate ? formatDate(fromISODate(targetDate) ?? new Date()) : "No target date"}
+              <ChevronDown className="h-4 w-4 shrink-0 text-muted" />
+            </button>
+            <DatePicker
+              open={targetPickerOpen}
+              onClose={() => setTargetPickerOpen(false)}
+              value={targetDate || null}
+              minDate={editing ? undefined : toISODate(new Date())}
+              title="Target date"
+              onClear={() => setTargetDate("")}
+              onSelect={(iso) => {
+                setTargetDate(iso);
+                setTargetPickerOpen(false);
+              }}
+            />
+          </div>
         </Field>
       </div>
 
       <Field label="Linked account" htmlFor="goal-account" hint="Optional">
-        <Select id="goal-account" value={accountId} onChange={(e) => setAccountId(e.target.value)}>
-          <option value="">No linked account</option>
-          {accounts.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.name}
-            </option>
-          ))}
-        </Select>
+        <SelectMenu
+          id="goal-account"
+          value={accountId}
+          onChange={setAccountId}
+          options={[{ value: "", label: "No linked account" }, ...accounts.map((a) => ({ value: a.id, label: a.name }))]}
+        />
       </Field>
 
       {!editing && (

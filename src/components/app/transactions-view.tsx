@@ -1,10 +1,10 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import { CheckSquare, Filter, Search, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input, Select } from "@/components/ui/field";
-import { Modal } from "@/components/ui/modal";
+import { Input } from "@/components/ui/field";
+import { SelectMenu } from "@/components/ui/select-menu";
 import { EmptyState, Skeleton } from "@/components/ui/misc";
 import { Money } from "@/components/money";
 import { useConfirm } from "@/components/ui/confirm";
@@ -56,6 +56,7 @@ export function TransactionsView({
   const [filters, setFilters] = useState<Filters>(EMPTY);
   const [debouncedQ, setDebouncedQ] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const filterPanelRef = useRef<HTMLDivElement>(null);
   const [take, setTake] = useState(50);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -65,6 +66,24 @@ export function TransactionsView({
     const t = setTimeout(() => setDebouncedQ(filters.q), 300);
     return () => clearTimeout(t);
   }, [filters.q]);
+
+  // Filter panel: anchored dropdown, not a modal — page content stays
+  // visible and interactive around it, closing on outside click or Escape.
+  useEffect(() => {
+    if (!showFilters) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (filterPanelRef.current && !filterPanelRef.current.contains(e.target as Node)) setShowFilters(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowFilters(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [showFilters]);
 
   const query = useMemo(() => {
     const p = new URLSearchParams();
@@ -185,11 +204,107 @@ export function TransactionsView({
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
           <Input value={filters.q} onChange={(e) => set({ q: e.target.value })} placeholder="Search description, notes, merchant…" className="pl-9" />
         </div>
-        <Button variant={showFilters || activeChips.length ? "secondary" : "outline"} onClick={() => setShowFilters((s) => !s)}>
-          <Filter className="h-4 w-4" />
-          Filters
-          {activeChips.length > 0 && <span className="ml-1 rounded-none bg-brand px-1.5 text-2xs text-brand-fg">{activeChips.length}</span>}
-        </Button>
+        <div className="relative">
+          <Button
+            variant={showFilters || activeChips.length ? "secondary" : "outline"}
+            onClick={() => setShowFilters((s) => !s)}
+            aria-haspopup="true"
+            aria-expanded={showFilters}
+          >
+            <Filter className="h-4 w-4" />
+            Filters
+            {activeChips.length > 0 && <span className="ml-1 rounded-none bg-brand px-1.5 text-2xs text-brand-fg">{activeChips.length}</span>}
+          </Button>
+
+          {showFilters && (
+            <div
+              ref={filterPanelRef}
+              role="dialog"
+              aria-label="Filters"
+              className="absolute right-0 top-full z-30 mt-1.5 w-[min(92vw,34rem)] overflow-hidden rounded-none border-2 border-border bg-surface shadow-stamp-lg animate-scale-in"
+            >
+              <div className="flex items-center justify-between border-b border-border bg-brand-soft px-4 py-2.5">
+                <span className="text-sm font-semibold text-fg">Filters</span>
+                <button type="button" onClick={() => setShowFilters(false)} aria-label="Close" className="text-muted hover:text-fg">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="max-h-[60vh] overflow-y-auto p-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <FilterField label="Type">
+                    <SelectMenu
+                      value={filters.type}
+                      onChange={(type) => {
+                        setFilters((f) => {
+                          const cat = categories.find((c) => c.id === f.categoryId);
+                          // Switching to a type the current category doesn't fit (e.g.
+                          // an expense category while Type is now Income) — clear it
+                          // rather than silently keep filtering on a mismatched pair.
+                          const stillFits = !cat || categoryKindMatches(cat.kind, type);
+                          return { ...f, type, categoryId: stillFits ? f.categoryId : "" };
+                        });
+                      }}
+                      options={[{ value: "", label: "All types" }, ...TRANSACTION_TYPES.map((t) => ({ value: t, label: TYPE_LABELS[t] }))]}
+                    />
+                  </FilterField>
+                  <FilterField label="Category">
+                    <SelectMenu
+                      value={filters.categoryId}
+                      onChange={(v) => set({ categoryId: v })}
+                      options={[{ value: "", label: "All categories" }, ...eligibleCategories.map((c) => ({ value: c.id, label: c.name }))]}
+                    />
+                  </FilterField>
+                  <FilterField label="Account">
+                    <SelectMenu
+                      value={filters.accountId}
+                      onChange={(v) => set({ accountId: v })}
+                      options={[{ value: "", label: "All accounts" }, ...accounts.map((a) => ({ value: a.id, label: a.name }))]}
+                    />
+                  </FilterField>
+                  <FilterField label="Payment method">
+                    <SelectMenu
+                      value={filters.paymentMethod}
+                      onChange={(v) => set({ paymentMethod: v })}
+                      options={[{ value: "", label: "Any method" }, ...PAYMENT_METHODS.map((m) => ({ value: m, label: PAYMENT_METHOD_LABELS[m] }))]}
+                    />
+                  </FilterField>
+                  {tags.length > 0 && (
+                    <FilterField label="Tag" className="col-span-2">
+                      <SelectMenu
+                        value={filters.tag}
+                        onChange={(v) => set({ tag: v })}
+                        options={[{ value: "", label: "Any tag" }, ...tags.map((t) => ({ value: t.name, label: t.name }))]}
+                      />
+                    </FilterField>
+                  )}
+                  {/* Date and amount ranges share one labeled row each (two inputs
+                      side by side) instead of four separate label+field rows — the
+                      biggest win for vertical space on a phone-height sheet. */}
+                  <FilterField label="Date range" className="col-span-2">
+                    <div className="flex items-center gap-2">
+                      <Input type="date" aria-label="From date" value={filters.start} onChange={(e) => set({ start: e.target.value })} className="min-w-0 flex-1" />
+                      <span className="shrink-0 text-xs text-faint">to</span>
+                      <Input type="date" aria-label="To date" value={filters.end} onChange={(e) => set({ end: e.target.value })} className="min-w-0 flex-1" />
+                    </div>
+                  </FilterField>
+                  <FilterField label="Amount (₹)" className="col-span-2">
+                    <div className="flex items-center gap-2">
+                      <Input inputMode="decimal" aria-label="Min amount" value={filters.min} onChange={(e) => set({ min: e.target.value.replace(/[^0-9.]/g, "") })} placeholder="Min" className="min-w-0 flex-1" />
+                      <span className="shrink-0 text-xs text-faint">to</span>
+                      <Input inputMode="decimal" aria-label="Max amount" value={filters.max} onChange={(e) => set({ max: e.target.value.replace(/[^0-9.]/g, "") })} placeholder="Max" className="min-w-0 flex-1" />
+                    </div>
+                  </FilterField>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-2 border-t border-border bg-surface-2/50 px-4 py-3">
+                <Button variant="ghost" onClick={() => setFilters(EMPTY)}>Clear all</Button>
+                <Button onClick={() => setShowFilters(false)}>Done</Button>
+              </div>
+            </div>
+          )}
+        </div>
         <Button variant={selectMode ? "secondary" : "outline"} onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}>
           <CheckSquare className="h-4 w-4" />
           {selectMode ? "Cancel" : "Select"}
@@ -212,85 +327,6 @@ export function TransactionsView({
           </div>
         </div>
       )}
-
-      {/* Filter panel */}
-      <Modal
-        open={showFilters}
-        onClose={() => setShowFilters(false)}
-        title="Filters"
-        size="lg"
-        footer={
-          <div className="flex items-center justify-between gap-2">
-            <Button variant="ghost" onClick={() => setFilters(EMPTY)}>Clear all</Button>
-            <Button onClick={() => setShowFilters(false)}>Done</Button>
-          </div>
-        }
-      >
-        <div className="grid grid-cols-2 gap-3">
-          <FilterField label="Type">
-            <Select
-              value={filters.type}
-              onChange={(e) => {
-                const type = e.target.value;
-                setFilters((f) => {
-                  const cat = categories.find((c) => c.id === f.categoryId);
-                  // Switching to a type the current category doesn't fit (e.g.
-                  // an expense category while Type is now Income) — clear it
-                  // rather than silently keep filtering on a mismatched pair.
-                  const stillFits = !cat || categoryKindMatches(cat.kind, type);
-                  return { ...f, type, categoryId: stillFits ? f.categoryId : "" };
-                });
-              }}
-            >
-              <option value="">All types</option>
-              {TRANSACTION_TYPES.map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
-            </Select>
-          </FilterField>
-          <FilterField label="Category">
-            <Select value={filters.categoryId} onChange={(e) => set({ categoryId: e.target.value })}>
-              <option value="">All categories</option>
-              {eligibleCategories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </Select>
-          </FilterField>
-          <FilterField label="Account">
-            <Select value={filters.accountId} onChange={(e) => set({ accountId: e.target.value })}>
-              <option value="">All accounts</option>
-              {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-            </Select>
-          </FilterField>
-          <FilterField label="Payment method">
-            <Select value={filters.paymentMethod} onChange={(e) => set({ paymentMethod: e.target.value })}>
-              <option value="">Any method</option>
-              {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{PAYMENT_METHOD_LABELS[m]}</option>)}
-            </Select>
-          </FilterField>
-          {tags.length > 0 && (
-            <FilterField label="Tag" className="col-span-2">
-              <Select value={filters.tag} onChange={(e) => set({ tag: e.target.value })}>
-                <option value="">Any tag</option>
-                {tags.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
-              </Select>
-            </FilterField>
-          )}
-          {/* Date and amount ranges share one labeled row each (two inputs
-              side by side) instead of four separate label+field rows — the
-              biggest win for vertical space on a phone-height sheet. */}
-          <FilterField label="Date range" className="col-span-2">
-            <div className="flex items-center gap-2">
-              <Input type="date" aria-label="From date" value={filters.start} onChange={(e) => set({ start: e.target.value })} className="min-w-0 flex-1" />
-              <span className="shrink-0 text-xs text-faint">to</span>
-              <Input type="date" aria-label="To date" value={filters.end} onChange={(e) => set({ end: e.target.value })} className="min-w-0 flex-1" />
-            </div>
-          </FilterField>
-          <FilterField label="Amount (₹)" className="col-span-2">
-            <div className="flex items-center gap-2">
-              <Input inputMode="decimal" aria-label="Min amount" value={filters.min} onChange={(e) => set({ min: e.target.value.replace(/[^0-9.]/g, "") })} placeholder="Min" className="min-w-0 flex-1" />
-              <span className="shrink-0 text-xs text-faint">to</span>
-              <Input inputMode="decimal" aria-label="Max amount" value={filters.max} onChange={(e) => set({ max: e.target.value.replace(/[^0-9.]/g, "") })} placeholder="Max" className="min-w-0 flex-1" />
-            </div>
-          </FilterField>
-        </div>
-      </Modal>
 
       {/* Active chips */}
       {activeChips.length > 0 && (
