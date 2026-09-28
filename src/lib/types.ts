@@ -134,6 +134,13 @@ export interface GoalAllocationDTO {
   note: string | null;
 }
 
+/** What every page needs to warn before spending money reserved for goals. */
+export interface GoalMoneyDTO {
+  summary: GoalsSummaryDTO;
+  /** Goals currently holding money (archived ones release theirs). */
+  reserved: { id: string; name: string; allocated: number }[];
+}
+
 /** Where your money stands once goal allocations are set aside. */
 export interface GoalsSummaryDTO {
   actualBalance: number;

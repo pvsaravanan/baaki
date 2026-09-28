@@ -135,7 +135,7 @@ export function GoalDetail({
         All goals
       </Link>
 
-      <ShortfallBanner summary={summary} />
+      <ShortfallBanner summary={summary} goals={goals} onResolved={apply} />
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
         {/* Progress */}

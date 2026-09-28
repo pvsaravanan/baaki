@@ -1,7 +1,16 @@
+"use client";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, ArrowRight } from "lucide-react";
+import { AlertTriangle, ArrowRight, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Money } from "@/components/money";
-import type { GoalsSummaryDTO } from "@/lib/types";
+import { useToast } from "@/components/ui/toast";
+import { useAppData } from "../app-data";
+import { ApiError, apiPost } from "@/lib/http";
+import { formatINR } from "@/lib/money";
+import { countsTowardAllocated, shortfallPlan } from "@/lib/goal-allocation";
+import type { GoalDTO, GoalsSummaryDTO } from "@/lib/types";
+import type { GoalsResponse } from "../goal-form";
 import { cn } from "@/lib/cn";
 
 function Tile({ label, children, hint, className }: { label: string; children: React.ReactNode; hint?: string; className?: string }) {
@@ -37,15 +46,91 @@ export function MoneyStanding({ summary, activeGoals }: { summary: GoalsSummaryD
   );
 }
 
+/** Remembers (per browser) which over-allocation was hidden, so a new one shows again. */
+const DISMISS_KEY = "baaki:shortfall-dismissed";
+
+function planText(plan: { name: string; amount: number }[]): string {
+  const parts = plan.slice(0, 3).map((p) => `${formatINR(p.amount)} from ${p.name}`);
+  const more = plan.length - parts.length;
+  return `Removes ${parts.join(", ")}${more > 0 ? ` and ${more} more` : ""}.`;
+}
+
 /**
  * Shown when spending has pushed the actual balance below what's allocated.
- * Allocations are never reduced automatically — the user reviews and adjusts.
+ * Allocations are never reduced automatically — the user can fix it in one
+ * click (the plan is spelled out first), review the goals, or hide the
+ * warning until the over-allocated amount changes.
  */
-export function ShortfallBanner({ summary, reviewLink = false }: { summary: GoalsSummaryDTO; reviewLink?: boolean }) {
-  if (summary.shortfall <= 0) return null;
+export function ShortfallBanner({
+  summary,
+  goals,
+  reviewLink = false,
+  onResolved,
+}: {
+  summary: GoalsSummaryDTO;
+  goals: Pick<GoalDTO, "id" | "name" | "status" | "allocatedAmount">[];
+  reviewLink?: boolean;
+  /** Receives the refreshed goals; without it the page is refreshed. */
+  onResolved?: (res: GoalsResponse) => void;
+}) {
+  const { refresh } = useAppData();
+  const toast = useToast();
+  const [fixing, setFixing] = useState(false);
+  // null until the saved choice has been read, so a hidden banner never flashes.
+  const [hiddenFor, setHiddenFor] = useState<number | null | undefined>(undefined);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(DISMISS_KEY);
+      setHiddenFor(saved ? Number(saved) : null);
+    } catch {
+      setHiddenFor(null);
+    }
+  }, []);
+
+  if (summary.shortfall <= 0 || hiddenFor === undefined || hiddenFor === summary.shortfall) return null;
+
+  const plan = shortfallPlan(
+    goals
+      .filter((g) => countsTowardAllocated(g.status))
+      .map((g) => ({ id: g.id, name: g.name, allocated: g.allocatedAmount })),
+    summary.shortfall,
+  );
+
+  function hide() {
+    setHiddenFor(summary.shortfall);
+    try {
+      window.localStorage.setItem(DISMISS_KEY, String(summary.shortfall));
+    } catch {
+      /* hiding still works for this visit */
+    }
+  }
+
+  async function fix() {
+    setFixing(true);
+    try {
+      const res = await apiPost<GoalsResponse & { removed: { name: string; amount: number }[] }>("/api/goals/resolve-shortfall", {});
+      toast.success(res.removed.length ? `Allocations adjusted — ${planText(res.removed).replace(/^Removes/, "removed")}` : "Allocations already fit your balance");
+      if (onResolved) onResolved(res);
+      refresh();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not adjust allocations.");
+    } finally {
+      setFixing(false);
+    }
+  }
+
   return (
-    <div role="alert" className="flex gap-3 border border-expense bg-expense/10 p-4">
+    <div role="alert" className="relative flex gap-3 border border-expense bg-expense/10 p-4 pr-11">
       <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-expense" aria-hidden />
+      <button
+        type="button"
+        onClick={hide}
+        aria-label="Hide this warning"
+        className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center text-muted transition-colors hover:text-fg"
+      >
+        <X className="h-4 w-4" aria-hidden />
+      </button>
       <div className="min-w-0 text-body-sm">
         <p className="font-bold text-fg">
           You&apos;re over-allocated by <Money paise={summary.shortfall} tone="expense" />
@@ -57,18 +142,26 @@ export function ShortfallBanner({ summary, reviewLink = false }: { summary: Goal
           <dt className="text-muted">Allocated to goals</dt>
           <dd className="text-right"><Money paise={summary.totalAllocated} tone="default" /></dd>
         </dl>
-        <p className="mt-2 text-muted">
-          Your goals haven&apos;t been changed. Review them and remove some allocation, or add the income you&apos;re expecting.
-        </p>
-        {reviewLink && (
-          <Link
-            href="/goals"
-            className="mt-2 inline-flex items-center gap-1 text-label-md uppercase text-accent underline-offset-4 hover:underline"
-          >
-            Review goals
-            <ArrowRight className="h-3.5 w-3.5" aria-hidden />
-          </Link>
+        {plan.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+            <Button size="sm" onClick={fix} loading={fixing}>
+              Adjust allocations
+            </Button>
+            <span className="text-xs text-muted">{planText(plan)}</span>
+          </div>
         )}
+        <p className="mt-2 text-xs text-muted">
+          Your goals only change if you choose to.
+          {reviewLink && (
+            <>
+              {" "}
+              <Link href="/goals" className="inline-flex items-center gap-0.5 text-accent underline-offset-4 hover:underline">
+                Review goals
+                <ArrowRight className="h-3 w-3" aria-hidden />
+              </Link>
+            </>
+          )}
+        </p>
       </div>
     </div>
   );

@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
+  actualBalanceChange,
   allocateError,
   allocatedAmount,
   allocationSummary,
   estimatedCompletion,
+  goalMoneySpent,
   goalProgress,
   monthlyAllocationPace,
   removeError,
+  shortfallPlan,
   statusFor,
   totalAllocated,
 } from "./goal-allocation";
@@ -182,5 +185,95 @@ describe("insights", () => {
     expect(eta.getMonth()).toBe(2); // March
     expect(estimatedCompletion(0, 800_000, today)).toBeNull();
     expect(estimatedCompletion(100, null, today)).toBeNull();
+  });
+});
+
+describe("spending into goal money", () => {
+  const accounts = [
+    { id: "bank", isArchived: false },
+    { id: "cash", isArchived: false },
+    { id: "old", isArchived: true },
+  ];
+  // ₹2,517.13 actual, ₹2,500 allocated → ₹17.13 available.
+  const summary = { available: 1_713, totalAllocated: 250_000 };
+
+  it("is nothing while the spend fits in what's available", () => {
+    const change = actualBalanceChange([], [{ type: "expense", amount: 1_713, accountId: "bank" }], accounts);
+    expect(change).toBe(-1_713);
+    expect(goalMoneySpent(summary, change)).toBe(0);
+  });
+
+  it("is the part of the spend beyond what's available", () => {
+    const change = actualBalanceChange([], [{ type: "expense", amount: 50_000, accountId: "bank" }], accounts);
+    expect(goalMoneySpent(summary, change)).toBe(50_000 - 1_713);
+  });
+
+  it("never exceeds what's allocated", () => {
+    expect(goalMoneySpent(summary, -1_000_000)).toBe(250_000);
+  });
+
+  it("handles several expenses in a row, each against the balance the last one left", () => {
+    // Start: ₹2,517.13 actual, ₹2,500 allocated.
+    let actual = 251_713;
+    const allocated = 250_000;
+    const fromGoalsFor = (spend: number) => {
+      const s = allocationSummary(actual, allocated);
+      const taken = goalMoneySpent(s, -spend);
+      actual -= spend;
+      return taken;
+    };
+    expect(fromGoalsFor(1_000)).toBe(0); // ₹10 fits in the ₹17.13 available
+    expect(fromGoalsFor(50_000)).toBe(50_000 - 713); // ₹7.13 was still free
+    expect(allocationSummary(actual, allocated).shortfall).toBe(49_287);
+    expect(fromGoalsFor(30_000)).toBe(30_000); // already over: all of it is goal money
+    expect(allocationSummary(actual, allocated).shortfall).toBe(79_287);
+    // A spend bigger than everything left: only what physically remains was reserved.
+    expect(fromGoalsFor(500_000)).toBe(170_713);
+    expect(allocationSummary(actual, allocated).shortfall).toBe(allocated);
+  });
+
+  it("counts only the increase when editing", () => {
+    const before = [{ type: "expense", amount: 10_000, accountId: "bank" }];
+    const after = [{ type: "expense", amount: 11_000, accountId: "bank" }];
+    expect(actualBalanceChange(before, after, accounts)).toBe(-1_000);
+  });
+
+  it("ignores transfers between your accounts, and archived accounts", () => {
+    expect(actualBalanceChange([], [{ type: "transfer", amount: 90_000, accountId: "bank", transferAccountId: "cash" }], accounts)).toBe(0);
+    expect(actualBalanceChange([], [{ type: "expense", amount: 90_000, accountId: "old" }], accounts)).toBe(0);
+  });
+
+  it("is nothing when no money is allocated", () => {
+    expect(goalMoneySpent({ available: 0, totalAllocated: 0 }, -5_000)).toBe(0);
+  });
+});
+
+describe("shortfallPlan", () => {
+  it("takes it all from a single goal", () => {
+    expect(shortfallPlan([{ id: "mac", name: "Macbook", allocated: 250_000 }], 48_287)).toEqual([
+      { id: "mac", name: "Macbook", amount: 48_287 },
+    ]);
+  });
+
+  it("shares it in proportion across goals, to the paisa", () => {
+    const plan = shortfallPlan(
+      [
+        { id: "a", name: "A", allocated: 600_000 },
+        { id: "b", name: "B", allocated: 300_000 },
+        { id: "c", name: "C", allocated: 100_001 },
+      ],
+      100_000,
+    );
+    expect(plan.reduce((sum, p) => sum + p.amount, 0)).toBe(100_000);
+    expect(plan.find((p) => p.id === "a")!.amount).toBeGreaterThan(plan.find((p) => p.id === "b")!.amount);
+  });
+
+  it("never removes more than a goal holds, or more than is allocated", () => {
+    expect(shortfallPlan([{ id: "a", name: "A", allocated: 500 }], 9_999)).toEqual([{ id: "a", name: "A", amount: 500 }]);
+  });
+
+  it("is empty when there's no shortfall or nothing allocated", () => {
+    expect(shortfallPlan([{ id: "a", name: "A", allocated: 500 }], 0)).toEqual([]);
+    expect(shortfallPlan([{ id: "a", name: "A", allocated: 0 }], 100)).toEqual([]);
   });
 });

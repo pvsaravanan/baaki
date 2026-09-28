@@ -94,7 +94,7 @@ export function GoalsOverview({ goals: initialGoals, summary: initialSummary }: 
       </div>
 
       <MoneyStanding summary={summary} activeGoals={inProgress.length} />
-      <ShortfallBanner summary={summary} />
+      <ShortfallBanner summary={summary} goals={goals} onResolved={apply} />
 
       {current.length > 0 ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">

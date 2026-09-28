@@ -6,7 +6,10 @@ import { Field, Input, Textarea } from "@/components/ui/field";
 import { useAppData } from "./app-data";
 import { ApiError, apiPatch, apiPost } from "@/lib/http";
 import { toISODate } from "@/lib/dates";
-import { toPaise, toRupees } from "@/lib/money";
+import { formatINR, toPaise, toRupees } from "@/lib/money";
+import { actualBalanceChange, goalMoneySpent } from "@/lib/goal-allocation";
+import type { Movement } from "@/lib/balance-guard";
+import { useConfirm } from "@/components/ui/confirm";
 import { suggestCategoryKey } from "@/lib/categorize";
 import { QuickCategoryModal } from "./quick-category-modal";
 import { PAYMENT_METHODS, type TransactionType } from "@/lib/constants";
@@ -19,6 +22,7 @@ import { DateMethodFields } from "./transaction-form/date-method-fields";
 import { PeopleSplitSection } from "./transaction-form/people-split-section";
 import { TagsInput } from "./transaction-form/tags-input";
 import type { PartRow, ShareRow } from "./transaction-form/types";
+import { GoalMoneyNotice, reservedGoalsText } from "./transaction-form/goal-money-notice";
 
 /** Parse a rupee string to paise, or 0 if it doesn't parse — for running totals, not submission. */
 function safePaise(s: string): number {
@@ -46,7 +50,8 @@ export function TransactionForm({
   /** Notifies the parent (which owns the Modal) while a save is in flight. */
   onBusyChange?: (busy: boolean) => void;
 }) {
-  const { accounts, categories, contacts, preference } = useAppData();
+  const { accounts, categories, contacts, preference, goalMoney } = useAppData();
+  const confirm = useConfirm();
 
   const editingGroup = !!initialGroup && initialGroup.length > 0;
   // Shared fields (description, date, notes…) are uniform across a split
@@ -230,6 +235,30 @@ export function TransactionForm({
   const availableContacts = contacts.filter((c) => !c.isArchived || shareRows.some((row) => row.contactId === c.id));
   const canAddPerson = shareRows.length < 20 && contacts.some((c) => !c.isArchived && !shareRows.some((row) => row.contactId === c.id));
 
+  // How much of this entry would come out of money reserved for goals (the
+  // part beyond what's available) — shown as you type, confirmed on save.
+  const fromGoals = useMemo(() => {
+    const before: Movement[] = editingGroup
+      ? initialGroup!.map((t) => ({ type: t.type, amount: t.amount, accountId: t.accountId, transferAccountId: t.transferAccountId }))
+      : initial
+        ? [{ type: initial.type, amount: initial.amount, accountId: initial.accountId, transferAccountId: initial.transferAccountId }]
+        : [];
+    const after: Movement[] = splitEnabled
+      ? parts.map((p) => ({ type: "expense", amount: safePaise(p.amount), accountId: p.accountId }))
+      : [{ type, amount: Math.max(0, safePaise(amount)), accountId, transferAccountId: isTransfer ? transferAccountId : null }];
+    return goalMoneySpent(goalMoney.summary, actualBalanceChange(before, after, accounts));
+  }, [editingGroup, initialGroup, initial, splitEnabled, parts, type, amount, accountId, isTransfer, transferAccountId, goalMoney, accounts]);
+
+  /** Ask before saving an expense that dips into goal money. Goals are never changed. */
+  function confirmGoalSpend(): Promise<boolean> {
+    if (fromGoals <= 0) return Promise.resolve(true);
+    return confirm({
+      title: "Spend money reserved for goals?",
+      message: `${formatINR(fromGoals)} of this comes from money allocated to ${reservedGoalsText(goalMoney.reserved)}. Your goals won't change — you'll be over-allocated until you adjust them or add income.`,
+      confirmLabel: "Spend anyway",
+    });
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErrors({});
@@ -266,6 +295,8 @@ export function TransactionForm({
         setErrors(localErrors);
         return;
       }
+
+      if (!(await confirmGoalSpend())) return;
 
       const payload = {
         description: description.trim(),
@@ -314,6 +345,8 @@ export function TransactionForm({
       setErrors(localErrors);
       return;
     }
+
+    if (!(await confirmGoalSpend())) return;
 
     const payload = {
       type,
@@ -365,6 +398,7 @@ export function TransactionForm({
         amountError={errors.amount}
         editing={editing}
       />
+      {!splitEnabled && <GoalMoneyNotice fromGoals={fromGoals} goalMoney={goalMoney} />}
 
       <Field label="Description" htmlFor="description" error={errors.description} required>
         <Input
@@ -415,6 +449,7 @@ export function TransactionForm({
           transferAccountError={errors.transferAccountId}
         />
       )}
+      {splitEnabled && <GoalMoneyNotice fromGoals={fromGoals} goalMoney={goalMoney} />}
 
       <DateMethodFields
         date={date}

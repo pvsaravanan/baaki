@@ -123,3 +123,28 @@ describe("updateGoal", () => {
     );
   });
 });
+
+describe("resolveShortfall", () => {
+  it("removes exactly the shortfall and records it in the goal's history", async () => {
+    // ₹50,000 actual, but ₹60,000 allocated to one goal → ₹10,000 over.
+    setup([["active", 6_000_000]]);
+    db.financialGoal.findMany
+      .mockResolvedValueOnce([{ id: "macbook", status: "active", contributions: [{ amount: 6_000_000 }] }])
+      .mockResolvedValueOnce([
+        { id: "macbook", name: "Macbook", status: "active", targetAmount: 8_000_000, contributions: [{ amount: 6_000_000 }] },
+      ]);
+    const { resolveShortfall } = await import("./goals-service");
+    expect(await resolveShortfall("user")).toEqual([{ id: "macbook", name: "Macbook", amount: 1_000_000 }]);
+    expect(db.goalContribution.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ goalId: "macbook", amount: -1_000_000 }),
+    });
+    expect(db.transaction.create).not.toHaveBeenCalled();
+  });
+
+  it("does nothing when allocations already fit", async () => {
+    setup([["active", 1_000_000]]);
+    const { resolveShortfall } = await import("./goals-service");
+    expect(await resolveShortfall("user")).toEqual([]);
+    expect(db.goalContribution.create).not.toHaveBeenCalled();
+  });
+});

@@ -13,6 +13,7 @@
  * Pure functions only — the server enforces them (goals-service) and the UI
  * uses the same ones to explain what's possible.
  */
+import { accountDeltas, type Movement } from "./balance-guard";
 import { addMonthsToDate, daysBetween } from "./dates";
 import { formatINR } from "./money";
 import type { GoalStatus } from "./constants";
@@ -105,4 +106,65 @@ export function monthlyAllocationPace(history: { amount: number; date: Date }[],
 export function estimatedCompletion(remaining: number, pace: number | null, today: Date): Date | null {
   if (remaining <= 0 || !pace || pace <= 0) return null;
   return addMonthsToDate(today, Math.ceil(remaining / pace));
+}
+
+/**
+ * How replacing `before` with `after` (the entry being saved, and its old
+ * version when editing) changes the actual balance — only non-archived
+ * accounts count, as in actualBalance. Transfers between counted accounts net
+ * to zero.
+ */
+export function actualBalanceChange(
+  before: Movement[],
+  after: Movement[],
+  accounts: { id: string; isArchived: boolean }[],
+): number {
+  const counted = new Set(accounts.filter((a) => !a.isArchived).map((a) => a.id));
+  const sum = (moves: Movement[]) =>
+    [...accountDeltas(moves)].reduce((total, [id, delta]) => total + (counted.has(id) ? delta : 0), 0);
+  return sum(after) - sum(before);
+}
+
+/**
+ * How much of a balance change would come out of money reserved for goals:
+ * the part of the spend beyond what's available, up to the reserved money
+ * that still physically exists. Once earlier spending has already eaten into
+ * the allocations, only what's left of the actual balance can be spent from
+ * them — anything beyond that takes the balance below zero instead. Zero for
+ * changes that don't lower the balance.
+ */
+export function goalMoneySpent(summary: { available: number; totalAllocated: number }, balanceChange: number): number {
+  if (balanceChange >= 0 || summary.totalAllocated <= 0) return 0;
+  const actual = summary.available + summary.totalAllocated;
+  const reservedStillThere = Math.min(summary.totalAllocated, Math.max(0, actual));
+  const beyondAvailable = -balanceChange - Math.max(0, summary.available);
+  return Math.min(Math.max(0, beyondAvailable), reservedStillThere);
+}
+
+/**
+ * Which goals to take `shortfall` off so allocations fit the actual balance
+ * again: shared in proportion to what each holds (largest remainders get the
+ * leftover paise), never more than a goal has. Empty when there's nothing to fix.
+ */
+export function shortfallPlan(
+  goals: { id: string; name: string; allocated: number }[],
+  shortfall: number,
+): { id: string; name: string; amount: number }[] {
+  const holding = goals.filter((g) => g.allocated > 0);
+  const total = holding.reduce((sum, g) => sum + g.allocated, 0);
+  if (shortfall <= 0 || total <= 0) return [];
+  const target = Math.min(shortfall, total);
+  const shares = holding.map((g) => {
+    const exact = (target * g.allocated) / total;
+    return { g, amount: Math.floor(exact), rest: exact - Math.floor(exact) };
+  });
+  let left = target - shares.reduce((sum, s) => sum + s.amount, 0);
+  for (const s of [...shares].sort((a, b) => b.rest - a.rest)) {
+    if (left <= 0) break;
+    if (s.amount < s.g.allocated) {
+      s.amount += 1;
+      left -= 1;
+    }
+  }
+  return shares.filter((s) => s.amount > 0).map((s) => ({ id: s.g.id, name: s.g.name, amount: s.amount }));
 }

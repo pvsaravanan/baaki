@@ -223,7 +223,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             {activeGoals.map((g) => {
               const pct = goalProgress(g.allocatedAmount, g.targetAmount);
               return (
-                <div key={g.id}>
+                <Link
+                  key={g.id}
+                  href={`/goals/${g.id}`}
+                  className="-mx-2 block px-2 py-1 transition-colors hover:bg-surface-2 focus:outline-none focus-visible:bg-surface-2"
+                >
                   <div className="mb-1 flex items-center gap-2 text-sm">
                     <CategoryIcon icon={resolveGoalIcon(g.icon)} size={20} />
                     <span className="truncate font-medium text-fg">{g.name}</span>
@@ -234,7 +238,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                     <Money paise={g.allocatedAmount} tone="default" compact />
                     <Money paise={g.targetAmount} tone="muted" compact />
                   </div>
-                </div>
+                </Link>
               );
             })}
           </CardBody>
@@ -274,7 +278,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
       {/* Spending has eaten into money reserved for goals — say so, but never
           change the goals; the user decides what to adjust. */}
-      <ShortfallBanner summary={goalMoney} reviewLink />
+      <ShortfallBanner summary={goalMoney} goals={goals} reviewLink />
 
       {/* Number tiles, in the order chosen in Settings. */}
       {tiles.length > 0 && (

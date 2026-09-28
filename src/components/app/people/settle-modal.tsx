@@ -1,12 +1,16 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { SelectMenu } from "@/components/ui/select-menu";
 import { Modal } from "@/components/ui/modal";
 import { Money } from "@/components/money";
 import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/components/ui/confirm";
 import { useAppData } from "../app-data";
 import { ApiError, apiPost } from "@/lib/http";
+import { formatINR } from "@/lib/money";
+import { actualBalanceChange, goalMoneySpent } from "@/lib/goal-allocation";
+import { GoalMoneyNotice, reservedGoalsText } from "../transaction-form/goal-money-notice";
 import { cn } from "@/lib/cn";
 import type { ContactShareRow } from "@/lib/contacts-service";
 
@@ -21,8 +25,9 @@ export function SettleModal({
   onClose: () => void;
   onSettled: () => void;
 }) {
-  const { accounts, preference } = useAppData();
+  const { accounts, preference, goalMoney } = useAppData();
   const toast = useToast();
+  const confirm = useConfirm();
   const hasAccounts = accounts.length > 0;
   // Default unchecked for a brand-new user with no accounts yet — there's
   // nothing to record into, so leaving this checked would silently no-op
@@ -33,8 +38,26 @@ export function SettleModal({
 
   const youOwe = share?.direction === "you_owe";
 
+  // Paying someone back, recorded as an expense, is spending like any other:
+  // say so if part of it would come out of money reserved for goals.
+  const fromGoals = useMemo(() => {
+    if (!share || !youOwe || !record || !accountId) return 0;
+    const change = actualBalanceChange([], [{ type: "expense", amount: share.amount, accountId }], accounts);
+    return goalMoneySpent(goalMoney.summary, change);
+  }, [share, youOwe, record, accountId, accounts, goalMoney]);
+
   async function onConfirm() {
     if (!share) return;
+    if (
+      fromGoals > 0 &&
+      !(await confirm({
+        title: "Spend money reserved for goals?",
+        message: `${formatINR(fromGoals)} of this comes from money allocated to ${reservedGoalsText(goalMoney.reserved)}. Your goals won't change — you'll be over-allocated until you adjust them or add income.`,
+        confirmLabel: "Settle anyway",
+      }))
+    ) {
+      return;
+    }
     setBusy(true);
     try {
       await apiPost(`/api/shares/${share.id}/settle`, {
@@ -100,6 +123,7 @@ export function SettleModal({
               />
             </Field>
           )}
+          <GoalMoneyNotice fromGoals={fromGoals} goalMoney={goalMoney} />
         </div>
       )}
     </Modal>

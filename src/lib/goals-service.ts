@@ -11,11 +11,13 @@ import {
   allocateError,
   allocatedAmount,
   allocationSummary,
+  countsTowardAllocated,
   removeError,
+  shortfallPlan,
   statusFor,
   totalAllocated,
 } from "./goal-allocation";
-import type { GoalDTO, GoalsSummaryDTO } from "./types";
+import type { GoalDTO, GoalMoneyDTO, GoalsSummaryDTO } from "./types";
 
 /**
  * Goals as virtual allocations (see goal-allocation.ts). Nothing here ever
@@ -36,6 +38,17 @@ export async function loadGoalsOverview(userId: string): Promise<{ goals: GoalDT
   ]);
   const goals = rows.map(serializeGoal);
   return { goals, summary: summarize(actualBalance(accounts, txns), goals) };
+}
+
+/** The slim version for every page (the transaction form warns with it). */
+export async function loadGoalMoney(userId: string): Promise<GoalMoneyDTO> {
+  const { goals, summary } = await loadGoalsOverview(userId);
+  return {
+    summary,
+    reserved: goals
+      .filter((g) => countsTowardAllocated(g.status) && g.allocatedAmount > 0)
+      .map((g) => ({ id: g.id, name: g.name, allocated: g.allocatedAmount })),
+  };
 }
 
 function summarize(actual: number, goals: GoalDTO[]): GoalsSummaryDTO {
@@ -169,6 +182,34 @@ export async function updateGoal(
         status,
       },
     });
+  });
+}
+
+/**
+ * One-click fix for over-allocation: take the shortfall off the goals (shared
+ * in proportion to what each holds) so allocations fit the actual balance
+ * again. Recorded as ordinary removals in each goal's history. Returns what
+ * was removed from each goal; empty when there was nothing to fix.
+ */
+export async function resolveShortfall(userId: string) {
+  return serializable(async (db) => {
+    const { shortfall } = await standing(db, userId);
+    if (shortfall <= 0) return [];
+    const goals = await db.financialGoal.findMany({
+      where: { userId, status: { not: "archived" } },
+      select: { id: true, name: true, status: true, targetAmount: true, contributions: { select: { amount: true } } },
+      orderBy: GOAL_ORDER,
+    });
+    const withAllocated = goals.map((g) => ({ ...g, allocated: allocatedAmount(g.contributions) }));
+    const plan = shortfallPlan(withAllocated, shortfall);
+    for (const step of plan) {
+      const goal = withAllocated.find((g) => g.id === step.id)!;
+      await db.goalContribution.create({
+        data: { goalId: goal.id, amount: -step.amount, date: new Date(), note: "Adjusted to match your balance" },
+      });
+      await syncStatus(db, goal, goal.allocated - step.amount, goal.targetAmount);
+    }
+    return plan;
   });
 }
 
