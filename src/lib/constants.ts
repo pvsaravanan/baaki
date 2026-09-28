@@ -140,34 +140,6 @@ export const DEFAULT_CATEGORIES: DefaultCategory[] = [
  */
 export const CATEGORY_CHART_COLORS = DEFAULT_CATEGORIES.map((c) => c.color);
 
-export const DEFAULT_DASHBOARD_WIDGETS = [
-  "balance",
-  "monthly_spending",
-  "income",
-  "savings",
-  "budget",
-  "recent_transactions",
-  "spending_categories",
-  "financial_goals",
-  "upcoming_recurring",
-  "insights",
-] as const;
-
-export type WidgetKey = (typeof DEFAULT_DASHBOARD_WIDGETS)[number];
-
-export const WIDGET_LABELS: Record<WidgetKey, string> = {
-  balance: "Balance summary",
-  monthly_spending: "Monthly spending",
-  income: "Income",
-  savings: "Savings",
-  budget: "Budget progress",
-  recent_transactions: "Recent transactions",
-  spending_categories: "Spending by category",
-  financial_goals: "Financial goals",
-  upcoming_recurring: "Upcoming recurring",
-  insights: "Insights",
-};
-
 export function isTransactionType(v: string): v is TransactionType {
   return (TRANSACTION_TYPES as readonly string[]).includes(v);
 }

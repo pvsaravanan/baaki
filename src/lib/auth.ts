@@ -4,7 +4,8 @@ import { redirect } from "next/navigation";
 import type { JwtPayload } from "@supabase/supabase-js";
 import { prisma } from "./db";
 import { createClient } from "./supabase/server";
-import { DEFAULT_CATEGORIES, DEFAULT_DASHBOARD_WIDGETS } from "./constants";
+import { DEFAULT_CATEGORIES } from "./constants";
+import { DEFAULT_DASHBOARD_WIDGETS } from "./dashboard-widgets";
 
 /**
  * Identity is owned by Supabase Auth. This module bridges a Supabase auth user

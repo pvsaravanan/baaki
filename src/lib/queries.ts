@@ -18,7 +18,7 @@ import type {
   TagDTO,
   TransactionDTO,
 } from "./types";
-import { DEFAULT_DASHBOARD_WIDGETS } from "./constants";
+import { DEFAULT_DASHBOARD_WIDGETS, normalizeWidgets } from "./dashboard-widgets";
 
 /**
  * Per-request cached raw loaders. Both the layout loaders AND
@@ -119,7 +119,8 @@ export const loadPreference = cache(async (userId: string): Promise<PreferenceDT
   if (pref?.dashboardWidgets) {
     try {
       const parsed = JSON.parse(pref.dashboardWidgets);
-      if (Array.isArray(parsed) && parsed.length) widgets = parsed;
+      // Saved layouts may use the older, coarser widget keys — normalize.
+      if (Array.isArray(parsed) && parsed.length) widgets = normalizeWidgets(parsed.map(String));
     } catch {
       /* fall back to defaults */
     }

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Camera, Check, ChevronDown, ChevronRight, ChevronUp, Database, Download, FileSpreadsheet, LogOut, Upload,
 } from "lucide-react";
-import { DEFAULT_DASHBOARD_WIDGETS, WIDGET_LABELS, type WidgetKey } from "@/lib/constants";
+import { DASHBOARD_WIDGETS, normalizeWidgets, widgetKind, widgetLabel, type WidgetKey, type WidgetKind } from "@/lib/dashboard-widgets";
 import { apiPatch, ApiError, downloadFile } from "@/lib/http";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/cn";
@@ -25,19 +25,27 @@ interface WidgetItem {
   enabled: boolean;
 }
 
-/** Build the ordered widget list: saved widgets first (in their saved order),
- *  then any newly-added defaults appended and toggled off. */
+/**
+ * The ordered widget list, grouped tiles-then-cards (the dashboard renders
+ * them in separate rows): each group's saved widgets first, in saved order,
+ * then the rest of that group toggled off.
+ */
 function buildWidgetItems(saved: string[]): WidgetItem[] {
-  const valid = saved.filter((k): k is WidgetKey =>
-    (DEFAULT_DASHBOARD_WIDGETS as readonly string[]).includes(k),
-  );
-  const seen = new Set<WidgetKey>(valid);
-  const items: WidgetItem[] = valid.map((key) => ({ key, enabled: true }));
-  for (const key of DEFAULT_DASHBOARD_WIDGETS) {
-    if (!seen.has(key)) items.push({ key, enabled: false });
+  const enabled = normalizeWidgets(saved);
+  const items: WidgetItem[] = [];
+  for (const kind of ["tile", "card"] as const) {
+    for (const key of enabled) if (widgetKind(key) === kind) items.push({ key, enabled: true });
+    for (const { key } of DASHBOARD_WIDGETS) {
+      if (widgetKind(key) === kind && !enabled.includes(key)) items.push({ key, enabled: false });
+    }
   }
   return items;
 }
+
+const WIDGET_GROUPS: { kind: WidgetKind; title: string; hint: string }[] = [
+  { kind: "tile", title: "Top tiles", hint: "The row of figures at the top" },
+  { kind: "card", title: "Cards", hint: "Everything below the tiles" },
+];
 
 const SECTIONS = [
   { id: "profile", label: "Profile" },
@@ -191,10 +199,12 @@ export function SettingsView() {
     setWidgets((prev) => prev.map((w) => (w.key === key ? { ...w, enabled: !w.enabled } : w)));
   }
 
+  /** Swap with the neighbour above/below — only within the same group. */
   function move(index: number, dir: -1 | 1) {
     setWidgets((prev) => {
       const target = index + dir;
       if (target < 0 || target >= prev.length) return prev;
+      if (widgetKind(prev[target].key) !== widgetKind(prev[index].key)) return prev;
       const next = [...prev];
       [next[index], next[target]] = [next[target], next[index]];
       return next;
@@ -340,51 +350,63 @@ export function SettingsView() {
         <Section
           id="dashboard"
           title="Dashboard"
-          description="Pick the widgets on your dashboard and their order, top to bottom."
+          description="Pick what your dashboard shows and in what order, top to bottom."
           aside={
             <span className="text-label-md uppercase text-muted">
               {enabledOrder.length} of {widgets.length} shown
             </span>
           }
         >
-          <ul className="divide-y divide-border">
-            {widgets.map((w, i) => (
-              <li key={w.key} className="flex items-center gap-3 px-3 py-2.5 sm:px-5">
-                <span
-                  className={cn(
-                    "w-6 shrink-0 text-center text-label-md tabular-nums",
-                    w.enabled ? "text-fg" : "text-faint",
-                  )}
-                >
-                  {w.enabled ? enabledOrder.indexOf(w.key) + 1 : "–"}
-                </span>
-                <span className={cn("min-w-0 flex-1 truncate text-body-sm", w.enabled ? "text-fg" : "text-faint")}>
-                  {WIDGET_LABELS[w.key]}
-                </span>
-                <div className="flex shrink-0">
-                  <button
-                    type="button"
-                    aria-label={`Move ${WIDGET_LABELS[w.key]} up`}
-                    disabled={i === 0}
-                    onClick={() => move(i, -1)}
-                    className="flex h-8 w-8 items-center justify-center text-faint transition-colors hover:text-fg disabled:cursor-not-allowed disabled:opacity-30"
-                  >
-                    <ChevronUp className="h-4 w-4" aria-hidden />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`Move ${WIDGET_LABELS[w.key]} down`}
-                    disabled={i === widgets.length - 1}
-                    onClick={() => move(i, 1)}
-                    className="flex h-8 w-8 items-center justify-center text-faint transition-colors hover:text-fg disabled:cursor-not-allowed disabled:opacity-30"
-                  >
-                    <ChevronDown className="h-4 w-4" aria-hidden />
-                  </button>
+          {WIDGET_GROUPS.map((group) => {
+            const members = widgets.map((w, i) => ({ w, i })).filter(({ w }) => widgetKind(w.key) === group.kind);
+            const enabledInGroup = members.filter(({ w }) => w.enabled).map(({ w }) => w.key);
+            return (
+              <div key={group.kind}>
+                <div className="flex items-baseline justify-between gap-3 border-b border-border bg-surface-2 px-3 py-2 sm:px-5">
+                  <span className="text-label-md uppercase text-fg">{group.title}</span>
+                  <span className="text-xs text-muted">{group.hint}</span>
                 </div>
-                <Switch checked={w.enabled} onChange={() => toggleWidget(w.key)} label={WIDGET_LABELS[w.key]} />
-              </li>
-            ))}
-          </ul>
+                <ul className="divide-y divide-border">
+                  {members.map(({ w, i }, pos) => (
+                    <li key={w.key} className="flex items-center gap-3 px-3 py-2.5 sm:px-5">
+                      <span
+                        className={cn(
+                          "w-6 shrink-0 text-center text-label-md tabular-nums",
+                          w.enabled ? "text-fg" : "text-faint",
+                        )}
+                      >
+                        {w.enabled ? enabledInGroup.indexOf(w.key) + 1 : "–"}
+                      </span>
+                      <span className={cn("min-w-0 flex-1 truncate text-body-sm", w.enabled ? "text-fg" : "text-faint")}>
+                        {widgetLabel(w.key)}
+                      </span>
+                      <div className="flex shrink-0">
+                        <button
+                          type="button"
+                          aria-label={`Move ${widgetLabel(w.key)} up`}
+                          disabled={pos === 0}
+                          onClick={() => move(i, -1)}
+                          className="flex h-8 w-8 items-center justify-center text-faint transition-colors hover:text-fg disabled:cursor-not-allowed disabled:opacity-30"
+                        >
+                          <ChevronUp className="h-4 w-4" aria-hidden />
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Move ${widgetLabel(w.key)} down`}
+                          disabled={pos === members.length - 1}
+                          onClick={() => move(i, 1)}
+                          className="flex h-8 w-8 items-center justify-center text-faint transition-colors hover:text-fg disabled:cursor-not-allowed disabled:opacity-30"
+                        >
+                          <ChevronDown className="h-4 w-4" aria-hidden />
+                        </button>
+                      </div>
+                      <Switch checked={w.enabled} onChange={() => toggleWidget(w.key)} label={widgetLabel(w.key)} />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
           {/* Save bar — only when the layout differs from what's saved. */}
           {layoutDirty && (
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-brand-soft px-5 py-3">
