@@ -211,3 +211,19 @@ input[type="date"]::-webkit-date-and-time-value {
 input[type="date"]::-webkit-calendar-picker-indicator {
   margin-inline-start: auto;
 }
+
+/* Recharts makes chart parts focusable — the Pie's root <g> gets tabindex="0"
+   and every slice <g> *and* its <path> get tabindex="-1" — so clicking a
+   slice moves focus onto it and the browser draws its blue focus ring around
+   it. Charts here have no keyboard interaction to signal, so no element
+   inside a chart gets a focus ring, a tap flash, or text selection. */
+.recharts-wrapper,
+.recharts-wrapper * {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.recharts-wrapper *:focus,
+.recharts-wrapper *:focus-visible {
+  outline: none;
+}
