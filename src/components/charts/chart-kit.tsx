@@ -324,8 +324,8 @@ type DonutProps = {
  * Donut chart for category breakdown. Each slice carries its own color and its
  * category icon just outside the ring — a direct, at-a-glance key instead of a
  * color swatch list the reader has to cross-reference. Icons of small
- * neighbouring slices are spread apart so none overlap, with a thin line back
- * to their slice when moved. `activeIndex` rings and pops the
+ * neighbouring slices are spread apart so none overlap, and every icon has a
+ * thin line back to its slice. `activeIndex` rings and pops the
  * matching slice outward and dims the rest; hovering/tapping either the
  * slice or its icon drives it via `onHoverIndexChange`/`onSelectIndex`.
  */
@@ -372,22 +372,30 @@ function DonutChart({
     const size = DONUT_ICON_SIZE;
     const x = cx + iconRadius * Math.cos(-angle * RADIAN);
     const y = cy + iconRadius * Math.sin(-angle * RADIAN);
-    // Moved off its slice? Draw a hairline from the slice (past the selected
-    // pop-out) to the icon so it's still obvious which slice it belongs to.
-    const moved = Math.abs(angle - midAngle) > 2;
-    const lineFrom = outerRadius + 10;
-    const lineTo = iconRadius - size / 2 - 1;
+    // A straight connector from the slice's outer edge (at its middle, past
+    // the pop-out when it's selected) aimed at the icon's center, stopping at
+    // the icon — drawn for every slice, whether or not its icon was spread.
+    const startR = outerRadius + (index === activeIndex ? 11 : 2);
+    const sx = cx + startR * Math.cos(-midAngle * RADIAN);
+    const sy = cy + startR * Math.sin(-midAngle * RADIAN);
+    const dist = Math.hypot(x - sx, y - sy);
+    const stopShort = size / 2 + 2;
+    const line =
+      dist > stopShort + 2
+        ? { x2: x - ((x - sx) / dist) * stopShort, y2: y - ((y - sy) / dist) * stopShort }
+        : null;
     return (
       <g key={index}>
-        {moved && (
+        {line && (
           <line
-            x1={cx + lineFrom * Math.cos(-midAngle * RADIAN)}
-            y1={cy + lineFrom * Math.sin(-midAngle * RADIAN)}
-            x2={cx + lineTo * Math.cos(-angle * RADIAN)}
-            y2={cy + lineTo * Math.sin(-angle * RADIAN)}
+            x1={sx}
+            y1={sy}
+            x2={line.x2}
+            y2={line.y2}
             stroke={colors.axis}
-            strokeOpacity={0.5}
+            strokeOpacity={0.6}
             strokeWidth={1}
+            strokeLinecap="round"
             pointerEvents="none"
           />
         )}

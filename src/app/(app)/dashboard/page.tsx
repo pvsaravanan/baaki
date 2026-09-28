@@ -15,7 +15,7 @@ import { PageHeader } from "@/components/app/page-header";
 import { MonthNav } from "@/components/app/month-nav";
 import { SpendingCalendar } from "@/components/app/spending-calendar";
 import { TransactionRow } from "@/components/app/transaction-row";
-import { CategoryDonut } from "@/components/charts/chart-kit";
+import { InteractiveCategoryDonut } from "@/components/app/interactive-category-donut";
 import { IncomeExpenseCard } from "@/components/app/income-expense-card";
 import { formatINR, formatPercent } from "@/lib/money";
 
@@ -118,13 +118,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                   <EmptyState title="No spending yet" description="Categories appear as you spend." />
                 ) : (
                   <>
-                    <div className="relative">
-                      <CategoryDonut data={donutData} height={200} />
-                      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                        <span className="text-label-sm uppercase text-muted">Spent</span>
-                        <Money paise={a.current.effectiveExpense} tone="default" className="text-base font-semibold" compact />
-                      </div>
-                    </div>
+                    <InteractiveCategoryDonut
+                      data={donutData}
+                      height={200}
+                      total={a.current.effectiveExpense}
+                      totalLabel="Spent"
+                      labelClassName="max-w-[5.5rem] truncate text-label-sm uppercase text-muted"
+                    />
                     {/* Shared grid: percentage + amount columns size to the
                         widest value across ALL rows, so they stay in straight
                         lines regardless of amount magnitude. */}

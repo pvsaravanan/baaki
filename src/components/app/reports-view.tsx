@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Download } from "lucide-react";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Money } from "@/components/money";
@@ -10,7 +10,8 @@ import { Icon } from "@/components/icon";
 import { CategoryIcon } from "@/components/app/category-icon";
 import { useAppData } from "@/components/app/app-data";
 import { useToast } from "@/components/ui/toast";
-import { IncomeExpenseBars, TrendArea, CategoryDonut } from "@/components/charts/chart-kit";
+import { IncomeExpenseBars, TrendArea } from "@/components/charts/chart-kit";
+import { InteractiveCategoryDonut } from "@/components/app/interactive-category-donut";
 import { downloadFile } from "@/lib/http";
 import { formatPercent } from "@/lib/money";
 import { formatAccountType, CATEGORY_CHART_COLORS } from "@/lib/constants";
@@ -183,27 +184,6 @@ function OverviewReport({ a, label }: { a: ReportsAnalytics; label: string }) {
 
 function CategoryReport({ a, title }: { a: ReportsAnalytics; title: string }) {
   const rows = a.categories;
-  // Hover previews; a click/tap pins a selection that survives the mouse
-  // leaving so a tap on a touch device doesn't just flash and revert.
-  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
-  const [lockedIndex, setLockedIndex] = useState<number | null>(null);
-  const activeIndex = hoverIndex ?? lockedIndex;
-
-  // Any press that isn't on a slice or its icon — the donut's center, empty
-  // card space, anywhere else on the page — returns the chart to its resting
-  // state. Hover is cleared too: on touch there's no mouseleave, so a tapped
-  // slice's hover state would otherwise keep it highlighted.
-  useEffect(() => {
-    if (activeIndex === null) return;
-    const onPointerDown = (e: PointerEvent) => {
-      const target = e.target as Element | null;
-      if (target?.closest(".recharts-sector, [data-donut-slice]")) return;
-      setLockedIndex(null);
-      setHoverIndex(null);
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [activeIndex]);
   const totalSpend = useMemo(() => rows.reduce((s, c) => s + c.net, 0), [rows]);
   // The chart uses a dedicated ordered palette rather than each category's
   // own (possibly randomly-assigned) accent color — adjacent slices always
@@ -215,7 +195,6 @@ function CategoryReport({ a, title }: { a: ReportsAnalytics; title: string }) {
     color: CATEGORY_CHART_COLORS[i % CATEGORY_CHART_COLORS.length],
     icon: c.icon,
   }));
-  const activeItem = activeIndex !== null ? donutData[activeIndex] : null;
 
   if (rows.length === 0) {
     return (
@@ -235,23 +214,9 @@ function CategoryReport({ a, title }: { a: ReportsAnalytics; title: string }) {
         <Card className="min-w-0 lg:col-span-2">
           <CardHeader title={title} subtitle="Effective spend" />
           <CardBody>
-            <div className="relative">
-              {/* Each slice's own icon sits just outside the ring at its
-                  angle — a direct key instead of a color-swatch list to
-                  cross-reference. Hovering/tapping a slice or its icon pops
-                  it outward and swaps the center readout to that category. */}
-              <CategoryDonut
-                data={donutData}
-                height={300}
-                activeIndex={activeIndex}
-                onHoverIndexChange={setHoverIndex}
-                onSelectIndex={(i) => setLockedIndex((cur) => (cur === i ? null : i))}
-              />
-              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-2xs text-muted">{activeItem ? activeItem.name : "Total spent"}</span>
-                <Money paise={activeItem ? activeItem.value : totalSpend} tone="default" className="text-base font-semibold" compact />
-              </div>
-            </div>
+            {/* Each slice's own icon sits just outside the ring at its angle — a
+                direct key instead of a color-swatch list to cross-reference. */}
+            <InteractiveCategoryDonut data={donutData} height={300} total={totalSpend} totalLabel="Total spent" />
           </CardBody>
         </Card>
 
