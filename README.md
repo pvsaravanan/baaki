@@ -1,155 +1,96 @@
-# baaki
+# <img src="docs/baaki-mark.svg" alt="" height="32"> baaki
 
-**Know where your money goes.** A personal finance and expense tracker — record income,
-expenses, transfers and refunds; track budgets, savings and goals; and turn raw transactions
-into answers like *"where did my money go this month?"*
+**Know where your money goes.**
 
-Built with Next.js 15 (App Router) · TypeScript · Prisma · Supabase (Postgres) · Tailwind CSS.
+baaki is a personal finance app for everyday money in India. You record what comes in
+and what goes out, and baaki turns it into clear answers: how much you spent this month,
+where it went, how you're doing against your budget, and what's left to save.
 
-## Quick start
+It works in rupees from the ground up — Indian number formatting (`₹1,00,000`), UPI and
+net banking as payment methods, Indian bank logos — and it's built to be used on your
+phone as much as on a laptop.
+
+## What you can do with it
+
+### Record every rupee
+
+- **Transactions** — log expenses, income, transfers between your own accounts, and
+  refunds, with a date, payment method (UPI, cash, card, net banking), tags and notes.
+- **Automatic categorization** — type "Swiggy dinner" or "Uber to office" and baaki
+  picks the category for you. It's rule-based and runs instantly, with no AI service
+  involved.
+- **Split a transaction** across several categories or accounts, e.g. one supermarket
+  bill that's part groceries, part shopping.
+- **Search and filter** by date, type, category, account, payment method and tag.
+  Duplicate a transaction to re-enter a similar one quickly, undo a delete right after
+  making it, or select several transactions to delete them at once.
+
+### Organize it your way
+
+- **Accounts** — banks, cash, credit cards and wallets, each with its running balance.
+  Pick your bank from a list with its logo, or add any account type of your own.
+- **Categories** — start with a sensible set (Food, Groceries, Housing, Travel, Salary
+  and more), then rename, add, remove or pick from 73 illustrated icons to make them
+  yours.
+- **Recurring** — set up rent, bills, subscriptions and salary once (daily, weekly,
+  monthly, quarterly or yearly) and baaki records them when they're due.
+
+### Stay on track
+
+- **Budgets** — an overall monthly limit plus per-category limits, with clear warnings
+  as you approach or go over them.
+- **Goals** — save toward a trip, an emergency fund or a new phone. Set a target amount
+  and date, link it to an account, and add contributions as you go.
+- **People** — split expenses with friends, family or roommates, see who owes whom, and
+  settle up (optionally recording the repayment in one of your accounts).
+
+### Understand your money
+
+- **Dashboard** — this month at a glance: balance, income, spending, savings rate,
+  budget left, spending by category, a day-by-day spending calendar, recent
+  transactions, upcoming bills and goals. Choose which widgets appear and in what order.
+- **Insights** — plain-language observations drawn from your own numbers, like which
+  category dominated this month, how spending compares with last month, and what your
+  subscriptions cost.
+- **Trends** — how your income, spending and savings move over time, which categories
+  grew or shrank, and whether this month's spending is ahead of an even pace.
+- **Reports** — for any month: an overview, spending by category (an interactive chart
+  plus a full breakdown), balances by account, income, expenses and cash flow.
+
+### Your data, your control
+
+- **Import** transactions from a CSV (e.g. a bank statement): map its columns, preview
+  the rows, and see exactly which ones have problems (and why) before anything is saved.
+  Rows you've already imported are skipped, so re-importing a statement won't double up.
+- **Export** your transactions as CSV, or a full backup of everything as JSON, at any time.
+- **Personalize** — light or dark theme, a default account for new transactions, and a
+  profile photo.
+
+## How it's built
+
+- Every amount is stored as whole **paise** (1 rupee = 100 paise), never as a floating-point
+  number, so totals never drift by a paisa.
+- Insights and auto-categorization are deterministic rules computed from your own data
+  — your transactions are never sent to an AI service.
+- Sign-in, password reset and sessions are handled by Supabase Auth; every request is
+  checked so each person only ever sees their own data.
+
+Built with Next.js 15 (App Router), TypeScript, Prisma, Supabase (Postgres) and Tailwind CSS.
+
+## Running it yourself
 
 ```bash
 npm install
-cp .env.example .env   # then paste your Supabase connection strings (see below)
-npm run setup          # generate Prisma client, apply migrations to Postgres (empty)
+cp .env.example .env   # add your Supabase connection strings
+npm run setup          # generate the Prisma client and create the tables
 npm run dev            # http://localhost:3000
 ```
 
-### Database (Supabase)
+Then create an account at `/register`. You start with the default categories and two
+accounts (a bank account and cash), ready for your first transaction.
 
-1. Create a project at [supabase.com](https://supabase.com) and set a database password.
-2. In the dashboard, open **Connect → ORM** (Prisma) and copy the two strings into `.env`:
-   - `DATABASE_URL` — Transaction pooler (port `6543`), ends with `?pgbouncer=true`.
-   - `DIRECT_URL` — Session pooler / direct (port `5432`), used by Prisma Migrate.
-3. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` from your project's API settings. Set `SUPABASE_SERVICE_ROLE_KEY` on the server for avatar storage administration; never expose it to the browser.
-4. Configure Supabase Auth's site URL and allowed redirect URLs for your deployment, including `/auth/callback` and `/reset`.
-5. Run `npm run setup` to create the tables.
-
-### Schema changes (Prisma Migrate)
-
-Schema changes go through migration files in `prisma/migrations/`, not `prisma db push` —
-a push has no history and no safe way to roll a production schema forward or back.
-
-- **Local dev:** edit `prisma/schema.prisma`, then run `npm run db:migrate` to generate and
-  apply a new migration against your dev database. `migrate dev` creates a disposable shadow
-  database to compute the diff; if your Postgres role can't create databases (some managed
-  Supabase roles can't), add a `shadowDatabaseUrl` to the `datasource` block pointing at a
-  separate, empty database, or generate the SQL by hand with
-  `npx prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --script`.
-- **Production:** run `npm run db:deploy` (`prisma migrate deploy`) against the target
-  project's connection strings. It only applies migrations not yet recorded as applied —
-  never diffs or auto-generates SQL — so it's safe to run in CI/CD on every deploy.
-- Commit every migration folder under `prisma/migrations/` to git; it's the only record of
-  how the schema got here.
-
-The database starts empty. Create an account at `/register` — you begin with a set of
-default categories and two starter accounts (a bank account and cash), ready to record
-your first transaction.
-
-## Scripts
-
-| Script | What it does |
-| --- | --- |
-| `npm run dev` | Start the dev server |
-| `npm run build` | Production build (`prisma generate` + `next build`) |
-| `npm run start` | Run the production build |
-| `npm run test` | Run the financial-logic test suite (Vitest) |
-| `npm run db:migrate` | Create and apply a new migration from schema changes (dev) |
-| `npm run db:deploy` | Apply pending migrations only, no diffing (production) |
-| `npm run db:reset` | Drop and rebuild the dev DB from migration history |
-| `npm run setup` | generate + apply migrations (empty DB) in one step |
-
-## Deploying
-
-The app is a standard Next.js server and can run on any Node host (Vercel, Fly, a
-container, etc.). The database is Supabase (hosted Postgres) — see [Database](#database-supabase).
-
-**1. Set environment variables on the host.** `.env` is gitignored, so it is *not*
-shipped with the code — configure these in your host's environment settings:
-
-| Variable | Value |
-| --- | --- |
-| `DATABASE_URL` | Supabase **transaction pooler** (port `6543`), ending in `?pgbouncer=true`. Used by the app at runtime. |
-| `DIRECT_URL` | Supabase **session pooler / direct** (port `5432`). Used only by Prisma Migrate. |
-| `NEXT_PUBLIC_SUPABASE_URL` | Project API URL, used by Supabase Auth and Storage. |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public Supabase API key for browser/server auth clients. |
-| `SUPABASE_SERVICE_ROLE_KEY` | Server-only privileged key for avatar storage. Never expose it in client code. |
-
-**2. Build.** `npm run build` runs `prisma generate` then `next build`.
-
-**3. Apply pending migrations** as its own deploy step, before traffic hits the new build,
-against the target project's connection strings:
-
-```bash
-npm run db:deploy
-```
-
-This only applies migration files already committed under `prisma/migrations/` that aren't
-yet recorded as applied — it never diffs `schema.prisma` or generates SQL on the fly, so it's
-safe to run unattended on every deploy. Author and test new migrations locally first with
-`npm run db:migrate`, commit the generated `prisma/migrations/<timestamp>_<name>/` folder,
-then let this step apply it in each environment.
-
-Notes:
-
-- On serverless (e.g. Vercel), always use the **pooled** `DATABASE_URL` (`6543`) so
-  functions don't exhaust direct connections. `DIRECT_URL` is only for Prisma Migrate.
-- Supabase Auth owns passwords, sessions, email delivery and password recovery.
-  The legacy `AUTH_SECRET`, `RESEND_API_KEY` and `EMAIL_FROM` entries in `.env.example`
-  are not used by the current application.
-- Never commit real secrets. Keep them in the host's env config and in your local
-  gitignored `.env`; `.env.example` documents the shape with placeholders.
-
-## Money is never a float
-
-All monetary values are stored and computed as **integer paise** (1 rupee = 100 paise).
-Rupee values are only produced for display via `formatINR` / the `<Money>` component, which
-uses the Indian numbering system (`₹1,00,000`).
-
-## Architecture
-
-Clean separation of concerns:
-
-- `src/lib/calculations.ts` — pure, dependency-free financial calculations (balance, summaries,
-  category totals, budgets, savings rate, date-range filtering). Unit-tested.
-- `src/lib/analytics.ts` — server-side monthly analytics composed from the calc layer.
-- `src/lib/insights.ts` — deterministic insight generation from real aggregates (no AI).
-- `src/lib/categorize.ts` — rule-based auto-categorization (no AI required).
-- `src/lib/csv.ts` — CSV export + import validation/mapping (pure, tested).
-- `src/lib/queries.ts` — server data loaders; `src/lib/tx-service.ts` — transaction business logic.
-- `src/lib/auth.ts` — verified Supabase identity mapped to the local user profile.
-- `src/lib/account-form.ts` — account form validation, optional bank nicknames and bank-icon selection.
-- `src/app/api/**` — REST route handlers with authentication and per-user ownership checks.
-- `src/components/**` — reusable UI kit and feature components.
-
-## Verification
-
-```bash
-npm test
-npm run lint
-npx tsc --noEmit --incremental false
-npm run build
-```
-
-Tests cover financial calculations, CSV validation, account form behavior, profile linking,
-API errors and shared-expense guards. Database and auth interactions in service tests are
-mocked; these tests do not modify a live database or replace integration testing.
-
-`npm run lint` runs ESLint via `eslint-config-next` (see `eslint.config.mjs`); CI
-(`.github/workflows/ci.yml`) runs the same four commands above on every push and PR against
-`main`, with placeholder env vars — it never touches a real database.
-Do not run `setup`, `db:migrate`, `db:deploy` or `db:reset` as verification: they change the database.
-On Windows, Prisma generation can fail with `EPERM` when replacing its query-engine DLL.
-Close any running app process holding that DLL before retrying `npm run build`.
-`npx next build` can check application compilation with an existing generated Prisma client,
-but does not verify the Prisma generation step.
-
-## Security notes
-
-- API handlers require a valid Supabase identity and scope data access to the local user.
-- Profile linking requires a confirmed email and cannot overwrite another auth identity.
-- Passwords and session lifecycle are managed by Supabase Auth, not local bcrypt sessions.
-- Keep the service-role key server-only and configure Supabase Auth redirect URLs for each deployment.
+For database setup, schema changes, deployment, architecture and testing, see
+[docs/SETUP.md](docs/SETUP.md).
 
 ## License
 
