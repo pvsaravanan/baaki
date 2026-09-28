@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/field";
 import { SelectMenu } from "@/components/ui/select-menu";
 import { Switch } from "@/components/ui/switch";
 import { AvatarCropModal } from "./avatar-crop-modal";
+import { UserAvatar } from "./user-avatar";
 import { ExportModal } from "./export-modal";
 import { useToast } from "@/components/ui/toast";
 
@@ -71,7 +72,6 @@ export function SettingsView() {
     setDownloadingBackup(false);
   }
   const [cropSrc, setCropSrc] = useState<string | null>(null);
-  const initials = user.name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
 
   function handleAvatarSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -246,14 +246,7 @@ export function SettingsView() {
         <Section id="profile" title="Profile" description="How you appear in baaki.">
           <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center">
             <div className="relative h-20 w-20 shrink-0">
-              {user.avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={user.avatarUrl} alt="" className="h-20 w-20 rounded-full border border-border object-cover" />
-              ) : (
-                <span className="flex h-20 w-20 items-center justify-center rounded-full border border-border bg-brand-soft text-2xl font-bold text-fg">
-                  {initials || "U"}
-                </span>
-              )}
+              <UserAvatar url={user.avatarUrl} className="h-20 w-20" />
               <button
                 type="button"
                 onClick={() => fileRef.current?.click()}

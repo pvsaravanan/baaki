@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LogOut, Settings } from "lucide-react";
 import { useAppData } from "./app-data";
+import { UserAvatar } from "./user-avatar";
 import { useToast } from "@/components/ui/toast";
 import { createClient } from "@/lib/supabase/client";
 
@@ -22,8 +23,6 @@ export function UserMenu() {
     document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
-
-  const initials = user.name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
 
   async function logout() {
     // Only navigate once Supabase has actually cleared the session.
@@ -47,14 +46,7 @@ export function UserMenu() {
         aria-haspopup="menu"
         aria-expanded={open}
       >
-        {user.avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={user.avatarUrl} alt="" className="h-7 w-7 shrink-0 rounded-full border border-border object-cover" />
-        ) : (
-          <span className="flex h-7 w-7 items-center justify-center rounded-full border border-border bg-surface-2 text-sm font-bold text-brand">
-            {initials || "U"}
-          </span>
-        )}
+        <UserAvatar url={user.avatarUrl} className="h-7 w-7" />
         <span className="hidden max-w-[120px] truncate text-sm font-medium text-fg sm:block">{user.name}</span>
       </button>
       {open && (
