@@ -2,7 +2,11 @@ import Link from "next/link";
 import { ArrowUpRight, CalendarClock } from "lucide-react";
 import { requireUserOrRedirect } from "@/lib/auth";
 import { getMonthlyAnalytics } from "@/lib/analytics";
-import { loadGoals, loadPreference, loadRecurring, loadTransactions } from "@/lib/queries";
+import { loadPreference, loadRecurring, loadTransactions } from "@/lib/queries";
+import { loadGoalsOverview } from "@/lib/goals-service";
+import { goalProgress } from "@/lib/goal-allocation";
+import { resolveGoalIcon } from "@/lib/category-icons";
+import { ShortfallBanner } from "@/components/app/goals/money-standing";
 import { monthKeyOf, monthKeyString, parseMonthKey, fromISODate, formatDate, addDays, zonedParts, type MonthKey } from "@/lib/dates";
 import { monthlyContributionNeeded } from "@/lib/calculations";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
@@ -13,6 +17,7 @@ import { CategoryIcon } from "@/components/app/category-icon";
 import { StatCard } from "@/components/app/stat-card";
 import { PageHeader } from "@/components/app/page-header";
 import { MonthNav } from "@/components/app/month-nav";
+import { MonthContent, MonthScope } from "@/components/app/month-scope";
 import { SpendingCalendar } from "@/components/app/spending-calendar";
 import { TransactionRow } from "@/components/app/transaction-row";
 import { InteractiveCategoryDonut } from "@/components/app/interactive-category-donut";
@@ -26,12 +31,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const monthKey: MonthKey = parseMonthKey(m) ?? nowKey;
   const isCurrent = monthKey.year === nowKey.year && monthKey.month === nowKey.month;
 
-  const [a, pref, recent, recurring, goals] = await Promise.all([
+  const [a, pref, recent, recurring, { goals, summary: goalMoney }] = await Promise.all([
     getMonthlyAnalytics(user.id, monthKey),
     loadPreference(user.id),
     loadTransactions(user.id, { take: 6 }),
     loadRecurring(user.id),
-    loadGoals(user.id),
+    loadGoalsOverview(user.id),
   ]);
   const on = (key: string) => pref.dashboardWidgets.includes(key);
 
@@ -56,17 +61,31 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   const firstName = user.name.split(" ")[0];
 
+  // Goal allocations stay in the accounts, so Balance is unchanged; the hint
+  // says how much of it is still free.
+  const balanceHint =
+    goalMoney.shortfall > 0
+      ? `over-allocated by ${formatINR(goalMoney.shortfall)}`
+      : goalMoney.totalAllocated > 0
+        ? `${formatINR(goalMoney.available)} safe to spend`
+        : "across all accounts";
+
   return (
-    <div className="space-y-5">
+    <MonthScope monthKey={monthKeyString(monthKey)}>
       <PageHeader
         title={`${greeting()}, ${firstName}`}
         description="Here's where your money went this month."
         actions={<MonthNav monthKey={monthKey} isCurrent={isCurrent} className="w-full sm:w-auto" />}
       />
+      <MonthContent className="space-y-5">
+
+      {/* Spending has eaten into money reserved for goals — say so, but never
+          change the goals; the user decides what to adjust. */}
+      <ShortfallBanner summary={goalMoney} reviewLink />
 
       {/* Core stats */}
       <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-6">
-        <StatCard label="Balance" value={a.totalBalance} tone="default" hint="across all accounts" />
+        <StatCard label="Balance" value={a.totalBalance} tone="default" hint={balanceHint} />
         <StatCard label="Income" value={a.current.income} tone="income" delta={a.deltas.income} deltaGood="up" />
         <StatCard label="Expenses" value={a.current.effectiveExpense} tone="expense" delta={a.deltas.expense} deltaGood="down" />
         <StatCard label="Net savings" value={a.current.net} tone={a.current.net >= 0 ? "income" : "expense"} delta={a.deltas.net} deltaGood="up" />
@@ -203,17 +222,17 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
               <CardHeader title="Goals" action={<Link href="/goals" className="text-label-sm uppercase text-brand-hover underline-offset-4 hover:underline">All</Link>} />
               <CardBody className="space-y-4">
                 {activeGoals.map((g) => {
-                  const pct = g.targetAmount > 0 ? Math.min((g.currentAmount / g.targetAmount) * 100, 100) : 0;
+                  const pct = goalProgress(g.allocatedAmount, g.targetAmount);
                   return (
                     <div key={g.id}>
                       <div className="mb-1 flex items-center gap-2 text-sm">
-                        <Icon name={g.icon} size={15} className="text-brand-hover" />
+                        <CategoryIcon icon={resolveGoalIcon(g.icon)} size={20} />
                         <span className="truncate font-medium text-fg">{g.name}</span>
                         <span className="ml-auto text-xs text-muted">{formatPercent(pct, 0)}</span>
                       </div>
                       <Progress value={pct} />
                       <div className="mt-1 flex justify-between text-2xs text-muted">
-                        <Money paise={g.currentAmount} tone="default" compact />
+                        <Money paise={g.allocatedAmount} tone="default" compact />
                         <Money paise={g.targetAmount} tone="muted" compact />
                       </div>
                     </div>
@@ -238,7 +257,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           )}
         </div>
       </div>
-    </div>
+      </MonthContent>
+    </MonthScope>
   );
 }
 

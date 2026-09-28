@@ -3,19 +3,22 @@ import { CATEGORY_ICON_KEYS, categoryIconLabel, resolveCategoryIcon } from "@/li
 import { CategoryIcon } from "./category-icon";
 import { cn } from "@/lib/cn";
 
-/** Scrollable grid of every category icon; `value` may be a legacy name. */
+/** Scrollable grid of every illustrated icon; `value` may be a legacy line-icon name. */
 export function CategoryIconPicker({
   value,
   onChange,
+  label = "Category icon",
 }: {
   value: string;
   onChange: (key: string) => void;
+  /** Accessible name for the group (it's also used for goals and accounts). */
+  label?: string;
 }) {
   const selected = resolveCategoryIcon(value);
   return (
     <div
       role="radiogroup"
-      aria-label="Category icon"
+      aria-label={label}
       className="grid max-h-56 grid-cols-6 gap-1.5 overflow-y-auto border border-border bg-surface-2/30 p-1.5 sm:grid-cols-8"
     >
       {CATEGORY_ICON_KEYS.map((key) => {

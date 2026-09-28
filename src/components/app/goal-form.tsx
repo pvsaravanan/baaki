@@ -3,35 +3,16 @@ import { useEffect, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
-import { SelectMenu } from "@/components/ui/select-menu";
-import { Icon } from "@/components/icon";
-import { useAppData } from "./app-data";
+import { CategoryIconPicker } from "./category-icon-picker";
+import { DEFAULT_GOAL_ICON, resolveGoalIcon } from "@/lib/category-icons";
 import { DatePicker } from "./date-picker";
 import { ApiError, apiPatch, apiPost } from "@/lib/http";
 import { toPaise, toRupees } from "@/lib/money";
 import { toISODate, fromISODate, formatDate } from "@/lib/dates";
-import type { GoalDTO } from "@/lib/types";
+import type { GoalDTO, GoalsSummaryDTO } from "@/lib/types";
+
+export type GoalsResponse = { id?: string; goals: GoalDTO[]; summary: GoalsSummaryDTO };
 import { cn } from "@/lib/cn";
-
-const ICON_OPTIONS = [
-  "target",
-  "piggy-bank",
-  "plane",
-  "shopping-bag",
-  "graduation-cap",
-  "home",
-];
-
-const COLOR_OPTIONS = [
-  "#0d9488",
-  "#6366f1",
-  "#f97316",
-  "#ec4899",
-  "#22c55e",
-  "#3b82f6",
-  "#a855f7",
-  "#ef4444",
-];
 
 export function GoalForm({
   initial,
@@ -40,23 +21,19 @@ export function GoalForm({
   onBusyChange,
 }: {
   initial?: GoalDTO;
-  onSaved: (goals: GoalDTO[]) => void;
+  onSaved: (res: GoalsResponse) => void;
   onCancel?: () => void;
   onBusyChange?: (busy: boolean) => void;
 }) {
-  const { accounts } = useAppData();
   const editing = !!initial;
 
   const [name, setName] = useState(initial?.name ?? "");
-  const [icon, setIcon] = useState(initial?.icon ?? "target");
-  const [color] = useState(initial?.color ?? COLOR_OPTIONS[Math.floor(Math.random() * COLOR_OPTIONS.length)]);
+  const [icon, setIcon] = useState<string>(initial ? resolveGoalIcon(initial.icon) : DEFAULT_GOAL_ICON);
   const [targetAmount, setTargetAmount] = useState(
     initial ? String(toRupees(initial.targetAmount)) : "",
   );
   const [targetDate, setTargetDate] = useState(initial?.targetDate ?? "");
   const [targetPickerOpen, setTargetPickerOpen] = useState(false);
-  const [accountId, setAccountId] = useState(initial?.accountId ?? "");
-  const [initialAmount, setInitialAmount] = useState("");
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -81,18 +58,6 @@ export function GoalForm({
       localErrors.targetAmount = "Target must be greater than zero";
     }
 
-    let startPaise = 0;
-    if (!editing && initialAmount.trim()) {
-      try {
-        startPaise = toPaise(initialAmount);
-      } catch {
-        localErrors.initialAmount = "Enter a valid amount";
-      }
-      if (!localErrors.initialAmount && startPaise < 0) {
-        localErrors.initialAmount = "Starting amount cannot be negative";
-      }
-    }
-
     // Only on create — a goal's target date already having lapsed on an
     // existing, in-progress goal is fine (the user may just be catching up
     // on data entry); creating one already overdue with no warning isn't.
@@ -108,19 +73,16 @@ export function GoalForm({
     const payload = {
       name: name.trim(),
       icon,
-      color,
       targetAmount: targetPaise,
       targetDate: targetDate || null,
-      accountId: accountId || null,
-      ...(editing ? {} : { initialAmount: startPaise }),
     };
 
     setSaving(true);
     try {
       const res = editing
-        ? await apiPatch<{ goals: GoalDTO[] }>(`/api/goals/${initial!.id}`, payload)
-        : await apiPost<{ goals: GoalDTO[] }>("/api/goals", payload);
-      onSaved(res.goals);
+        ? await apiPatch<GoalsResponse>(`/api/goals/${initial!.id}`, payload)
+        : await apiPost<GoalsResponse>("/api/goals", payload);
+      onSaved(res);
     } catch (err) {
       if (err instanceof ApiError) {
         setFormError(err.message);
@@ -150,28 +112,7 @@ export function GoalForm({
       </Field>
 
       <Field label="Icon">
-        <div className="flex flex-wrap gap-2">
-          {ICON_OPTIONS.map((opt) => {
-            const active = opt === icon;
-            return (
-              <button
-                key={opt}
-                type="button"
-                onClick={() => setIcon(opt)}
-                aria-label={opt}
-                aria-pressed={active}
-                className={cn(
-                  "flex h-10 w-10 items-center justify-center rounded-none border transition-colors",
-                  active
-                    ? "border-brand bg-brand-soft text-brand-hover"
-                    : "border-border bg-surface text-muted hover:text-fg",
-                )}
-              >
-                <Icon name={opt} size={18} />
-              </button>
-            );
-          })}
-        </div>
+        <CategoryIconPicker value={icon} onChange={setIcon} label="Goal icon" />
       </Field>
 
       <div className="grid grid-cols-2 gap-3">
@@ -224,34 +165,6 @@ export function GoalForm({
           </div>
         </Field>
       </div>
-
-      <Field label="Linked account" htmlFor="goal-account" hint="Optional">
-        <SelectMenu
-          id="goal-account"
-          value={accountId}
-          onChange={setAccountId}
-          options={[{ value: "", label: "No linked account" }, ...accounts.map((a) => ({ value: a.id, label: a.name }))]}
-        />
-      </Field>
-
-      {!editing && (
-        <Field label="Starting amount" htmlFor="goal-initial" hint="Optional — already saved toward this goal" error={errors.initialAmount}>
-          <div className="relative">
-            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted">
-              ₹
-            </span>
-            <Input
-              id="goal-initial"
-              inputMode="decimal"
-              value={initialAmount}
-              invalid={!!errors.initialAmount}
-              onChange={(e) => setInitialAmount(e.target.value.replace(/[^0-9.]/g, ""))}
-              placeholder="0"
-              className="pl-7"
-            />
-          </div>
-        </Field>
-      )}
 
       <div className="flex gap-2 pt-1">
         {onCancel && (

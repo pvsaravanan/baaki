@@ -87,6 +87,15 @@ export function totalBalance(accounts: CalcAccount[], txns: CalcTxn[]): number {
   return accounts.reduce((sum, a) => sum + accountBalance(a, txns), 0);
 }
 
+/**
+ * The money you actually have: every non-archived account's balance, summed.
+ * This is the dashboard's "Balance" and the base that goal allocations are
+ * set aside from — one definition, so the two can never disagree.
+ */
+export function actualBalance(accounts: (CalcAccount & { isArchived: boolean })[], txns: CalcTxn[]): number {
+  return totalBalance(accounts.filter((a) => !a.isArchived), txns);
+}
+
 export interface PeriodSummary {
   income: number; // gross income
   grossExpense: number;

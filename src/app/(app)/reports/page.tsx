@@ -2,9 +2,10 @@ import { requireUserOrRedirect } from "@/lib/auth";
 import { getMonthlyAnalytics } from "@/lib/analytics";
 import { loadCalcTxns } from "@/lib/queries";
 import { filterRange } from "@/lib/calculations";
-import { monthKeyOf, monthLabel, monthRange, parseMonthKey, toISODate, type MonthKey } from "@/lib/dates";
+import { monthKeyOf, monthKeyString, monthLabel, monthRange, parseMonthKey, toISODate, type MonthKey } from "@/lib/dates";
 import { PageHeader } from "@/components/app/page-header";
 import { MonthNav } from "@/components/app/month-nav";
+import { MonthContent, MonthScope } from "@/components/app/month-scope";
 import { ReportsView, type PerAccountRow, type ReportsAnalytics } from "@/components/app/reports-view";
 
 export const metadata = { title: "Reports · baaki" };
@@ -47,13 +48,15 @@ export default async function ReportsPage({
   };
 
   return (
-    <div>
+    <MonthScope monthKey={monthKeyString(monthKey)}>
       <PageHeader
         title="Reports"
         description={`Financial breakdown for ${label}.`}
         actions={<MonthNav monthKey={monthKey} isCurrent={isCurrent} className="w-full sm:w-auto" />}
       />
-      <ReportsView analytics={serialized} monthLabel={label} perAccount={perAccount} />
-    </div>
+      <MonthContent>
+        <ReportsView analytics={serialized} monthLabel={label} perAccount={perAccount} />
+      </MonthContent>
+    </MonthScope>
   );
 }

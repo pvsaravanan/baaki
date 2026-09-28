@@ -7,6 +7,7 @@ import { Card, CardBody } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/misc";
 import { Money } from "@/components/money";
 import { Icon } from "@/components/icon";
+import { CategoryIcon } from "@/components/app/category-icon";
 import type { InsightTone } from "@/lib/insights";
 
 export const metadata = { title: "Insights · baaki" };
@@ -46,7 +47,7 @@ export default async function InsightsPage() {
         <Card>
           <CardBody>
             <EmptyState
-              icon={<Icon name="pie-chart" size={20} />}
+              icon={<CategoryIcon icon="report" size={32} />}
               title="No insights yet"
               description="Insights appear automatically as you record income and expenses this month."
             />

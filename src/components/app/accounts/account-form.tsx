@@ -2,16 +2,16 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
 import { SelectMenu } from "@/components/ui/select-menu";
-import { Icon } from "@/components/icon";
 import { ApiError, apiPatch, apiPost } from "@/lib/http";
 import { toRupees } from "@/lib/money";
 import { accountNameField, parseAccountForm } from "@/lib/account-form";
 import { ACCOUNT_TYPES, ACCOUNT_TYPE_LABELS } from "@/lib/constants";
 import type { AccountDTO } from "@/lib/types";
-import { cn } from "@/lib/cn";
 import { BANKS, BANK_ICON_PREFIX, getBankByIcon, type Bank } from "@/lib/banks";
 import { BankPicker } from "./bank-picker";
-import { SWATCHES, ACCOUNT_ICONS, OTHER_BANK } from "./constants";
+import { SWATCHES, OTHER_BANK } from "./constants";
+import { CategoryIconPicker } from "../category-icon-picker";
+import { DEFAULT_ACCOUNT_ICON } from "@/lib/category-icons";
 
 export function AccountForm({
   initial,
@@ -32,7 +32,7 @@ export function AccountForm({
   const [customType, setCustomType] = useState<string>(initialIsCustom ? initial?.type ?? "" : "");
   const [balance, setBalance] = useState(initial ? String(toRupees(initial.openingBalance)) : "");
   const [color, setColor] = useState(initial?.color ?? SWATCHES[Math.floor(Math.random() * SWATCHES.length)]);
-  const [icon, setIcon] = useState(initial?.icon ?? ACCOUNT_ICONS[0]);
+  const [icon, setIcon] = useState<string>(initial?.icon ?? DEFAULT_ACCOUNT_ICON);
   // For the "bank" type, the account's display name comes from the picked
   // bank (or a manually-typed name for "other bank") rather than a free-text
   // Name field — see pickBank / the name/nickname block below.
@@ -60,7 +60,7 @@ export function AccountForm({
   function pickBank(bank: Bank | "other" | null) {
     if (bank === "other") {
       setBankId(OTHER_BANK);
-      setIcon("landmark");
+      setIcon(DEFAULT_ACCOUNT_ICON);
       setBankQuery("");
       return;
     }
@@ -138,7 +138,7 @@ export function AccountForm({
             value={typeSelect}
             onChange={(v) => {
               setTypeSelect(v);
-              if (v !== "bank" && icon.startsWith(BANK_ICON_PREFIX)) setIcon("landmark");
+              if (v !== "bank" && icon.startsWith(BANK_ICON_PREFIX)) setIcon(DEFAULT_ACCOUNT_ICON);
             }}
             options={[
               ...ACCOUNT_TYPES.map((t) => ({ value: t, label: ACCOUNT_TYPE_LABELS[t] })),
@@ -221,23 +221,7 @@ export function AccountForm({
 
       {typeSelect !== "bank" && (
         <Field label="Icon">
-          <div className="flex flex-wrap gap-2">
-            {ACCOUNT_ICONS.map((name) => (
-              <button
-                key={name}
-                type="button"
-                onClick={() => setIcon(name)}
-                aria-label={`Use icon ${name}`}
-                aria-pressed={icon === name}
-                className={cn(
-                  "flex h-10 w-10 items-center justify-center rounded-none border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
-                  icon === name ? "border-brand bg-brand-soft text-brand-hover" : "border-border text-muted hover:text-fg",
-                )}
-              >
-                <Icon name={name} size={18} />
-              </button>
-            ))}
-          </div>
+          <CategoryIconPicker value={icon} onChange={setIcon} label="Account icon" />
         </Field>
       )}
 

@@ -3,9 +3,10 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Progress, EmptyState } from "@/components/ui/misc";
 import { PageHeader } from "./page-header";
 import { MonthNav } from "./month-nav";
+import { MonthContent, MonthScope } from "./month-scope";
 import { NetSavingsBars, CategoryChangeBars, SpendingPaceLine, SavingsGauge } from "@/components/charts/chart-kit";
 import { formatINR, formatPercent } from "@/lib/money";
-import type { MonthKey } from "@/lib/dates";
+import { monthKeyString, type MonthKey } from "@/lib/dates";
 
 export interface TrendsData {
   monthKey: MonthKey;
@@ -48,12 +49,13 @@ export function TrendsView(props: TrendsData) {
     budgetUsedPct === null ? "brand" : budgetUsedPct > 100 ? "expense" : budgetUsedPct >= 90 ? "warning" : "brand";
 
   return (
-    <div className="space-y-5">
+    <MonthScope monthKey={monthKeyString(monthKey)}>
       <PageHeader
         title="Trends"
         description="How your income, spending and savings move over time."
         actions={<MonthNav monthKey={monthKey} isCurrent={isCurrent} className="w-full sm:w-auto" />}
       />
+      <MonthContent className="space-y-5">
 
       <div className="grid min-w-0 gap-5 lg:grid-cols-2">
         {/* Net savings trend — full width time series */}
@@ -109,6 +111,7 @@ export function TrendsView(props: TrendsData) {
           </CardBody>
         </Card>
       </div>
-    </div>
+      </MonthContent>
+    </MonthScope>
   );
 }

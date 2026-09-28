@@ -12,6 +12,7 @@ import type {
   TransactionTag,
 } from "@prisma/client";
 import { toISODate } from "./dates";
+import { allocatedAmount } from "./goal-allocation";
 import type {
   AccountDTO,
   CategoryDTO,
@@ -134,25 +135,18 @@ export function serializeRecurring(r: RecurringTransaction): RecurringDTO {
 type GoalWithContributions = FinancialGoal & { contributions: GoalContribution[] };
 
 export function serializeGoal(g: GoalWithContributions): GoalDTO {
-  const currentAmount = g.contributions.reduce((sum, c) => sum + c.amount, 0);
   return {
     id: g.id,
     name: g.name,
     icon: g.icon,
-    color: g.color,
     targetAmount: g.targetAmount,
     targetDate: g.targetDate ? toISODate(g.targetDate) : null,
-    accountId: g.accountId,
     status: g.status as GoalStatus,
-    currentAmount,
-    contributions: g.contributions
+    allocatedAmount: allocatedAmount(g.contributions),
+    allocations: g.contributions
       .slice()
-      .sort((a, b) => b.date.getTime() - a.date.getTime())
-      .map((c) => ({
-        id: c.id,
-        amount: c.amount,
-        date: toISODate(c.date),
-        note: c.note,
-      })),
+      .sort((a, b) => b.date.getTime() - a.date.getTime() || b.createdAt.getTime() - a.createdAt.getTime())
+      .map((c) => ({ id: c.id, amount: c.amount, at: c.date.toISOString(), note: c.note })),
+    createdAt: g.createdAt.toISOString(),
   };
 }

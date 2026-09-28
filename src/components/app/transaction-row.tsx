@@ -119,16 +119,10 @@ export function TransactionRow({
     ? "#64748b"
     : cat?.color ?? (txn.type === "income" ? "#2c6b4f" : txn.type === "refund" ? "#3f7d6e" : "#64748b");
 
-  // A categorized transaction shows its category's illustration; transfers and
-  // uncategorized rows keep a plain symbol for what kind of movement they are.
-  const showCategoryIcon = !isTransfer && !!cat;
-  const iconName = isTransfer
-    ? "arrow-left-right"
-    : txn.type === "income"
-    ? "plus-circle"
-    : txn.type === "refund"
-    ? "trending-up"
-    : "tag";
+  // Transfers keep a plain ⇆ symbol (money moving between your own accounts);
+  // everything else shows an illustration — its category's, or one for its
+  // type when it has no category.
+  const fallbackIcon = txn.type === "income" ? "dollars" : txn.type === "refund" ? "payment" : "more";
 
   const openOrToggle = () => {
     if (selectMode) onToggleSelect?.(txn.id);
@@ -158,10 +152,10 @@ export function TransactionRow({
         style={{ color: badgeColor }}
         aria-label="Edit transaction"
       >
-        {showCategoryIcon ? (
-          <CategoryIcon icon={cat?.icon} size={30} />
+        {!isTransfer ? (
+          <CategoryIcon icon={cat?.icon ?? fallbackIcon} size={30} />
         ) : (
-          <Icon name={iconName} size={20} strokeWidth={2.2} />
+          <Icon name="arrow-left-right" size={20} strokeWidth={2.2} />
         )}
       </button>
 

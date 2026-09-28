@@ -2,7 +2,7 @@ import "server-only";
 import { prisma } from "./db";
 import { getUserAccounts, getUserCategories, loadBudget, loadCalcTxns } from "./queries";
 import {
-  accountBalance,
+  actualBalance,
   averageDailySpend,
   budgetStatus,
   categorySpend,
@@ -222,9 +222,7 @@ export async function getMonthlyAnalytics(
     transactionCount: current.count,
     // Exclude archived accounts so the dashboard total matches the Accounts and
     // Reports pages, which both filter out archived accounts.
-    totalBalance: accountsRaw
-      .filter((a) => !a.isArchived)
-      .reduce((sum, a) => sum + accountBalance({ id: a.id, openingBalance: a.openingBalance }, txns), 0),
+    totalBalance: actualBalance(accountsRaw, txns),
     avgDailySpend: avgDaily,
     subscriptionSpend,
     budget: { overallLimit: budget.overallLimit, overallSpent, status: overallStatus, lines },

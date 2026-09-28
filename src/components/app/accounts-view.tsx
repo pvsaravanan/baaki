@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/misc";
 import { Modal } from "@/components/ui/modal";
 import { Money } from "@/components/money";
-import { Icon } from "@/components/icon";
+import { CategoryIcon } from "./category-icon";
 import { useToast } from "@/components/ui/toast";
 import { useConfirm } from "@/components/ui/confirm";
 import { useAppData } from "./app-data";
@@ -83,7 +83,7 @@ export function AccountsView({ accounts: initial }: { accounts: AccountDTO[] }) 
       {accounts.length === 0 ? (
         <div className="rounded-none border border-border bg-surface">
           <EmptyState
-            icon={<Icon name="wallet" size={20} />}
+            icon={<CategoryIcon icon="payment" size={32} />}
             title="No accounts yet"
             description="Add a bank, wallet or card to start tracking balances."
             action={

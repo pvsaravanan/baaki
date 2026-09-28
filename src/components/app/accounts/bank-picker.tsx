@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
-import { Icon } from "@/components/icon";
+import { CategoryIcon } from "../category-icon";
+import { DEFAULT_ACCOUNT_ICON } from "@/lib/category-icons";
 import { BANKS, type Bank } from "@/lib/banks";
 import { BankLogo } from "../bank-logo";
 import { OTHER_BANK } from "./constants";
@@ -38,9 +39,7 @@ export function BankPicker({
         </div>
       ) : isOther ? (
         <div className="flex items-center gap-3 rounded-none border border-border bg-surface-2 px-3 py-2">
-          <span className="flex h-8 w-8 items-center justify-center text-muted">
-            <Icon name="landmark" size={18} />
-          </span>
+          <CategoryIcon icon={DEFAULT_ACCOUNT_ICON} size={32} />
           <p className="flex-1 truncate text-sm text-fg">Other bank</p>
           <Button type="button" variant="ghost" size="sm" onClick={() => onPick(null)}>
             Change
@@ -76,9 +75,7 @@ export function BankPicker({
                 onClick={() => onPick("other")}
                 className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-muted hover:bg-surface-2 focus:bg-surface-2 focus:outline-none"
               >
-                <span className="flex h-7 w-7 items-center justify-center text-muted">
-                  <Icon name="landmark" size={18} />
-                </span>
+                <CategoryIcon icon={DEFAULT_ACCOUNT_ICON} size={28} />
                 Other bank (not listed)
               </button>
             </li>

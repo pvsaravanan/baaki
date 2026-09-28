@@ -66,6 +66,9 @@ const LEGACY_ICONS: Readonly<Record<string, CategoryIconKey>> = {
   "trending-up": "profits",
   "plus-circle": "dollars",
   banknote: "dollars",
+  "piggy-bank": "money-sack",
+  "credit-card": "payment",
+  building: "accounting",
   smartphone: "mobile-phone",
   wifi: "utilities",
   "circle-dot": "more",
@@ -95,6 +98,16 @@ const SILHOUETTE_ICONS: ReadonlySet<CategoryIconKey> = new Set<CategoryIconKey>(
 export function isSilhouetteIcon(value: string | null | undefined): boolean {
   return SILHOUETTE_ICONS.has(resolveCategoryIcon(value));
 }
+
+/** New goals start with this icon; goals saved with the old line "target" icon show it too. */
+export const DEFAULT_GOAL_ICON: CategoryIconKey = "profits";
+
+export function resolveGoalIcon(value: string | null | undefined): CategoryIconKey {
+  return !value || value === "target" ? DEFAULT_GOAL_ICON : resolveCategoryIcon(value);
+}
+
+/** New non-bank accounts start with this icon. */
+export const DEFAULT_ACCOUNT_ICON: CategoryIconKey = "payment";
 
 /** "shopping-bag" → "Shopping bag", for accessible labels in the picker. */
 export function categoryIconLabel(key: CategoryIconKey): string {

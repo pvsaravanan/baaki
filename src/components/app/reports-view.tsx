@@ -6,8 +6,8 @@ import { Money } from "@/components/money";
 import { Segmented } from "@/components/ui/segmented";
 import { StatCard } from "@/components/app/stat-card";
 import { EmptyState } from "@/components/ui/misc";
-import { Icon } from "@/components/icon";
 import { CategoryIcon } from "@/components/app/category-icon";
+import { AccountIcon } from "@/components/app/accounts/account-icon";
 import { useAppData } from "@/components/app/app-data";
 import { useToast } from "@/components/ui/toast";
 import { IncomeExpenseBars, TrendArea } from "@/components/charts/chart-kit";
@@ -336,8 +336,7 @@ function AccountReport({ perAccount }: { perAccount: PerAccountRow[] }) {
                     <tr key={acc.id}>
                       <td className="min-w-0 px-3 py-2.5 sm:px-5">
                         <div className="flex min-w-0 items-center gap-2">
-                          <span className="h-2.5 w-2.5 shrink-0 rounded-none" style={{ backgroundColor: acc.color }} />
-                          <Icon name={acc.icon} size={15} className="shrink-0 text-muted" />
+                          <AccountIcon account={acc} size={20} />
                           <span className="truncate text-fg">{acc.name}</span>
                         </div>
                       </td>

@@ -111,20 +111,35 @@ export interface GoalDTO {
   id: string;
   name: string;
   icon: string;
-  color: string;
   targetAmount: number;
   targetDate: string | null;
-  accountId: string | null;
+  /** active | achieved (shown as "Completed") | archived */
   status: GoalStatus;
-  currentAmount: number; // sum of contributions (paise)
-  contributions: GoalContributionDTO[];
+  /** Money set aside for this goal (paise) — the sum of its allocation history. */
+  allocatedAmount: number;
+  /** Newest first. */
+  allocations: GoalAllocationDTO[];
+  createdAt: string;
 }
 
-export interface GoalContributionDTO {
+/**
+ * One change to a goal's allocation: positive allocates, negative removes.
+ * Never a transaction — the money stays in your accounts either way.
+ */
+export interface GoalAllocationDTO {
   id: string;
   amount: number;
-  date: string;
+  /** When it happened (full ISO timestamp). */
+  at: string;
   note: string | null;
+}
+
+/** Where your money stands once goal allocations are set aside. */
+export interface GoalsSummaryDTO {
+  actualBalance: number;
+  totalAllocated: number;
+  available: number;
+  shortfall: number;
 }
 
 export interface BudgetCategoryDTO {

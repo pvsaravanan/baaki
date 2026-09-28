@@ -9,7 +9,6 @@ import { Badge, EmptyState } from "@/components/ui/misc";
 import { Modal } from "@/components/ui/modal";
 import { Switch } from "@/components/ui/switch";
 import { Money } from "@/components/money";
-import { Icon } from "@/components/icon";
 import { useToast } from "@/components/ui/toast";
 import { useConfirm } from "@/components/ui/confirm";
 import { useAppData } from "./app-data";
@@ -111,7 +110,7 @@ export function CategoriesView({ categories: initial }: { categories: CategoryDT
       {categories.length === 0 ? (
         <div className="rounded-none border border-border bg-surface">
           <EmptyState
-            icon={<Icon name="tag" size={20} />}
+            icon={<CategoryIcon icon="more" size={32} />}
             title="No categories yet"
             description="Create categories to organize your spending and income."
             action={

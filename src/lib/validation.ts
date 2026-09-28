@@ -7,7 +7,6 @@ import {
   ACCOUNT_TYPES,
   CATEGORY_KINDS,
   FREQUENCIES,
-  GOAL_STATUSES,
   PAYMENT_METHODS,
   TRANSACTION_TYPES,
 } from "./constants";
@@ -205,18 +204,22 @@ export const recurringSchema = z
 
 export const goalSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(120),
-  icon: z.string().max(40).default("target"),
-  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default("#0d9488"),
+  icon: z.string().max(40).default("profits"),
   targetAmount: positivePaise,
   targetDate: isoDate.optional().nullable(),
-  accountId: z.string().optional().nullable(),
-  initialAmount: paise.min(0).default(0),
-  status: z.enum(GOAL_STATUSES).default("active"),
 });
 
-export const contributionSchema = z.object({
-  amount: paise.refine((n) => n !== 0, "Amount cannot be zero"),
-  date: isoDate.optional(),
+/**
+ * Editing a goal. `status` only archives or restores — "Completed" is never
+ * set by hand; it follows from the allocation reaching the target.
+ */
+export const goalUpdateSchema = goalSchema
+  .extend({ status: z.enum(["active", "archived"]) })
+  .partial();
+
+/** Allocating to, or removing from, a goal — always a positive amount. */
+export const allocationSchema = z.object({
+  amount: positivePaise,
   note: z.string().trim().max(200).optional().nullable(),
 });
 

@@ -5,7 +5,6 @@ import { accountBalance, type CalcTxn } from "./calculations";
 import {
   serializeAccount,
   serializeCategory,
-  serializeGoal,
   serializeRecurring,
   serializeTag,
   serializeTransaction,
@@ -14,7 +13,6 @@ import type {
   AccountDTO,
   BudgetDTO,
   CategoryDTO,
-  GoalDTO,
   PreferenceDTO,
   RecurringDTO,
   TagDTO,
@@ -146,15 +144,6 @@ export async function loadRecurring(userId: string): Promise<RecurringDTO[]> {
     orderBy: [{ isActive: "desc" }, { nextOccurrence: "asc" }],
   });
   return rows.map(serializeRecurring);
-}
-
-export async function loadGoals(userId: string): Promise<GoalDTO[]> {
-  const rows = await prisma.financialGoal.findMany({
-    where: { userId },
-    include: { contributions: true },
-    orderBy: [{ status: "asc" }, { createdAt: "desc" }],
-  });
-  return rows.map(serializeGoal);
 }
 
 /**
