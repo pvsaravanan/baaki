@@ -4,7 +4,51 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "./db";
 import { fromISODate } from "./dates";
 import { BadRequestError, NotFoundError } from "./api";
+import { accountDeltas, accountsLowered, balanceShortfalls, type Movement } from "./balance-guard";
+import { formatINR } from "./money";
 import type { ShareInput, SplitTransactionInput, TransactionInput } from "./validation";
+
+/**
+ * Refuse a change that would take an account below ₹0 (see balance-guard.ts).
+ * `before` is what the change replaces (nothing for a new entry), `after` is
+ * what it records. Balances are read fresh from the database.
+ */
+export async function assertSufficientBalance(userId: string, before: Movement[], after: Movement[]): Promise<void> {
+  const ids = accountsLowered(before, after);
+  if (ids.length === 0) return;
+  const [accounts, txns] = await Promise.all([
+    prisma.account.findMany({
+      where: { userId, id: { in: ids } },
+      select: { id: true, name: true, type: true, openingBalance: true },
+    }),
+    prisma.transaction.findMany({
+      where: { userId, deletedAt: null, OR: [{ accountId: { in: ids } }, { transferAccountId: { in: ids } }] },
+      select: { type: true, amount: true, accountId: true, transferAccountId: true },
+    }),
+  ]);
+  const recorded = accountDeltas(txns);
+  const shortfalls = balanceShortfalls(
+    before,
+    after,
+    accounts.map((a) => ({ id: a.id, name: a.name, type: a.type, balance: a.openingBalance + (recorded.get(a.id) ?? 0) })),
+  );
+  if (shortfalls.length > 0) {
+    const { name, available } = shortfalls[0];
+    const message = `Not enough balance in ${name}: only ${formatINR(available)} available.`;
+    throw new BadRequestError(message, { amount: message });
+  }
+}
+
+function movementOf(input: Pick<TransactionInput, "type" | "amount" | "accountId" | "transferAccountId">): Movement {
+  return {
+    type: input.type,
+    amount: input.amount,
+    accountId: input.accountId,
+    transferAccountId: input.type === "transfer" ? input.transferAccountId ?? null : null,
+  };
+}
+
+const MOVEMENT_FIELDS = { type: true, amount: true, accountId: true, transferAccountId: true } as const;
 
 /** Ensure the referenced account(s) and category belong to the user. */
 async function assertOwnership(userId: string, input: TransactionInput | Omit<TransactionInput, "tags">) {
@@ -80,6 +124,7 @@ function toData(userId: string, input: TransactionInput): Prisma.TransactionUnch
 
 export async function createTransaction(userId: string, input: TransactionInput): Promise<string> {
   await assertOwnership(userId, input);
+  await assertSufficientBalance(userId, [], [movementOf(input)]);
   // Shares split a cost and are meaningless for a transfer (see the matching
   // schema refinement in validation.ts); drop them defensively so a transfer
   // can never carry shares regardless of how this function is called.
@@ -110,7 +155,7 @@ export async function createTransaction(userId: string, input: TransactionInput)
 export async function updateTransaction(userId: string, id: string, input: TransactionInput) {
   const existing = await prisma.transaction.findFirst({
     where: { id, userId, deletedAt: null },
-    select: { id: true, splitGroupId: true },
+    select: { id: true, splitGroupId: true, ...MOVEMENT_FIELDS },
   });
   if (!existing) throw new NotFoundError("Transaction not found");
   // A split part is one row of a compound unit — editing it in isolation
@@ -118,6 +163,7 @@ export async function updateTransaction(userId: string, id: string, input: Trans
   // group replace) may touch it.
   if (existing.splitGroupId) throw new BadRequestError("Edit the whole split expense instead");
   await assertOwnership(userId, input);
+  await assertSufficientBalance(userId, [existing], [movementOf(input)]);
   // A transfer can never carry shares (see createTransaction / validation.ts).
   // Forcing an empty array here also clears any shares left over should an
   // existing expense be edited into a transfer.
@@ -307,20 +353,28 @@ export async function createSplitTransaction(
   // Validating before any delete runs means a bad account/category/share in
   // the new input throws before the old rows are touched, instead of after.
   const replacedIds = opts.replaceId ? [opts.replaceId] : opts.replaceIds ?? [];
+  const replaced: Movement[] = [];
   if (opts.replaceId) {
     const original = await prisma.transaction.findFirst({
       where: { id: opts.replaceId, userId, deletedAt: null },
-      select: { id: true },
+      select: { id: true, ...MOVEMENT_FIELDS },
     });
     if (!original) throw new NotFoundError("Transaction not found");
+    replaced.push(original);
   }
   if (opts.replaceIds) {
     const originals = await prisma.transaction.findMany({
       where: { id: { in: opts.replaceIds }, userId, deletedAt: null },
-      select: { id: true },
+      select: { id: true, ...MOVEMENT_FIELDS },
     });
     if (originals.length !== opts.replaceIds.length) throw new NotFoundError("Split transaction not found");
+    replaced.push(...originals);
   }
+  await assertSufficientBalance(
+    userId,
+    replaced,
+    input.parts.map((p) => ({ type: "expense", amount: p.amount, accountId: p.accountId })),
+  );
   // Capture settled state before the old rows (and their shares, which
   // cascade-delete with them) are gone, so it can be carried onto the new
   // shares created below instead of every replace silently un-settling them.
@@ -404,8 +458,9 @@ export async function softDeleteSplitGroup(userId: string, splitGroupId: string)
 
 /** Restore every part of a soft-deleted split group together (undo for softDeleteSplitGroup). */
 export async function restoreSplitGroup(userId: string, splitGroupId: string): Promise<void> {
-  const existing = await prisma.transaction.findMany({ where: { userId, splitGroupId }, select: { id: true } });
+  const existing = await prisma.transaction.findMany({ where: { userId, splitGroupId }, select: { id: true, deletedAt: true, ...MOVEMENT_FIELDS } });
   if (existing.length === 0) throw new NotFoundError("Split transaction not found");
+  await assertSufficientBalance(userId, [], existing.filter((r) => r.deletedAt));
   await prisma.transaction.updateMany({ where: { userId, splitGroupId }, data: { deletedAt: null } });
 }
 
@@ -458,6 +513,7 @@ export async function restoreTransaction(userId: string, id: string): Promise<vo
   // A split part must be restored with the rest of its group — see
   // restoreSplitGroup — otherwise it comes back without its siblings.
   if (existing.splitGroupId) throw new BadRequestError("Restore the whole split expense instead");
+  if (existing.deletedAt) await assertSufficientBalance(userId, [], [existing]);
   await prisma.transaction.update({ where: { id }, data: { deletedAt: null } });
 }
 
@@ -484,6 +540,7 @@ export async function duplicateTransaction(userId: string, id: string): Promise<
     include: { tags: true },
   });
   if (!original) throw new NotFoundError("Transaction not found");
+  await assertSufficientBalance(userId, [], [original]);
   const copy = await prisma.transaction.create({
     data: {
       userId,

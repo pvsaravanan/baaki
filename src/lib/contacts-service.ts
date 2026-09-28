@@ -2,6 +2,7 @@ import "server-only";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "./db";
 import { BadRequestError, NotFoundError } from "./api";
+import { assertSufficientBalance } from "./tx-service";
 import { serializeContact } from "./serialize";
 import { toISODate, fromISODate } from "./dates";
 import type { ContactDTO, ShareDirection } from "./types";
@@ -156,6 +157,11 @@ export async function settleShare(
   }
 
   const owed = share.direction !== "you_owe"; // owed_to_you → income
+  // Paying someone back comes out of the chosen account — refuse it (before
+  // the share is claimed as settled) if the account can't cover it.
+  if (accountId && !owed) {
+    await assertSufficientBalance(userId, [], [{ type: "expense", amount: share.amount, accountId }]);
+  }
   const label = share.transaction?.description ?? share.description ?? "shared expense";
 
   await prisma.$transaction(async (db) => {

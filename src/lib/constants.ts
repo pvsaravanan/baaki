@@ -31,6 +31,12 @@ export const ACCOUNT_TYPES = [
 ] as const;
 export type AccountType = (typeof ACCOUNT_TYPES)[number];
 
+/**
+ * Account types whose balance normally goes below ₹0 — it's what you owe —
+ * so they're exempt from the "can't spend more than the balance" rule.
+ */
+export const BALANCE_EXEMPT_ACCOUNT_TYPES: readonly string[] = ["credit_card", "loan"];
+
 export const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
   bank: "Bank Account",
   cash: "Cash",

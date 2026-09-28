@@ -36,7 +36,7 @@ export function withUser<T extends unknown[]>(
       }
       if (err instanceof NotFoundError) return apiError(err.message, 404);
       if (err instanceof ConflictError) return apiError(err.message, 409);
-      if (err instanceof BadRequestError) return apiError(err.message, 400);
+      if (err instanceof BadRequestError) return apiError(err.message, 400, err.fields ? { fields: err.fields } : undefined);
       if (err instanceof SyntaxError) return apiError("Invalid JSON request body", 400);
       if (typeof err === "object" && err !== null && "code" in err && err.code === "P2034") {
         return apiError("The data changed while saving. Please try again.", 409);
@@ -72,8 +72,11 @@ export class ConflictError extends Error {
 }
 
 export class BadRequestError extends Error {
-  constructor(message = "Bad request") {
+  /** Optional per-field messages, shown next to those fields in a form. */
+  readonly fields?: Record<string, string>;
+  constructor(message = "Bad request", fields?: Record<string, string>) {
     super(message);
+    this.fields = fields;
     this.name = "BadRequestError";
   }
 }
