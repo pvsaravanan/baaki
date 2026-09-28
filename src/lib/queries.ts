@@ -109,14 +109,13 @@ export async function loadTransactionTotals(userId: string): Promise<{ income: n
 
 export const loadPreference = cache(async (userId: string): Promise<PreferenceDTO> => {
   // Reuse the cached accounts (already fetched by loadAccounts in the layout)
-  // and resolve firstAccount / default-account validity in memory, instead of
+  // and resolve default-account validity in memory, instead of
   // firing two or three separate `account` queries here.
   const [pref, accounts] = await Promise.all([
     prisma.userPreference.findUnique({ where: { userId } }),
     getUserAccounts(userId),
   ]);
   const activeAccounts = accounts.filter((a) => !a.isArchived); // already ordered by sortOrder
-  const firstAccount = activeAccounts[0] ?? null;
 
   let widgets: string[] = [...DEFAULT_DASHBOARD_WIDGETS];
   if (pref?.dashboardWidgets) {
@@ -128,10 +127,11 @@ export const loadPreference = cache(async (userId: string): Promise<PreferenceDT
     }
   }
 
-  let defaultAccountId = pref?.defaultAccountId ?? null;
-  if (!defaultAccountId || !activeAccounts.some((a) => a.id === defaultAccountId)) {
-    defaultAccountId = firstAccount?.id ?? null;
-  }
+  // The saved default, or null for "No default" (or one since archived).
+  // Don't substitute the first account here: Settings must show the choice
+  // as saved, and the forms already fall back to the first account.
+  const saved = pref?.defaultAccountId ?? null;
+  const defaultAccountId = saved && activeAccounts.some((a) => a.id === saved) ? saved : null;
 
   return {
     theme: (pref?.theme as PreferenceDTO["theme"]) ?? "system",

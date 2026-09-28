@@ -28,7 +28,7 @@ export function SettleModal({
   // nothing to record into, so leaving this checked would silently no-op
   // instead of actually recording anything.
   const [record, setRecord] = useState(hasAccounts);
-  const [accountId, setAccountId] = useState(preference.defaultAccountId ?? accounts[0]?.id ?? "");
+  const [accountId, setAccountId] = useState(preference.defaultAccountId ?? (accounts.find((a) => !a.isArchived) ?? accounts[0])?.id ?? "");
   const [busy, setBusy] = useState(false);
 
   const youOwe = share?.direction === "you_owe";

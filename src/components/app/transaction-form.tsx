@@ -72,7 +72,7 @@ export function TransactionForm({
     return "";
   });
   const [newCatOpen, setNewCatOpen] = useState(false);
-  const fallbackAccountId = accounts.find((a) => a.id === preference.defaultAccountId)?.id ?? accounts[0]?.id ?? "";
+  const fallbackAccountId = accounts.find((a) => a.id === preference.defaultAccountId)?.id ?? (accounts.find((a) => !a.isArchived) ?? accounts[0])?.id ?? "";
   // Splits are always an expense breakdown — used to seed every blank split
   // row so a newly-added part isn't left uncategorized.
   const fallbackExpenseCategoryId = categories.find((c) => c.isActive && (c.kind === "expense" || c.kind === "both"))?.id ?? "";

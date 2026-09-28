@@ -56,7 +56,7 @@ export function RecurringForm({
     return first?.id ?? "";
   });
   const [newCatOpen, setNewCatOpen] = useState(false);
-  const fallbackAccountId = accounts.find((a) => a.id === preference.defaultAccountId)?.id ?? accounts[0]?.id ?? "";
+  const fallbackAccountId = accounts.find((a) => a.id === preference.defaultAccountId)?.id ?? (accounts.find((a) => !a.isArchived) ?? accounts[0])?.id ?? "";
   const [accountId, setAccountId] = useState(
     initial?.accountId ?? fallbackAccountId,
   );
