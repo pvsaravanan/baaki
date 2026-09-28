@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 /**
  * Refreshes the Supabase auth session on every request and forwards the updated
  * auth cookies. Must run in middleware so Server Components always see a fresh
- * session. Do not add logic between createServerClient and getUser().
+ * session. Do not add logic between createServerClient and getClaims().
  */
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -34,8 +34,12 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  // Touch the user so the session token is refreshed and re-issued via cookies.
-  await supabase.auth.getUser();
+  // Refresh the session token if it's expired and re-issue it via cookies.
+  // getClaims() verifies the JWT locally against the project's cached signing
+  // key, so unlike getUser() it costs no Auth-server round trip on every
+  // request. Middleware isn't the authorization check — getCurrentUser()
+  // still asks the Auth server (getUser) before any data is served.
+  await supabase.auth.getClaims();
 
   return response;
 }

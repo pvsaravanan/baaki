@@ -21,6 +21,7 @@
     "setup": "prisma generate && prisma migrate deploy"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "^6.19.3",
     "@prisma/client": "^6.2.1",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.3",
@@ -28,6 +29,7 @@
     "lucide-react": "^0.469.0",
     "next": "^15.5.23",
     "papaparse": "^5.4.1",
+    "pg": "^8.23.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-easy-crop": "^6.2.3",
@@ -39,6 +41,7 @@
     "@eslint/eslintrc": "^3.3.7",
     "@types/node": "^22.10.5",
     "@types/papaparse": "^5.3.15",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.0.4",
     "@types/react-dom": "^19.0.2",
     "autoprefixer": "^10.4.20",
