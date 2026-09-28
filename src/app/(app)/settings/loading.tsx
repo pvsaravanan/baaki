@@ -1,64 +1,37 @@
 import { Skeleton } from "@/components/ui/misc";
 
+/** Mirrors SettingsView: a section index on desktop, then titled cards of rows. */
 export default function SettingsLoading() {
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-5 animate-fade-in">
-      <div className="flex items-center justify-between">
+    <div className="animate-fade-in">
+      <div className="mb-md border-b border-border pb-md">
         <Skeleton className="h-8 w-32" />
+        <Skeleton className="mt-2 h-4 w-64" />
       </div>
-
-      {/* Profile card skeleton */}
-      <div className="space-y-4 rounded-none border border-border bg-surface p-4">
-        <Skeleton className="h-5 w-24" />
-        <Skeleton className="h-5 w-48" />
-        <div className="flex items-center gap-4">
-          <Skeleton className="h-16 w-16" />
-          <Skeleton className="h-9 w-32" />
-        </div>
-        <Skeleton className="h-12 w-full" />
-        <div className="flex gap-2">
-          <Skeleton className="h-12 flex-1" />
-          <Skeleton className="h-12 w-20" />
-        </div>
-      </div>
-
-      {/* Appearance card skeleton */}
-      <div className="space-y-3 rounded-none border border-border bg-surface p-4">
-        <Skeleton className="h-5 w-24" />
-        <Skeleton className="h-5 w-48" />
-        <Skeleton className="h-10 w-full sm:w-64" />
-      </div>
-
-      {/* Default account card skeleton */}
-      <div className="space-y-3 rounded-none border border-border bg-surface p-4">
-        <Skeleton className="h-5 w-36" />
-        <Skeleton className="h-5 w-56" />
-        <Skeleton className="h-12 w-full" />
-      </div>
-
-      {/* Dashboard widgets card skeleton */}
-      <div className="space-y-3 rounded-none border border-border bg-surface p-4">
-        <div className="flex items-center justify-between">
-          <div className="space-y-2">
-            <Skeleton className="h-5 w-40" />
-            <Skeleton className="h-4 w-64" />
-          </div>
-          <Skeleton className="h-9 w-24" />
-        </div>
-        <div className="space-y-2">
+      <div className="mx-auto grid max-w-5xl gap-8 lg:grid-cols-[11rem_minmax(0,1fr)]">
+        <div className="hidden flex-col gap-3 border-l border-border pl-4 lg:flex">
           {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full" />
+            <Skeleton key={i} className="h-4 w-24" />
           ))}
         </div>
-      </div>
-
-      {/* Data & backup card skeleton */}
-      <div className="space-y-3 rounded-none border border-border bg-surface p-4">
-        <Skeleton className="h-5 w-32" />
-        <Skeleton className="h-5 w-72" />
-        <div className="flex gap-2">
-          <Skeleton className="h-9 w-48" />
-          <Skeleton className="h-9 w-40" />
+        <div className="flex min-w-0 flex-col gap-10">
+          {[3, 2, 6, 3].map((rows, s) => (
+            <div key={s}>
+              <Skeleton className="h-5 w-32" />
+              <Skeleton className="mt-2 h-4 w-60" />
+              <div className="mt-3 divide-y divide-border rounded-md border border-border bg-surface">
+                {Array.from({ length: rows }).map((_, r) => (
+                  <div key={r} className="flex items-center justify-between gap-4 p-5">
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-4 w-40" />
+                      <Skeleton className="h-3 w-56" />
+                    </div>
+                    <Skeleton className="h-9 w-24" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
