@@ -1,29 +1,36 @@
 import { describe, expect, it } from "vitest";
-import { guessMerchant, suggestCategory } from "./categorize";
+import { CATEGORY_RULES, guessMerchant, suggestCategoryKey } from "./categorize";
+import { DEFAULT_CATEGORIES } from "./constants";
 
-describe("suggestCategory", () => {
+describe("suggestCategoryKey", () => {
   it("matches the 'vi' keyword as a standalone word (Vodafone Idea recharge)", () => {
-    expect(suggestCategory("Vi recharge 199")).toBe("Bills & Utilities");
-    expect(suggestCategory("Recharge for vi")).toBe("Bills & Utilities");
+    expect(suggestCategoryKey("Vi recharge 199")).toBe("bills-utilities");
+    expect(suggestCategoryKey("Recharge for vi")).toBe("bills-utilities");
   });
 
   it("does not match 'vi' inside an unrelated word", () => {
-    expect(suggestCategory("Movie ticket booking")).not.toBe("Bills & Utilities");
+    expect(suggestCategoryKey("Movie ticket booking")).not.toBe("bills-utilities");
   });
 
   it("suggests categories from common merchants", () => {
-    expect(suggestCategory("Swiggy dinner")).toBe("Food");
-    expect(suggestCategory("Uber to office")).toBe("Transportation");
-    expect(suggestCategory("Netflix")).toBe("Subscriptions");
-    expect(suggestCategory("College fee")).toBe("Education");
-    expect(suggestCategory("BigBasket groceries")).toBe("Groceries");
-    expect(suggestCategory("Amazon order")).toBe("Shopping");
-    expect(suggestCategory("Jio recharge")).toBe("Bills & Utilities");
+    expect(suggestCategoryKey("Swiggy dinner")).toBe("food");
+    expect(suggestCategoryKey("Uber to office")).toBe("transportation");
+    expect(suggestCategoryKey("Netflix")).toBe("subscriptions");
+    expect(suggestCategoryKey("College fee")).toBe("education");
+    expect(suggestCategoryKey("BigBasket groceries")).toBe("groceries");
+    expect(suggestCategoryKey("Amazon order")).toBe("shopping");
+    expect(suggestCategoryKey("Jio recharge")).toBe("bills-utilities");
+  });
+
+  it("only points at built-in categories that exist", () => {
+    const keys = new Set(DEFAULT_CATEGORIES.map((c) => c.key));
+    expect(CATEGORY_RULES.every((r) => keys.has(r.key))).toBe(true);
+    expect(keys.size).toBe(DEFAULT_CATEGORIES.length);
   });
 
   it("returns null when nothing matches", () => {
-    expect(suggestCategory("xyzzy random note")).toBeNull();
-    expect(suggestCategory("")).toBeNull();
+    expect(suggestCategoryKey("xyzzy random note")).toBeNull();
+    expect(suggestCategoryKey("")).toBeNull();
   });
 });
 

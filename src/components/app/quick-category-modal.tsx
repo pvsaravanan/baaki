@@ -5,26 +5,13 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
 import { Segmented } from "@/components/ui/segmented";
-import { Icon } from "@/components/icon";
 import { useToast } from "@/components/ui/toast";
 import { useAppData } from "./app-data";
 import { apiPost, ApiError } from "@/lib/http";
-import { CATEGORY_KINDS, type CategoryKind } from "@/lib/constants";
+import { CATEGORY_KINDS, CATEGORY_CHART_COLORS, type CategoryKind } from "@/lib/constants";
 import type { CategoryDTO } from "@/lib/types";
-import { cn } from "@/lib/cn";
-
-const SWATCHES = [
-  "#d88060", "#7d8c4a", "#4f7a72", "#8c5a3c", "#4a6785",
-  "#b84b3a", "#a4566e", "#c96f4f", "#6d5b8c", "#5a7a8c",
-  "#3f7d6e", "#c9942f", "#2c6b4f", "#3f6b6b", "#8a8578",
-];
-
-const ICONS = [
-  "tag", "utensils", "shopping-basket", "shopping-bag", "car",
-  "home", "receipt", "repeat", "plane", "clapperboard",
-  "heart-pulse", "graduation-cap", "wallet", "briefcase", "landmark",
-  "users", "user", "plus-circle", "trending-up", "smartphone",
-];
+import { DEFAULT_CATEGORY_ICON } from "@/lib/category-icons";
+import { CategoryIconPicker } from "./category-icon-picker";
 
 const KIND_OPTIONS: { value: CategoryKind; label: string }[] = [
   { value: "expense", label: "Expense" },
@@ -48,7 +35,7 @@ export function QuickCategoryModal({
 
   const [name, setName] = useState("");
   const [kind, setKind] = useState<CategoryKind>(defaultKind);
-  const [icon, setIcon] = useState("tag");
+  const [icon, setIcon] = useState<string>(DEFAULT_CATEGORY_ICON);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,7 +46,7 @@ export function QuickCategoryModal({
     if (open) {
       setName("");
       setKind(defaultKind);
-      setIcon("tag");
+      setIcon(DEFAULT_CATEGORY_ICON);
       setError(null);
     }
   }, [open, defaultKind]);
@@ -77,7 +64,7 @@ export function QuickCategoryModal({
         name: name.trim(),
         kind,
         icon,
-        color: SWATCHES[Math.floor(Math.random() * SWATCHES.length)],
+        color: CATEGORY_CHART_COLORS[Math.floor(Math.random() * CATEGORY_CHART_COLORS.length)],
         isActive: true,
       });
       refresh();
@@ -133,22 +120,8 @@ export function QuickCategoryModal({
 
         <div>
           <label className="block text-label-sm uppercase text-muted">Icon</label>
-          <div className="mt-1.5 grid grid-cols-5 gap-1.5 sm:grid-cols-7 max-h-36 overflow-y-auto p-1.5 border border-border bg-surface-2/30">
-            {ICONS.map((i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => setIcon(i)}
-                className={cn(
-                  "flex h-10 w-10 items-center justify-center rounded-none border border-border bg-surface text-muted transition-colors active:scale-95 hover:text-fg",
-                  icon === i && "border-brand bg-brand text-brand-fg",
-                )}
-                aria-label={`Icon ${i}`}
-                aria-pressed={icon === i}
-              >
-                <Icon name={i} size={18} />
-              </button>
-            ))}
+          <div className="mt-1.5">
+            <CategoryIconPicker value={icon} onChange={setIcon} />
           </div>
         </div>
 

@@ -7,7 +7,7 @@ import { useAppData } from "./app-data";
 import { ApiError, apiPatch, apiPost } from "@/lib/http";
 import { toISODate } from "@/lib/dates";
 import { toPaise, toRupees } from "@/lib/money";
-import { suggestCategory } from "@/lib/categorize";
+import { suggestCategoryKey } from "@/lib/categorize";
 import { QuickCategoryModal } from "./quick-category-modal";
 import { PAYMENT_METHODS, type TransactionType } from "@/lib/constants";
 import type { TransactionDTO } from "@/lib/types";
@@ -135,10 +135,9 @@ export function TransactionForm({
   // Deterministic category suggestion from the description.
   const suggestion = useMemo(() => {
     if (isTransfer || splitEnabled || touchedCategory || categoryId) return null;
-    const name = suggestCategory(description);
-    if (!name) return null;
-    const match = eligibleCategories.find((c) => c.name.toLowerCase() === name.toLowerCase());
-    return match ?? null;
+    const key = suggestCategoryKey(description);
+    if (!key) return null;
+    return eligibleCategories.find((c) => c.systemKey === key) ?? null;
   }, [description, isTransfer, splitEnabled, touchedCategory, categoryId, eligibleCategories]);
 
   // Auto-apply the suggested category when the user types a description.
@@ -151,12 +150,12 @@ export function TransactionForm({
       setAutoSuggestedName(null);
       return;
     }
-    const name = suggestCategory(trimmed);
-    if (!name) {
+    const key = suggestCategoryKey(trimmed);
+    if (!key) {
       setAutoSuggestedName(null);
       return;
     }
-    const match = eligibleCategories.find((c) => c.name.toLowerCase() === name.toLowerCase());
+    const match = eligibleCategories.find((c) => c.systemKey === key);
     if (match) {
       setCategoryId(match.id);
       setAutoSuggestedName(match.name);

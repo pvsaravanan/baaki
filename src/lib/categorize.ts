@@ -1,17 +1,19 @@
 /**
  * Deterministic transaction categorization.
  *
- * Given a free-text description, suggest a category NAME by matching known
+ * Given a free-text description, suggest a built-in category by matching known
  * merchants and keywords. This is 100% rule-based — no AI or network calls —
  * so basic functionality never depends on an external service.
  *
- * The caller maps the returned category name to the user's actual category row
- * (falling back to "Other" when the user has no matching category).
+ * Suggestions are built-in category keys (DefaultCategory.key), not names, so a
+ * category still gets suggested after the user renames it. The caller maps the
+ * key to the user's row via Category.systemKey; no row (e.g. the user deleted
+ * that category) means no suggestion.
  */
 
 export interface CategoryRule {
-  /** Category name this rule resolves to (must match a default category). */
-  category: string;
+  /** Built-in category key this rule resolves to (a DefaultCategory.key). */
+  key: string;
   /** Lowercased keywords/merchants. Word-boundary matched against description. */
   keywords: string[];
 }
@@ -19,7 +21,7 @@ export interface CategoryRule {
 /** Ordered rules — earlier, more specific rules win ties by keyword length. */
 export const CATEGORY_RULES: CategoryRule[] = [
   {
-    category: "Food",
+    key: "food",
     keywords: [
       "swiggy", "zomato", "dominos", "domino", "pizza", "mcdonald", "kfc", "burger",
       "restaurant", "cafe", "coffee", "starbucks", "chai", "tea", "biscuit", "dinner", "lunch",
@@ -31,7 +33,7 @@ export const CATEGORY_RULES: CategoryRule[] = [
     ],
   },
   {
-    category: "Groceries",
+    key: "groceries",
     keywords: [
       "bigbasket", "big basket", "blinkit", "zepto", "grofers", "dmart", "d-mart",
       "reliance fresh", "more supermarket", "grocery", "groceries", "supermarket",
@@ -39,7 +41,7 @@ export const CATEGORY_RULES: CategoryRule[] = [
     ],
   },
   {
-    category: "Transportation",
+    key: "transportation",
     keywords: [
       "uber", "ola", "rapido", "auto", "cab", "taxi", "metro", "bus", "irctc",
       "train", "petrol", "diesel", "fuel", "cng", "fastag", "parking", "namma yatri",
@@ -47,7 +49,7 @@ export const CATEGORY_RULES: CategoryRule[] = [
     ],
   },
   {
-    category: "Subscriptions",
+    key: "subscriptions",
     keywords: [
       "netflix", "spotify", "prime video", "amazon prime", "hotstar", "disney",
       "youtube premium", "sony liv", "zee5", "apple music", "icloud", "google one",
@@ -55,7 +57,7 @@ export const CATEGORY_RULES: CategoryRule[] = [
     ],
   },
   {
-    category: "Shopping",
+    key: "shopping",
     keywords: [
       "amazon", "flipkart", "myntra", "ajio", "meesho", "nykaa", "tatacliq",
       "snapdeal", "shopping", "decathlon", "ikea", "lifestyle", "shoppers stop",
@@ -63,7 +65,7 @@ export const CATEGORY_RULES: CategoryRule[] = [
     ],
   },
   {
-    category: "Bills & Utilities",
+    key: "bills-utilities",
     keywords: [
       "jio", "airtel", "vi", "vodafone", "bsnl", "recharge", "electricity",
       "water bill", "gas bill", "broadband", "wifi", "internet", "bescom", "tneb",
@@ -72,14 +74,14 @@ export const CATEGORY_RULES: CategoryRule[] = [
     ],
   },
   {
-    category: "Entertainment",
+    key: "entertainment",
     keywords: [
       "bookmyshow", "pvr", "inox", "cinema", "movie", "movie ticket", "game", "steam",
       "playstation", "xbox", "concert", "event", "brand new day", "atrium mall",
     ],
   },
   {
-    category: "Healthcare",
+    key: "healthcare",
     keywords: [
       "pharmacy", "apollo", "pharmeasy", "1mg", "netmeds", "hospital", "clinic",
       "doctor", "medical", "medicine", "practo", "diagnostic", "lab test",
@@ -87,14 +89,14 @@ export const CATEGORY_RULES: CategoryRule[] = [
     ],
   },
   {
-    category: "Education",
+    key: "education",
     keywords: [
       "udemy", "coursera", "byju", "unacademy", "vedantu", "college fee",
       "school fee", "tuition", "course", "exam fee", "books", "upgrad", "great learning",
     ],
   },
   {
-    category: "Travel",
+    key: "travel",
     keywords: [
       "makemytrip", "goibibo", "cleartrip", "yatra", "ixigo", "oyo", "airbnb",
       "hotel", "flight", "indigo", "vistara", "air india", "spicejet", "ola outstation",
@@ -102,56 +104,56 @@ export const CATEGORY_RULES: CategoryRule[] = [
     ],
   },
   {
-    category: "Housing",
+    key: "housing",
     keywords: ["rent", "maintenance", "society", "landlord", "housing", "brokerage", "pg", "hostel", "advance", "deposit"],
   },
   {
-    category: "Bank Charges",
+    key: "bank-charges",
     keywords: [
       "bank charge", "atm fee", "annual fee", "processing fee", "convenience fee",
       "gst", "sms charges", "penalty", "late fee",
     ],
   },
   {
-    category: "Family",
+    key: "family",
     keywords: ["school", "daycare", "toys", "baby", "kids", "family", "mom transferred", "aunt transferred", "dad transferred", "brother", "sister"],
   },
   {
-    category: "Salary",
+    key: "salary",
     keywords: ["salary", "payroll", "stipend", "wages"],
   },
   {
-    category: "Business",
+    key: "business",
     keywords: ["invoice", "client payment", "freelance", "consulting", "business income"],
   },
   {
-    category: "Investments",
+    key: "investments",
     keywords: ["dividend", "interest credit", "mutual fund redemption", "capital gain", "sip return"],
   },
   {
-    category: "Other Income",
+    key: "other-income",
     keywords: ["deposited money", "cash deposit", "refund received", "cash back", "cashback", "reward"],
   },
 ];
 
 /**
- * Suggest a category name for a description. Returns null when nothing matches
- * confidently, so the caller can leave the field for the user to fill.
+ * Suggest a built-in category key for a description. Returns null when nothing
+ * matches confidently, so the caller can leave the field for the user to fill.
  */
-export function suggestCategory(description: string): string | null {
+export function suggestCategoryKey(description: string): string | null {
   const text = ` ${description.toLowerCase().trim()} `;
   if (text.trim() === "") return null;
 
-  let best: { category: string; score: number } | null = null;
+  let best: { key: string; score: number } | null = null;
   for (const rule of CATEGORY_RULES) {
     for (const kw of rule.keywords) {
       if (matchesKeyword(text, kw)) {
         const score = kw.length; // longer, more specific keyword wins
-        if (!best || score > best.score) best = { category: rule.category, score };
+        if (!best || score > best.score) best = { key: rule.key, score };
       }
     }
   }
-  return best?.category ?? null;
+  return best?.key ?? null;
 }
 
 function matchesKeyword(haystack: string, keyword: string): boolean {

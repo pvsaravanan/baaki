@@ -15,20 +15,8 @@ async function owned(userId: string, id: string) {
 
 export const PATCH = withUser(async (user, req: NextRequest, ctx: Ctx) => {
   const { id } = await ctx.params;
-  const cat = await owned(user.id, id);
+  await owned(user.id, id);
   const input = categorySchema.partial().parse(await req.json());
-  // System categories back deterministic logic (e.g. "Subscriptions" insights,
-  // default income category). The UI marks them protected; enforce that here by
-  // rejecting identity changes (rename / re-kind) while still allowing cosmetic
-  // edits (icon, color, budget, active).
-  if (cat.isSystem) {
-    if (input.name !== undefined && input.name !== cat.name) {
-      throw new ConflictError("System categories can't be renamed");
-    }
-    if (input.kind !== undefined && input.kind !== cat.kind) {
-      throw new ConflictError("System categories can't change type");
-    }
-  }
   // The name-clash check + update must run in one Serializable transaction —
   // same case-insensitive-clash-vs-case-sensitive-unique-constraint race as
   // the POST handler — or two concurrent renames onto names that only
@@ -81,9 +69,7 @@ export const PATCH = withUser(async (user, req: NextRequest, ctx: Ctx) => {
 
 export const DELETE = withUser(async (user, _req: NextRequest, ctx: Ctx) => {
   const { id } = await ctx.params;
-  const cat = await owned(user.id, id);
-  // System categories are protected (see the PATCH guard) — never delete them.
-  if (cat.isSystem) throw new ConflictError("System categories can't be deleted");
+  await owned(user.id, id);
 
   // Any reference means we deactivate + detach rather than hard-delete, so a
   // SET NULL / cascade doesn't silently rewrite data the user still relies on:

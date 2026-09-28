@@ -8,7 +8,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Modal } from "@/components/ui/modal";
 import { Badge, EmptyState, Progress } from "@/components/ui/misc";
 import { Money } from "@/components/money";
-import { Icon } from "@/components/icon";
+import { CategoryIcon } from "@/components/app/category-icon";
 import { useToast } from "@/components/ui/toast";
 import { useAppData } from "./app-data";
 import { apiPut, ApiError } from "@/lib/http";
@@ -187,7 +187,7 @@ function CategoryRow({ line }: { line: BudgetLineData }) {
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-none"
           style={{ color: line.color }}
         >
-          <Icon name={line.icon} size={19} />
+          <CategoryIcon icon={line.icon} size={28} />
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
@@ -342,7 +342,7 @@ function EditBudgetModal({
                   className="flex h-7 w-7 shrink-0 items-center justify-center rounded-none"
                   style={{ color: c.color }}
                 >
-                  <Icon name={c.icon} size={18} />
+                  <CategoryIcon icon={c.icon} size={24} />
                 </span>
                 <span className="min-w-0 flex-1 truncate text-sm text-fg">{c.name}</span>
                 <Input

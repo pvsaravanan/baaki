@@ -146,6 +146,7 @@ export async function provisionUserProfile(input: {
         color: c.color,
         kind: c.kind,
         isSystem: true,
+        systemKey: c.key,
         sortOrder: i,
       })),
     });

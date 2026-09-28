@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { json, NotFoundError, withUser } from "@/lib/api";
 import { dedupeKey, validateImportRows, type ColumnMapping, type InvalidImportRow } from "@/lib/csv";
 import { endOfDayExclusive, fromISODate, startOfDay, toISODate } from "@/lib/dates";
-import { suggestCategory } from "@/lib/categorize";
+import { suggestCategoryKey } from "@/lib/categorize";
 
 const importSchema = z.object({
   records: z.array(z.record(z.string(), z.string())).max(5000),
@@ -44,10 +44,11 @@ export const POST = withUser(async (user, req: NextRequest) => {
 
   // Resolve category + account names to ids.
   const [categories, accounts] = await Promise.all([
-    prisma.category.findMany({ where: { userId: user.id }, select: { id: true, name: true } }),
+    prisma.category.findMany({ where: { userId: user.id }, select: { id: true, name: true, systemKey: true } }),
     prisma.account.findMany({ where: { userId: user.id }, select: { id: true, name: true } }),
   ]);
   const catByName = new Map(categories.map((c) => [c.name.toLowerCase(), c.id]));
+  const catBySystemKey = new Map(categories.flatMap((c) => (c.systemKey ? [[c.systemKey, c.id] as const] : [])));
   const acctByName = new Map(accounts.map((a) => [a.name.toLowerCase(), a.id]));
 
   // SECURITY: only accept a default account the user actually owns. Account
@@ -81,9 +82,9 @@ export const POST = withUser(async (user, req: NextRequest) => {
 
     let categoryId = row.categoryName ? catByName.get(row.categoryName.toLowerCase()) ?? null : null;
     if (!categoryId && row.type !== "transfer") {
-      const suggested = suggestCategory(row.description);
+      const suggested = suggestCategoryKey(row.description);
       if (suggested) {
-        categoryId = catByName.get(suggested.toLowerCase()) ?? null;
+        categoryId = catBySystemKey.get(suggested) ?? null;
       }
     }
 

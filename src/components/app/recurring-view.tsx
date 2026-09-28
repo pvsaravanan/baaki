@@ -19,7 +19,7 @@ import { Badge, EmptyState } from "@/components/ui/misc";
 import { useToast } from "@/components/ui/toast";
 import { useConfirm } from "@/components/ui/confirm";
 import { Money } from "@/components/money";
-import { Icon } from "@/components/icon";
+import { CategoryIcon } from "@/components/app/category-icon";
 import { RecurringForm } from "./recurring-form";
 import { useAppData, useLookups } from "./app-data";
 import { apiDelete, apiPatch, apiPost } from "@/lib/http";
@@ -290,7 +290,7 @@ function RecurringRow({
         {isTransfer ? (
           <ArrowLeftRight className="h-5 w-5 text-muted" />
         ) : (
-          <Icon name={cat?.icon ?? "circle-dot"} size={20} />
+          <CategoryIcon icon={cat?.icon} size={28} />
         )}
       </div>
 

@@ -15,22 +15,12 @@ import { useConfirm } from "@/components/ui/confirm";
 import { useAppData } from "./app-data";
 import { ApiError, apiDelete, apiPatch, apiPost } from "@/lib/http";
 import { toPaise, toRupees } from "@/lib/money";
-import { CATEGORY_KINDS, type CategoryKind } from "@/lib/constants";
+import { CATEGORY_KINDS, CATEGORY_CHART_COLORS, type CategoryKind } from "@/lib/constants";
 import type { CategoryDTO } from "@/lib/types";
 import { cn } from "@/lib/cn";
-
-const SWATCHES = [
-  "#0d9488", "#6366f1", "#f97316", "#84cc16", "#06b6d4",
-  "#ef4444", "#ec4899", "#a855f7", "#f59e0b", "#64748b",
-];
-
-const CATEGORY_ICONS = [
-  "home", "utensils", "shopping-basket", "car", "graduation-cap",
-  "heart-pulse", "heart", "clapperboard", "shopping-bag", "repeat",
-  "receipt", "plane", "user", "users", "landmark",
-  "wallet", "briefcase", "trending-up", "plus-circle", "circle-dot",
-  "tag", "target", "smartphone", "wifi", "banknote",
-];
+import { resolveCategoryIcon } from "@/lib/category-icons";
+import { CategoryIcon } from "./category-icon";
+import { CategoryIconPicker } from "./category-icon-picker";
 
 const KIND_LABELS: Record<CategoryKind, string> = {
   expense: "Expense",
@@ -189,29 +179,28 @@ function CategoryRow({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  // The name link is "stretched" (its ::after covers the row) so the whole row
+  // opens the category, with the edit/delete buttons layered above it.
   return (
-    <li className={cn("group flex items-center gap-3 px-4 py-3", !category.isActive && "opacity-70")}>
-      <Link href={`/categories/${category.id}`} className="flex min-w-0 flex-1 items-center gap-3">
-        <span
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-none"
-          style={{ color: category.color }}
-        >
-          <Icon name={category.icon} size={20} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="truncate text-sm font-medium text-fg">{category.name}</span>
-            {category.isSystem && <Badge tone="brand">System</Badge>}
-            {!category.isActive && <Badge tone="neutral">Inactive</Badge>}
-          </div>
-          {category.monthlyBudget != null && (
-            <p className="text-xs text-muted">
-              Budget <Money paise={category.monthlyBudget} tone="default" className="font-medium" /> / month
-            </p>
-          )}
+    <li className={cn("group relative flex items-center gap-3 px-4 py-3", !category.isActive && "opacity-70")}>
+      <CategoryIcon icon={category.icon} size={32} />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href={`/categories/${category.id}`}
+            className="truncate text-sm font-medium text-fg after:absolute after:inset-0 after:content-[''] focus:outline-none focus-visible:underline"
+          >
+            {category.name}
+          </Link>
+          {!category.isActive && <Badge tone="neutral">Inactive</Badge>}
         </div>
-      </Link>
-      <div className="flex items-center gap-1 opacity-100 sm:opacity-0 transition-opacity focus-within:opacity-100 sm:group-hover:opacity-100">
+        {category.monthlyBudget != null && (
+          <p className="text-xs text-muted">
+            Budget <Money paise={category.monthlyBudget} tone="default" className="font-medium" /> / month
+          </p>
+        )}
+      </div>
+      <div className="relative z-10 flex items-center gap-1 opacity-100 sm:opacity-0 transition-opacity focus-within:opacity-100 sm:group-hover:opacity-100">
         <Button variant="ghost" size="icon" onClick={onEdit} aria-label={`Edit ${category.name}`}>
           <Pencil className="h-4 w-4" />
         </Button>
@@ -237,8 +226,10 @@ function CategoryForm({
   const editing = !!initial;
   const [name, setName] = useState(initial?.name ?? "");
   const [kind, setKind] = useState<CategoryKind>(initial?.kind ?? "expense");
-  const [icon, setIcon] = useState(initial?.icon ?? CATEGORY_ICONS[0]);
-  const [color] = useState(initial?.color ?? SWATCHES[Math.floor(Math.random() * SWATCHES.length)]);
+  const [icon, setIcon] = useState<string>(resolveCategoryIcon(initial?.icon));
+  const [color] = useState(
+    initial?.color ?? CATEGORY_CHART_COLORS[Math.floor(Math.random() * CATEGORY_CHART_COLORS.length)],
+  );
   const [budget, setBudget] = useState(
     initial?.monthlyBudget != null ? String(toRupees(initial.monthlyBudget)) : "",
   );
@@ -298,7 +289,12 @@ function CategoryForm({
         </div>
       )}
 
-      <Field label="Name" htmlFor="cat-name" error={errors.name} required>
+      <Field
+        label="Name"
+        htmlFor="cat-name"
+        error={errors.name}
+        required
+      >
         <Input
           id="cat-name"
           value={name}
@@ -336,23 +332,7 @@ function CategoryForm({
       </div>
 
       <Field label="Icon">
-        <div className="flex flex-wrap gap-2">
-          {CATEGORY_ICONS.map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => setIcon(n)}
-              aria-label={`Use icon ${n}`}
-              aria-pressed={icon === n}
-              className={cn(
-                "flex h-9 w-9 items-center justify-center rounded-none border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
-                icon === n ? "border-brand bg-brand-soft text-brand-hover" : "border-border text-muted hover:text-fg",
-              )}
-            >
-              <Icon name={n} size={16} />
-            </button>
-          ))}
-        </div>
+        <CategoryIconPicker value={icon} onChange={setIcon} />
       </Field>
 
       <label className="flex items-center justify-between gap-3 rounded-none border border-border bg-surface px-3 py-2.5">

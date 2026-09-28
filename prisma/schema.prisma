@@ -98,6 +98,9 @@ model Category {
   parentId     String?
   isActive     Boolean   @default(true)
   isSystem     Boolean   @default(false)
+  // Permanent identity of a built-in category (DefaultCategory.key), kept
+  // through renames; null for categories the user created.
+  systemKey    String?
   sortOrder    Int       @default(0)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -112,6 +115,7 @@ model Category {
   // Backstop for the check-then-create race in the categories API (see the
   // matching note on Account).
   @@unique([userId, name])
+  @@unique([userId, systemKey])
   @@index([userId])
   @@index([parentId])
 }

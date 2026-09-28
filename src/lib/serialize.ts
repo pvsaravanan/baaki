@@ -54,7 +54,7 @@ export function serializeCategory(c: Category): CategoryDTO {
     monthlyBudget: c.monthlyBudget,
     parentId: c.parentId,
     isActive: c.isActive,
-    isSystem: c.isSystem,
+    systemKey: c.systemKey,
     sortOrder: c.sortOrder,
   };
 }

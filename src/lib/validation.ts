@@ -12,6 +12,7 @@ import {
   TRANSACTION_TYPES,
 } from "./constants";
 import { fromISODate } from "./dates";
+import { DEFAULT_CATEGORY_ICON, isCategoryIcon } from "./category-icons";
 
 // Money columns are Prisma Int (32-bit signed, max 2,147,483,647). Cap well
 // below that so an oversized amount fails Zod validation with a clear field
@@ -155,7 +156,7 @@ export const accountSchema = z.object({
 
 export const categorySchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(60),
-  icon: z.string().max(40).default("tag"),
+  icon: z.string().refine(isCategoryIcon, "Pick an icon from the list").default(DEFAULT_CATEGORY_ICON),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default("#64748b"),
   kind: z.enum(CATEGORY_KINDS).default("expense"),
   monthlyBudget: positivePaise.optional().nullable(),

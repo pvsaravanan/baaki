@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/misc";
-import { Icon } from "@/components/icon";
+import { CategoryIcon } from "@/components/app/category-icon";
 import { Money } from "@/components/money";
 import { SpendBars, CategoryDonut, BudgetGauge } from "@/components/charts/chart-kit";
 import { formatDelta, formatINR } from "@/lib/money";
@@ -29,9 +29,7 @@ export function CategoryDetailView({ category, detail }: { category: CategoryDTO
           Categories
         </Link>
         <div className="mt-2 flex items-center gap-3 border-b border-border pb-md">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-none" style={{ color: category.color }}>
-            <Icon name={category.icon} size={22} />
-          </span>
+          <CategoryIcon icon={category.icon} size={40} />
           <div className="min-w-0">
             <h1 className="text-headline-md text-fg sm:text-headline-lg">{category.name}</h1>
             <p className="mt-1 text-body-sm text-muted">
@@ -99,7 +97,7 @@ export function CategoryDetailView({ category, detail }: { category: CategoryDTO
               <div className="flex flex-col items-center gap-2">
                 <CategoryDonut
                   data={[
-                    { name: category.name, value: currentMonthSpent, color: category.color },
+                    { name: category.name, value: currentMonthSpent, color: category.color, icon: category.icon },
                     { name: "Everything else", value: Math.max(0, monthTotalExpenses - currentMonthSpent), color: "#94a3b8" },
                   ]}
                   height={200}

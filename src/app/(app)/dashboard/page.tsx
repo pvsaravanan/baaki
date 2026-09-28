@@ -9,6 +9,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Money } from "@/components/money";
 import { Progress, Badge, EmptyState } from "@/components/ui/misc";
 import { Icon } from "@/components/icon";
+import { CategoryIcon } from "@/components/app/category-icon";
 import { StatCard } from "@/components/app/stat-card";
 import { PageHeader } from "@/components/app/page-header";
 import { MonthNav } from "@/components/app/month-nav";
@@ -50,7 +51,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     .sort((x, y) => x.date.getTime() - y.date.getTime())
     .slice(0, 5);
 
-  const donutData = a.categories.slice(0, 8).map((c) => ({ name: c.name, value: c.net, color: c.color }));
+  const donutData = a.categories.slice(0, 8).map((c) => ({ name: c.name, value: c.net, color: c.color, icon: c.icon }));
   const activeGoals = goals.filter((g) => g.status !== "archived").slice(0, 3);
 
   const firstName = user.name.split(" ")[0];
@@ -160,7 +161,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                     </div>
                     {a.budget.lines.filter((l) => l.status.state !== "under").slice(0, 3).map((l) => (
                       <div key={l.categoryId} className="flex items-center gap-2 text-xs">
-                        <Icon name={l.icon} size={13} className="text-muted" />
+                        <CategoryIcon icon={l.icon} size={16} />
                         <span className="text-fg">{l.name}</span>
                         <Badge tone={l.status.state === "over" ? "expense" : "warning"} className="ml-auto">
                           {l.status.state === "over" ? "Over" : "Near limit"}

@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { ArrowLeftRight, Copy, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { Icon } from "@/components/icon";
+import { CategoryIcon } from "@/components/app/category-icon";
 import { Money } from "@/components/money";
 import { useAppData, useLookups } from "./app-data";
 import { useTransactionModal } from "./add-transaction";
@@ -118,10 +119,11 @@ export function TransactionRow({
     ? "#64748b"
     : cat?.color ?? (txn.type === "income" ? "#2c6b4f" : txn.type === "refund" ? "#3f7d6e" : "#64748b");
 
+  // A categorized transaction shows its category's illustration; transfers and
+  // uncategorized rows keep a plain symbol for what kind of movement they are.
+  const showCategoryIcon = !isTransfer && !!cat;
   const iconName = isTransfer
     ? "arrow-left-right"
-    : cat?.icon
-    ? cat.icon
     : txn.type === "income"
     ? "plus-circle"
     : txn.type === "refund"
@@ -156,7 +158,11 @@ export function TransactionRow({
         style={{ color: badgeColor }}
         aria-label="Edit transaction"
       >
-        <Icon name={iconName} size={20} strokeWidth={2.2} />
+        {showCategoryIcon ? (
+          <CategoryIcon icon={cat?.icon} size={30} />
+        ) : (
+          <Icon name={iconName} size={20} strokeWidth={2.2} />
+        )}
       </button>
 
       <button onClick={openOrToggle} className="min-w-0 flex-1 text-left">

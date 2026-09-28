@@ -32,7 +32,8 @@ export interface CategoryDTO {
   monthlyBudget: number | null;
   parentId: string | null;
   isActive: boolean;
-  isSystem: boolean;
+  /** Permanent key of a built-in category (see DefaultCategory.key); null if user-made. */
+  systemKey: string | null;
   sortOrder: number;
 }
 
