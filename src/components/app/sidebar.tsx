@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Plus } from "lucide-react";
-import { Logo } from "@/components/logo";
+import { Logo, Wordmark } from "@/components/logo";
 import { PRIMARY_NAV, SECONDARY_NAV, type NavItem } from "./nav-items";
 import { useTransactionModal } from "./add-transaction";
 import { useSidebar } from "./sidebar-context";
@@ -24,8 +24,18 @@ export function Sidebar() {
           collapsed ? "justify-center px-1" : "px-md",
         )}
       >
-        <Link href="/dashboard" aria-label="baaki home" title="Dashboard">
+        <Link href="/dashboard" aria-label="baaki home" title="Dashboard" className="flex items-center">
           <Logo size={collapsed ? "h-7 w-7" : "h-9 w-9"} />
+          {/* Wordmark folds away with the rest of the labels when collapsed. */}
+          <span
+            aria-hidden
+            className={cn(
+              "overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-out",
+              collapsed ? "ml-0 max-w-0 opacity-0" : "ml-2 max-w-[120px] opacity-100",
+            )}
+          >
+            <Wordmark className="h-6 text-fg" />
+          </span>
         </Link>
       </div>
 

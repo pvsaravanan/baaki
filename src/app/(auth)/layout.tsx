@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { Logo } from "@/components/logo";
+import { BrandLockup } from "@/components/logo";
 
 export default async function AuthLayout({ children }: { children: React.ReactNode }) {
   if (await getCurrentUser()) redirect("/dashboard");
@@ -19,7 +19,7 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
           }}
         />
         <div className="relative flex items-center justify-between">
-          <Logo />
+          <BrandLockup />
           <span className="border border-border px-2 py-0.5 text-label-sm uppercase text-muted">
             Est. 2026
           </span>
@@ -61,7 +61,7 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
       <div className="flex items-center justify-center px-6 py-xl">
         <div className="w-full max-w-sm">
           <div className="mb-lg lg:hidden">
-            <Logo />
+            <BrandLockup />
           </div>
           {children}
         </div>

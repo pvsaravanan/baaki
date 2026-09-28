@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Logo } from "@/components/logo";
+import { Logo, Wordmark } from "@/components/logo";
 import { Home } from "lucide-react";
 import { BackButton } from "./_components/back-button";
 
@@ -51,9 +51,9 @@ export default function NotFound() {
         </div>
 
         {/* Brand mark */}
-        <div className="mt-20 flex items-center gap-2 text-faint">
+        <div className="mt-20 flex items-center gap-2">
           <Logo size="h-5 w-5" />
-          <span className="text-label-sm">baaki</span>
+          <Wordmark className="h-3.5 text-faint" />
         </div>
       </div>
     </div>

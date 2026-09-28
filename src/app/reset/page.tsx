@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
-import { Logo } from "@/components/logo";
+import { BrandLockup } from "@/components/logo";
 import { createClient } from "@/lib/supabase/client";
 
 /**
@@ -57,7 +57,7 @@ export default function ResetPasswordPage() {
     <div className="flex min-h-screen items-center justify-center px-6 py-12">
       <div className="w-full max-w-sm">
         <div className="mb-lg">
-          <Logo />
+          <BrandLockup />
         </div>
 
         {!ready ? (
