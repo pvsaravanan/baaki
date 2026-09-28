@@ -1,5 +1,5 @@
 import Image, { getImageProps } from "next/image";
-import { resolveCategoryIcon, type CategoryIconKey } from "@/lib/category-icons";
+import { isSilhouetteIcon, resolveCategoryIcon, type CategoryIconKey } from "@/lib/category-icons";
 import { CATEGORY_ICON_IMAGES } from "./category-icon-assets";
 import { cn } from "@/lib/cn";
 
@@ -9,7 +9,9 @@ import { cn } from "@/lib/cn";
  * source PNGs are 512px, so next/image serves a copy sized to `size`.
  *
  * The illustrations have black outlines and a few are solid black shapes,
- * which vanish on the dark theme — there they sit on a light tile.
+ * which vanish on the dark theme — there a hairline parchment halo traces
+ * the drawing's own edge (no background tile) so they stay legible, and the
+ * all-black silhouettes are inverted to light ink.
  */
 export function CategoryIcon({
   icon,
@@ -23,7 +25,7 @@ export function CategoryIcon({
   const key = resolveCategoryIcon(icon);
   return (
     <span
-      className={cn("inline-flex shrink-0 items-center justify-center dark:bg-[#f4f1ea] dark:p-[2px]", className)}
+      className={cn("inline-flex shrink-0 items-center justify-center", className)}
       style={{ width: size, height: size }}
     >
       <Image
@@ -32,7 +34,12 @@ export function CategoryIcon({
         width={size}
         height={size}
         draggable={false}
-        className="h-full w-full select-none object-contain"
+        className={cn(
+          "h-full w-full select-none object-contain",
+          isSilhouetteIcon(key)
+            ? "dark:invert"
+            : "dark:[filter:drop-shadow(0_0_0.6px_#f4f1ea)_drop-shadow(0_0_0.6px_#f4f1ea)]",
+        )}
       />
     </span>
   );

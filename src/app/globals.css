@@ -41,34 +41,35 @@
 }
 
 /*
-  Dark mode is not specified by College.xyz. Rather than drop the existing
-  theme toggle, this is a warm "inked newsprint" inversion: dark warm-brown
-  ground, parchment ink, same coral accent. Never cool grays.
+  Dark mode is not specified by College.xyz. It's a terminal-like charcoal:
+  near-black neutral ground, cards on the same plane outlined in light gray
+  hairlines, off-white ink, a pale sage accent in place of coral, and vivid
+  green/red so income and expenses read at a glance.
 */
 .dark {
-  --bg: 30 8% 9%;
-  --surface: 30 8% 11%;
-  --surface-2: 30 7% 15%;
-  --border: 34 12% 30%;
-  --border-strong: 34 14% 38%;
-  --border-faint: 30 8% 20%;
-  --fg: 42 32% 92%;
-  --muted: 40 12% 70%;
-  --faint: 38 9% 52%;
-  --brand: 18 62% 62%;
-  --brand-fg: 0 0% 8%;
-  --brand-soft: 18 26% 22%;
-  --brand-hover: 20 62% 69%;
-  --brand-light: 20 62% 72%;
-  --secondary: 42 32% 92%;
-  --tertiary: 30 8% 11%;
-  --accent: 20 66% 70%;
-  --income: 150 40% 55%;
-  --expense: 8 62% 62%;
-  --warning: 32 70% 60%;
-  --ring: 18 62% 60%;
+  --bg: 160 4% 7.5%;          /* #121413 charcoal */
+  --surface: 160 4% 7.5%;     /* surface == page, as in light */
+  --surface-2: 150 3% 15%;    /* pressed / active pill #242726 */
+  --border: 90 2% 46%;        /* light gray card outlines #767874 */
+  --border-strong: 90 2% 60%;
+  --border-faint: 150 3% 18%;
+  --fg: 50 10% 91%;           /* off-white ink #ebeae5 */
+  --muted: 90 3% 70%;
+  --faint: 90 3% 52%;
+  --brand: 80 10% 78%;        /* pale sage #c8ccc0 */
+  --brand-fg: 160 4% 7.5%;
+  --brand-soft: 150 4% 17%;
+  --brand-hover: 80 10% 86%;
+  --brand-light: 80 10% 84%;
+  --secondary: 50 10% 91%;
+  --tertiary: 160 4% 7.5%;
+  --accent: 80 14% 80%;
+  --income: 140 36% 50%;      /* #52ad6e */
+  --expense: 5 68% 55%;       /* #db4a3d */
+  --warning: 38 78% 58%;
+  --ring: 80 10% 70%;
   --shadow: 0 0% 0%;
-  --overlay: 0 0% 4%;
+  --overlay: 0 0% 3%;
   color-scheme: dark;
 }
 

@@ -1,11 +1,12 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart,
   PolarAngleAxis, RadialBar, RadialBarChart, ReferenceLine, ResponsiveContainer, Sector, Tooltip, XAxis, YAxis,
 } from "recharts";
 import { useTheme } from "@/components/theme-provider";
 import { categoryIconSrc } from "@/components/app/category-icon";
+import { isSilhouetteIcon } from "@/lib/category-icons";
 import { pieMidAngles, spreadAngles } from "./donut-icon-layout";
 import { formatINR, formatINRCompact } from "@/lib/money";
 
@@ -344,6 +345,8 @@ function DonutChart({
   data, activeIndex = null, onHoverIndexChange, onSelectIndex, width = 0, height = 0,
 }: DonutProps & { width?: number; height?: number }) {
   const colors = useChartColors();
+  const invertSilhouettes = useTheme().resolved === "dark";
+  const uid = useId().replace(/:/g, "");
 
   // Size the ring so the icons around it always fit inside the chart box,
   // whatever the box's size: the outer edge leaves room for the icon offset
@@ -409,7 +412,20 @@ function DonutChart({
         >
           {/* A few px of slack around the icon so it's an easy tap target. */}
           <rect x={-4} y={-4} width={size + 8} height={size + 8} fill="transparent" />
-          <image href={categoryIconSrc(d.icon, size)} width={size} height={size} />
+          {/* All-black silhouette icons vanish on the dark theme: invert them
+              to light ink there (an SVG filter — CSS filters on SVG content
+              aren't reliable in every browser). */}
+          {invertSilhouettes && isSilhouetteIcon(d.icon) && (
+            <filter id={`${uid}-inv-${index}`}>
+              <feColorMatrix type="matrix" values="-1 0 0 0 1  0 -1 0 0 1  0 0 -1 0 1  0 0 0 1 0" />
+            </filter>
+          )}
+          <image
+            href={categoryIconSrc(d.icon, size)}
+            width={size}
+            height={size}
+            filter={invertSilhouettes && isSilhouetteIcon(d.icon) ? `url(#${uid}-inv-${index})` : undefined}
+          />
         </g>
       </g>
     );
