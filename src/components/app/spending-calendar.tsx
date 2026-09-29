@@ -168,8 +168,8 @@ export function SpendingCalendar({
                 isToday && "ring-2 ring-fg ring-offset-1 ring-offset-surface",
                 isActive && "z-20 -translate-x-px -translate-y-px shadow-stamp-sm",
               )}
-              // Coral wash scales with spend — pixel-grid intensity, no blur.
-              style={spend > 0 ? { backgroundColor: `hsl(var(--brand) / ${intensity})` } : undefined}
+              // Heat wash scales with spend (--heat: coral in both themes) — no blur.
+              style={spend > 0 ? { backgroundColor: `hsl(var(--heat) / ${intensity})` } : undefined}
             >
               <time dateTime={date}>{day}</time>
               <span aria-hidden="true" className="max-w-full whitespace-nowrap text-[10px] font-semibold leading-tight sm:text-xs">{amount}</span>
@@ -236,7 +236,7 @@ function LegendSwatch({ label, opacity }: { label: string; opacity?: number }) {
     <span className="flex items-center gap-1">
       <span
         className="h-3 w-3 border border-border-faint"
-        style={opacity !== undefined ? { backgroundColor: `hsl(var(--brand) / ${opacity})` } : undefined}
+        style={opacity !== undefined ? { backgroundColor: `hsl(var(--heat) / ${opacity})` } : undefined}
       />
       {label}
     </span>
