@@ -356,18 +356,25 @@ export function RecurringForm({
             className="mt-0.5 h-4 w-4 shrink-0 accent-brand"
           />
           <span className="text-sm text-fg">
-            Automatically create these transactions when due
-            <span className="mt-0.5 block text-xs text-muted">Otherwise, post each occurrence manually from the list.</span>
+            Add automatically when due
+            <span className="mt-0.5 block text-xs text-muted">
+              On: the app adds each payment on its date for you. Off: the app only reminds you, and you add it with one tap.
+            </span>
           </span>
         </label>
-        <label className="flex cursor-pointer items-center gap-2.5">
+        <label className="flex cursor-pointer items-start gap-2.5">
           <input
             type="checkbox"
             checked={isActive}
             onChange={(e) => setIsActive(e.target.checked)}
-            className="h-4 w-4 shrink-0 accent-brand"
+            className="mt-0.5 h-4 w-4 shrink-0 accent-brand"
           />
-          <span className="text-sm text-fg">Active</span>
+          <span className="text-sm text-fg">
+            Active
+            <span className="mt-0.5 block text-xs text-muted">
+              Off: paused. Nothing is added and no reminders show, but it isn&apos;t deleted.
+            </span>
+          </span>
         </label>
       </div>
 
