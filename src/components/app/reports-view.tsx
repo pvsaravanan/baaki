@@ -15,7 +15,7 @@ import { IncomeExpenseBars, TrendArea } from "@/components/charts/chart-kit";
 import { InteractiveCategoryDonut } from "@/components/app/interactive-category-donut";
 import { downloadFile } from "@/lib/http";
 import { formatPercent } from "@/lib/money";
-import { formatAccountType, CATEGORY_CHART_COLORS } from "@/lib/constants";
+import { formatAccountType } from "@/lib/constants";
 import type { MonthlyAnalytics } from "@/lib/analytics";
 
 /** Analytics with all Date fields serialized to ISO strings (safe for a client component). */
@@ -186,14 +186,12 @@ function OverviewReport({ a, label }: { a: ReportsAnalytics; label: string }) {
 function CategoryReport({ a, title }: { a: ReportsAnalytics; title: string }) {
   const rows = a.categories;
   const totalSpend = useMemo(() => rows.reduce((s, c) => s + c.net, 0), [rows]);
-  // The chart uses a dedicated ordered palette rather than each category's
-  // own (possibly randomly-assigned) accent color — adjacent slices always
-  // read as distinct instead of however two unrelated categories' colors
-  // happen to fall next to each other.
-  const donutData = rows.map((c, i) => ({
+  // Each category's own colour, as on the Dashboard — a category looks the
+  // same on every chart and in every month.
+  const donutData = rows.map((c) => ({
     name: c.name,
     value: c.net,
-    color: CATEGORY_CHART_COLORS[i % CATEGORY_CHART_COLORS.length],
+    color: c.color,
     icon: c.icon,
   }));
 
@@ -291,7 +289,7 @@ function AccountReport({ perAccount }: { perAccount: PerAccountRow[] }) {
     return (
       <Card>
         <CardBody>
-          <EmptyState illustration={<SectionIcon section="accounts" size={56} />} title="No accounts yet" description="Add an account to see balances here." />
+          <EmptyState illustration={<SectionIcon section="reports" size={56} />} title="No accounts yet" description="Add an account to see balances here." />
         </CardBody>
       </Card>
     );

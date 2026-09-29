@@ -8,7 +8,9 @@ import { Segmented } from "@/components/ui/segmented";
 import { useToast } from "@/components/ui/toast";
 import { useAppData } from "./app-data";
 import { apiPost, ApiError } from "@/lib/http";
-import { CATEGORY_KINDS, CATEGORY_CHART_COLORS, type CategoryKind } from "@/lib/constants";
+import type { CategoryKind } from "@/lib/constants";
+import { leastUsedColor } from "@/lib/category-colors";
+import { CategoryColorPicker } from "./category-color-picker";
 import type { CategoryDTO } from "@/lib/types";
 import { DEFAULT_CATEGORY_ICON } from "@/lib/category-icons";
 import { CategoryIconPicker } from "./category-icon-picker";
@@ -30,12 +32,13 @@ export function QuickCategoryModal({
   defaultKind?: CategoryKind;
   onCreated: (cat: CategoryDTO) => void;
 }) {
-  const { refresh } = useAppData();
+  const { refresh, categories } = useAppData();
   const toast = useToast();
 
   const [name, setName] = useState("");
   const [kind, setKind] = useState<CategoryKind>(defaultKind);
   const [icon, setIcon] = useState<string>(DEFAULT_CATEGORY_ICON);
+  const [color, setColor] = useState(() => leastUsedColor(categories.map((c) => c.color)));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,8 +50,11 @@ export function QuickCategoryModal({
       setName("");
       setKind(defaultKind);
       setIcon(DEFAULT_CATEGORY_ICON);
+      setColor(leastUsedColor(categories.map((c) => c.color)));
       setError(null);
     }
+    // Reset only when the dialog opens, not whenever the list refreshes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, defaultKind]);
 
   async function handleCreate(e: React.FormEvent) {
@@ -64,7 +70,7 @@ export function QuickCategoryModal({
         name: name.trim(),
         kind,
         icon,
-        color: CATEGORY_CHART_COLORS[Math.floor(Math.random() * CATEGORY_CHART_COLORS.length)],
+        color,
         isActive: true,
       });
       refresh();
@@ -122,6 +128,13 @@ export function QuickCategoryModal({
           <label className="block text-label-sm uppercase text-muted">Icon</label>
           <div className="mt-1.5">
             <CategoryIconPicker value={icon} onChange={setIcon} />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-label-sm uppercase text-muted">Colour</label>
+          <div className="mt-1.5">
+            <CategoryColorPicker value={color} onChange={setColor} />
           </div>
         </div>
 

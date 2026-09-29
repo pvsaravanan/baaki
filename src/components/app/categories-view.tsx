@@ -14,7 +14,9 @@ import { useConfirm } from "@/components/ui/confirm";
 import { useAppData } from "./app-data";
 import { ApiError, apiDelete, apiPatch, apiPost } from "@/lib/http";
 import { toPaise, toRupees } from "@/lib/money";
-import { CATEGORY_KINDS, CATEGORY_CHART_COLORS, type CategoryKind } from "@/lib/constants";
+import { CATEGORY_KINDS, type CategoryKind } from "@/lib/constants";
+import { leastUsedColor } from "@/lib/category-colors";
+import { CategoryColorPicker } from "./category-color-picker";
 import type { CategoryDTO } from "@/lib/types";
 import { cn } from "@/lib/cn";
 import { resolveCategoryIcon } from "@/lib/category-icons";
@@ -224,12 +226,12 @@ function CategoryForm({
   onBusyChange?: (busy: boolean) => void;
 }) {
   const editing = !!initial;
+  const { categories } = useAppData();
   const [name, setName] = useState(initial?.name ?? "");
   const [kind, setKind] = useState<CategoryKind>(initial?.kind ?? "expense");
   const [icon, setIcon] = useState<string>(resolveCategoryIcon(initial?.icon));
-  const [color] = useState(
-    initial?.color ?? CATEGORY_CHART_COLORS[Math.floor(Math.random() * CATEGORY_CHART_COLORS.length)],
-  );
+  // A new category starts on the palette colour fewest categories use.
+  const [color, setColor] = useState(() => initial?.color ?? leastUsedColor(categories.map((c) => c.color)));
   const [budget, setBudget] = useState(
     initial?.monthlyBudget != null ? String(toRupees(initial.monthlyBudget)) : "",
   );
@@ -333,6 +335,10 @@ function CategoryForm({
 
       <Field label="Icon">
         <CategoryIconPicker value={icon} onChange={setIcon} />
+      </Field>
+
+      <Field label="Colour" hint="Used for this category in every chart and list.">
+        <CategoryColorPicker value={color} onChange={setColor} />
       </Field>
 
       <label className="flex items-center justify-between gap-3 rounded-none border border-border bg-surface px-3 py-2.5">

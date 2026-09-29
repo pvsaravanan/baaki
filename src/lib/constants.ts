@@ -129,16 +129,6 @@ export const DEFAULT_CATEGORIES: DefaultCategory[] = [
   { key: "other", name: "Other", icon: "more", color: "#8a8578", kind: "both" },
 ];
 
-/**
- * Ordered chart palette for anything breaking a total down by category (the
- * spending donut, etc). Reuses the curated DEFAULT_CATEGORIES colors above —
- * picked for the warm parchment/coral theme and, unlike a category's own
- * (possibly randomly-assigned) accent color, guaranteed to read as
- * distinct, harmonious slices when several sit next to each other. Colors
- * are assigned by position, not by category identity.
- */
-export const CATEGORY_CHART_COLORS = DEFAULT_CATEGORIES.map((c) => c.color);
-
 export function isTransactionType(v: string): v is TransactionType {
   return (TRANSACTION_TYPES as readonly string[]).includes(v);
 }
