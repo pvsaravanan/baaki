@@ -19,7 +19,7 @@ export function CategoryIconPicker({
     <div
       role="radiogroup"
       aria-label={label}
-      className="grid max-h-56 grid-cols-6 gap-1.5 overflow-y-auto border border-border bg-surface-2/30 p-1.5 sm:grid-cols-8"
+      className="grid max-h-80 grid-cols-6 gap-1.5 overflow-y-auto border border-border bg-surface-2/30 p-1.5 sm:grid-cols-8"
     >
       {CATEGORY_ICON_KEYS.map((key) => {
         const active = key === selected;
@@ -38,7 +38,8 @@ export function CategoryIconPicker({
               active ? "border-brand bg-brand-soft ring-1 ring-brand" : "border-border hover:bg-brand-soft",
             )}
           >
-            <CategoryIcon icon={key} size={26} />
+            {/* Fills most of the tile at any width; 64px source keeps it crisp. */}
+            <CategoryIcon icon={key} size={64} className="!h-[70%] !w-[70%]" />
           </button>
         );
       })}
