@@ -11,7 +11,11 @@ import trend from "@/assets/default/trend.png";
 import report from "@/assets/default/report.png";
 import { cn } from "@/lib/cn";
 
-/** Illustrated icons for the app's sections — navigation and empty states. */
+/**
+ * Illustrated icons for the app's sections, shown only on a section's own
+ * page when it has nothing in it yet (its empty state). Navigation keeps the
+ * plain line icons.
+ */
 export const SECTION_ICONS = {
   goals: dart,
   accounts: bank,
@@ -19,7 +23,6 @@ export const SECTION_ICONS = {
   people: boy,
   recurring: calendar,
   budgets: budget,
-  /** Also marks transfer rows — money moving between your own accounts. */
   transactions: transferMoney,
   insights,
   trends: trend,
