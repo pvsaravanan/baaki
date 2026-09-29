@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, PiggyBank, Plus } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { Modal } from "@/components/ui/modal";
 import { Badge, EmptyState, Progress } from "@/components/ui/misc";
 import { Money } from "@/components/money";
 import { CategoryIcon } from "@/components/app/category-icon";
+import { SectionIcon } from "@/components/app/section-icon";
 import { useToast } from "@/components/ui/toast";
 import { useAppData } from "./app-data";
 import { apiPut, ApiError } from "@/lib/http";
@@ -72,7 +73,7 @@ export function BudgetsView({
       {!hasBudget ? (
         <Card>
           <EmptyState
-            icon={<PiggyBank className="h-5 w-5" />}
+            illustration={<SectionIcon section="budgets" size={56} />}
             title="No budget set for this month"
             description="Set an overall monthly limit and per-category budgets to keep your spending on track."
             action={

@@ -4,6 +4,7 @@ import { Progress, EmptyState } from "@/components/ui/misc";
 import { PageHeader } from "./page-header";
 import { MonthNav } from "./month-nav";
 import { MonthContent, MonthScope } from "./month-scope";
+import { SectionIcon } from "./section-icon";
 import { NetSavingsBars, CategoryChangeBars, SpendingPaceLine, SavingsGauge } from "@/components/charts/chart-kit";
 import { formatINR, formatPercent } from "@/lib/money";
 import { monthKeyString, type MonthKey } from "@/lib/dates";
@@ -82,7 +83,7 @@ export function TrendsView(props: TrendsData) {
             {categoryChange.length ? (
               <CategoryChangeBars data={categoryChange} />
             ) : (
-              <EmptyState title="Not enough history" description="Once you have two months of transactions, changes show up here." />
+              <EmptyState illustration={<SectionIcon section="trends" size={56} />} title="Not enough history" description="Once you have two months of transactions, changes show up here." />
             )}
           </CardBody>
         </Card>

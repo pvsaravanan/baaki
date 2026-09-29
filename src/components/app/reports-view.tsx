@@ -8,6 +8,7 @@ import { StatCard } from "@/components/app/stat-card";
 import { EmptyState } from "@/components/ui/misc";
 import { CategoryIcon } from "@/components/app/category-icon";
 import { AccountIcon } from "@/components/app/accounts/account-icon";
+import { SectionIcon } from "@/components/app/section-icon";
 import { useAppData } from "@/components/app/app-data";
 import { useToast } from "@/components/ui/toast";
 import { IncomeExpenseBars, TrendArea } from "@/components/charts/chart-kit";
@@ -170,7 +171,7 @@ function OverviewReport({ a, label }: { a: ReportsAnalytics; label: string }) {
         <CardHeader title="Daily spending" subtitle={label} />
         <CardBody className="pt-2">
           {a.transactionCount === 0 ? (
-            <EmptyState title="No activity this period" description="Charts appear once you record transactions." />
+            <EmptyState illustration={<SectionIcon section="reports" size={56} />} title="No activity this period" description="Charts appear once you record transactions." />
           ) : (
             <TrendArea data={dailySeries(a, "expense")} name="Spent" />
           )}
@@ -200,7 +201,7 @@ function CategoryReport({ a, title }: { a: ReportsAnalytics; title: string }) {
     return (
       <Card>
         <CardBody>
-          <EmptyState title="No spending recorded" description="Category breakdowns appear once you record expenses." />
+          <EmptyState illustration={<SectionIcon section="reports" size={56} />} title="No spending recorded" description="Category breakdowns appear once you record expenses." />
         </CardBody>
       </Card>
     );
@@ -290,7 +291,7 @@ function AccountReport({ perAccount }: { perAccount: PerAccountRow[] }) {
     return (
       <Card>
         <CardBody>
-          <EmptyState title="No accounts yet" description="Add an account to see balances here." />
+          <EmptyState illustration={<SectionIcon section="accounts" size={56} />} title="No accounts yet" description="Add an account to see balances here." />
         </CardBody>
       </Card>
     );
@@ -448,7 +449,7 @@ function ExpenseReport({ a }: { a: ReportsAnalytics }) {
         <CardHeader title="Daily spending" subtitle="This month" />
         <CardBody className="pt-2">
           {a.transactionCount === 0 ? (
-            <EmptyState title="No spending this period" description="Charts appear once you record expenses." />
+            <EmptyState illustration={<SectionIcon section="reports" size={56} />} title="No spending this period" description="Charts appear once you record expenses." />
           ) : (
             <TrendArea data={dailySeries(a, "expense")} name="Spent" />
           )}

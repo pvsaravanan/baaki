@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import { CheckSquare, Filter, Search, Trash2, X } from "lucide-react";
+import { SectionIcon } from "./section-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/field";
 import { SelectMenu } from "@/components/ui/select-menu";
@@ -363,7 +364,11 @@ export function TransactionsView({
         </div>
       ) : txns.length === 0 ? (
         <div className="rounded-none border border-border bg-surface">
-          <EmptyState icon={<Search className="h-5 w-5" />} title="No transactions found" description={activeChips.length ? "Try adjusting or clearing your filters." : "Add your first transaction with the + button."} />
+          <EmptyState
+            {...(activeChips.length
+              ? { icon: <Search className="h-5 w-5" /> }
+              : { illustration: <SectionIcon section="transactions" size={56} /> })}
+            title="No transactions found" description={activeChips.length ? "Try adjusting or clearing your filters." : "Add your first transaction with the + button."} />
         </div>
       ) : (
         <div className="space-y-4">

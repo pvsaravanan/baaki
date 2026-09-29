@@ -64,12 +64,16 @@ export function Spinner({ className }: { className?: string }) {
 
 export function EmptyState({
   icon,
+  illustration,
   title,
   description,
   action,
   className,
 }: {
+  /** A small line icon, shown in a framed tile. */
   icon?: React.ReactNode;
+  /** A full-colour picture, shown larger and unframed (takes the place of `icon`). */
+  illustration?: React.ReactNode;
   title: string;
   description?: string;
   action?: React.ReactNode;
@@ -77,7 +81,9 @@ export function EmptyState({
 }) {
   return (
     <div className={cn("flex flex-col items-center justify-center px-6 py-14 text-center", className)}>
-      {icon && (
+      {illustration ? (
+        <div className="mb-3">{illustration}</div>
+      ) : icon && (
         <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-none border border-border bg-surface-2 text-muted">
           {icon}
         </div>

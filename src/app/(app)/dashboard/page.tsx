@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowUpRight, CalendarClock } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { requireUserOrRedirect } from "@/lib/auth";
 import { getMonthlyAnalytics } from "@/lib/analytics";
 import { loadPreference, loadRecurring, loadTransactions } from "@/lib/queries";
@@ -15,6 +15,7 @@ import { Money } from "@/components/money";
 import { Progress, Badge, EmptyState } from "@/components/ui/misc";
 import { Icon } from "@/components/icon";
 import { CategoryIcon } from "@/components/app/category-icon";
+import { SectionIcon } from "@/components/app/section-icon";
 import { StatCard } from "@/components/app/stat-card";
 import { PageHeader } from "@/components/app/page-header";
 import { MonthNav } from "@/components/app/month-nav";
@@ -108,7 +109,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           <CardHeader title="Recent transactions" action={<Link href="/transactions" className="text-label-sm uppercase text-brand-hover underline-offset-4 hover:underline">View all</Link>} />
           <CardBody className="px-3 py-2">
             {recent.length === 0 ? (
-              <EmptyState title="No transactions yet" description="Add your first transaction to get started." />
+              <EmptyState illustration={<SectionIcon section="transactions" size={56} />} title="No transactions yet" description="Add your first transaction to get started." />
             ) : (
               <div className="divide-y divide-border">
                 {recent.map((t) => (
@@ -127,7 +128,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           <CardHeader title="Spending by category" action={<Link href="/reports" className="text-label-sm uppercase text-brand-hover underline-offset-4 hover:underline">Report</Link>} />
           <CardBody>
             {donutData.length === 0 ? (
-              <EmptyState title="No spending yet" description="Categories appear as you spend." />
+              <EmptyState illustration={<SectionIcon section="categories" size={56} />} title="No spending yet" description="Categories appear as you spend." />
             ) : (
               <>
                 <InteractiveCategoryDonut
@@ -165,7 +166,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           <CardHeader title="Budget" subtitle={budgetLimit > 0 ? `${formatINR(a.budget.overallSpent)} of ${formatINR(budgetLimit)}` : undefined} action={<Link href="/budgets" className="text-label-sm uppercase text-brand-hover underline-offset-4 hover:underline">Manage</Link>} />
           <CardBody>
             {budgetLimit === 0 ? (
-              <EmptyState title="No budget set" description="Set monthly limits to track spending." action={<Link href="/budgets" className="text-sm font-medium text-brand-hover hover:underline">Set a budget</Link>} />
+              <EmptyState illustration={<SectionIcon section="budgets" size={56} />} title="No budget set" description="Set monthly limits to track spending." action={<Link href="/budgets" className="text-sm font-medium text-brand-hover hover:underline">Set a budget</Link>} />
             ) : (
               <div className="space-y-3">
                 <Progress value={budgetLimit > 0 ? (a.budget.overallSpent / budgetLimit) * 100 : 0} tone={budgetRemaining < 0 ? "expense" : (a.budget.overallSpent / budgetLimit) >= 0.9 ? "warning" : "brand"} />
@@ -195,13 +196,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           <CardHeader title="Upcoming payments" action={<Link href="/recurring" className="text-label-sm uppercase text-brand-hover underline-offset-4 hover:underline">All</Link>} />
           <CardBody className="space-y-2">
             {upcoming.length === 0 ? (
-              <EmptyState icon={<CalendarClock className="h-5 w-5" />} title="Nothing scheduled" description="Add recurring payments to see them here." />
+              <EmptyState illustration={<SectionIcon section="recurring" size={56} />} title="Nothing scheduled" description="Add recurring payments to see them here." />
             ) : (
               upcoming.map(({ r, date }) => (
                 <div key={r.id} className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-none bg-surface-2 text-muted">
-                    <CalendarClock className="h-4 w-4" />
-                  </div>
+                  <SectionIcon section="recurring" size={32} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-fg">{r.name}</p>
                     <p className="text-xs text-muted">{formatDate(date, { withYear: false })}</p>

@@ -5,8 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/misc";
 import { Modal } from "@/components/ui/modal";
-import { CategoryIcon } from "../category-icon";
-import { DEFAULT_GOAL_ICON } from "@/lib/category-icons";
+import { SectionIcon } from "../section-icon";
 import { useToast } from "@/components/ui/toast";
 import { useAppData } from "../app-data";
 import { GoalForm, type GoalsResponse } from "../goal-form";
@@ -67,7 +66,7 @@ export function GoalsOverview({ goals: initialGoals, summary: initialSummary }: 
         <MoneyStanding summary={summary} activeGoals={0} />
         <Card>
           <EmptyState
-            icon={<CategoryIcon icon={DEFAULT_GOAL_ICON} size={32} />}
+            illustration={<SectionIcon section="goals" size={56} />}
             title="No goals yet"
             description="Your money can stay in your account while you give it a purpose — a trip, an emergency fund, a new laptop. Allocating to a goal never spends or moves money."
             action={

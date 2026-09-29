@@ -7,6 +7,7 @@ import { PRIMARY_NAV, SECONDARY_NAV, type NavItem } from "./nav-items";
 import { useTransactionModal } from "./add-transaction";
 import { useSidebar } from "./sidebar-context";
 import { cn } from "@/lib/cn";
+import { SectionIcon } from "./section-icon";
 
 export function Sidebar() {
   const { openAdd } = useTransactionModal();
@@ -132,7 +133,14 @@ function NavLink({ item, collapsed }: { item: NavItem; collapsed: boolean }) {
           : "border-transparent text-muted hover:border-border hover:bg-brand-soft hover:text-secondary",
       )}
     >
-      <Icon className="h-4 w-4 shrink-0" strokeWidth={2.25} />
+      {item.section ? (
+        <SectionIcon section={item.section} size={24} className="-my-1" />
+      ) : (
+        // Same 24px slot as the illustrations, so every label lines up.
+        <span className="-my-1 flex h-6 w-6 shrink-0 items-center justify-center">
+          <Icon className="h-5 w-5" strokeWidth={2} />
+        </span>
+      )}
       <span
         className={cn(
           "truncate overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-300 ease-out",

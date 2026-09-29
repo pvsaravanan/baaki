@@ -19,6 +19,7 @@ import type { CategoryDTO } from "@/lib/types";
 import { cn } from "@/lib/cn";
 import { resolveCategoryIcon } from "@/lib/category-icons";
 import { CategoryIcon } from "./category-icon";
+import { SectionIcon } from "./section-icon";
 import { CategoryIconPicker } from "./category-icon-picker";
 
 const KIND_LABELS: Record<CategoryKind, string> = {
@@ -110,7 +111,7 @@ export function CategoriesView({ categories: initial }: { categories: CategoryDT
       {categories.length === 0 ? (
         <div className="rounded-none border border-border bg-surface">
           <EmptyState
-            icon={<CategoryIcon icon="more" size={32} />}
+            illustration={<SectionIcon section="categories" size={56} />}
             title="No categories yet"
             description="Create categories to organize your spending and income."
             action={

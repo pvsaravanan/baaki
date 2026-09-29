@@ -20,6 +20,7 @@ import { useToast } from "@/components/ui/toast";
 import { useConfirm } from "@/components/ui/confirm";
 import { Money } from "@/components/money";
 import { CategoryIcon } from "@/components/app/category-icon";
+import { SectionIcon } from "@/components/app/section-icon";
 import { RecurringForm } from "./recurring-form";
 import { useAppData, useLookups } from "./app-data";
 import { apiDelete, apiPatch, apiPost } from "@/lib/http";
@@ -97,7 +98,7 @@ export function RecurringView({ recurring }: { recurring: RecurringDTO[] }) {
       {rules.length === 0 ? (
         <Card>
           <EmptyState
-            icon={<CalendarClock className="h-5 w-5" />}
+            illustration={<SectionIcon section="recurring" size={56} />}
             title="No recurring rules yet"
             description="Set up bills, subscriptions and income you expect every period, and baaki will keep track of them."
             action={

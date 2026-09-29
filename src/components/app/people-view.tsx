@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Plus, UserCircle2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/misc";
+import { SectionIcon } from "./section-icon";
 import { Modal } from "@/components/ui/modal";
 import { Money } from "@/components/money";
 import { useToast } from "@/components/ui/toast";
@@ -86,7 +87,7 @@ export function PeopleView({ contacts: initial }: { contacts: ContactDTO[] }) {
       {contacts.length === 0 ? (
         <div className="rounded-none border border-border bg-surface">
           <EmptyState
-            icon={<UserCircle2 className="h-5 w-5" />}
+            illustration={<SectionIcon section="people" size={56} />}
             title="No one yet"
             description="Add a person to split expenses with them and track who owes what."
             action={
