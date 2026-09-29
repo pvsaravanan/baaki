@@ -34,7 +34,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#fbfcfd" },
-    { media: "(prefers-color-scheme: dark)", color: "#121413" },
+    { media: "(prefers-color-scheme: dark)", color: "#1b1c1e" },
   ],
   width: "device-width",
   initialScale: 1,
@@ -48,7 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className="min-h-screen bg-bg font-mono text-fg antialiased">
+      <body className="min-h-dvh bg-bg font-mono text-fg antialiased">
         <Providers>{children}</Providers>
       </body>
     </html>

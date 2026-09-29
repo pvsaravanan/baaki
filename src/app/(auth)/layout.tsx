@@ -6,7 +6,7 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
   if (await getCurrentUser()) redirect("/dashboard");
 
   return (
-    <div className="grid min-h-screen lg:grid-cols-2">
+    <div className="grid min-h-dvh lg:grid-cols-2">
       {/* Editorial masthead — parchment, ink rules, pixel grid, coral accent */}
       <div className="relative hidden flex-col justify-between overflow-hidden border-r border-border bg-surface-2 p-xl lg:flex">
         <div

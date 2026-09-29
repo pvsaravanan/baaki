@@ -9,7 +9,7 @@ export const metadata = {
 
 export default function NotFound() {
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-bg px-6">
+    <div className="relative flex min-h-dvh flex-col items-center justify-center overflow-hidden bg-bg px-6">
       {/* Subtle background orbs — ink-wash in light, ember in dark */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-20 -right-20 h-[24rem] w-[24rem] rounded-full border-2 border-border opacity-[0.04]" />
