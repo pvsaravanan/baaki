@@ -75,9 +75,8 @@ async function assertOwnership(userId: string, input: TransactionInput | Omit<Tr
  * A category's `kind` ("expense" | "income" | "both") must be compatible
  * with the transaction type it's attached to, mirroring the filtering the
  * transaction form already does client-side (see transaction-form.tsx) —
- * this is the server-side backstop for a direct API call that skips it. A
- * refund re-categorizes under the expense it's reversing, so it shares the
- * expense side of the check; only "income" needs an income-kind category.
+ * this is the server-side backstop for a direct API call that skips it. Only
+ * "income" needs an income-kind category.
  */
 function assertCategoryKindMatches(kind: string, type: string) {
   if (kind === "both") return;

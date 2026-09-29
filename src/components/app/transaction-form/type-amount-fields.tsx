@@ -5,7 +5,7 @@ import type { TransactionType } from "@/lib/constants";
 import { TYPE_OPTIONS } from "./types";
 
 /**
- * The type switch (Expense/Income/Transfer/Refund) with the Amount input
+ * The type switch (Expense/Income/Transfer) with the Amount input
  * beneath it — or, when editing a split expense, a fixed "Split expense"
  * label instead of the switch (a saved split's type can't change) and no
  * amount input (each split part carries its own amount instead).

@@ -41,18 +41,6 @@ describe("summarize", () => {
     expect(s.count).toBe(2);
   });
 
-  it("treats refunds as reducing effective expense", () => {
-    const txns = [
-      tx({ type: "income", amount: rs(10000) }),
-      tx({ type: "expense", amount: rs(4000) }),
-      tx({ type: "refund", amount: rs(1000) }),
-    ];
-    const s = summarize(txns);
-    expect(s.effectiveExpense).toBe(rs(3000));
-    expect(s.net).toBe(rs(7000));
-    expect(s.refunds).toBe(rs(1000));
-  });
-
   it("does not count transfers as income or expense", () => {
     const txns = [
       tx({ type: "income", amount: rs(5000) }),
@@ -103,8 +91,8 @@ describe("accountBalance", () => {
     expect(accountBalance({ id: "a2", openingBalance: 0 }, txns)).toBe(rs(2000));
   });
 
-  it("refunds increase account balance", () => {
-    const txns = [tx({ type: "refund", amount: rs(250), accountId: "a1" })];
+  it("income increases account balance", () => {
+    const txns = [tx({ type: "income", amount: rs(250), accountId: "a1" })];
     expect(accountBalance({ id: "a1", openingBalance: 0 }, txns)).toBe(rs(250));
   });
 
@@ -122,22 +110,20 @@ describe("categoryTotals & categorySpend", () => {
   const txns = [
     tx({ type: "expense", amount: rs(6420), categoryId: "food" }),
     tx({ type: "expense", amount: rs(3250), categoryId: "transport" }),
-    tx({ type: "refund", amount: rs(420), categoryId: "food" }),
     tx({ type: "income", amount: rs(50000), categoryId: "salary" }),
     tx({ type: "transfer", amount: rs(1000), categoryId: null, accountId: "a1", transferAccountId: "a2" }),
   ];
 
-  it("only counts expenses and refunds, grouped by category", () => {
+  it("only counts expenses, grouped by category", () => {
     const totals = categoryTotals(txns);
     const food = totals.find((t) => t.categoryId === "food")!;
     expect(food.expense).toBe(rs(6420));
-    expect(food.refund).toBe(rs(420));
-    expect(food.net).toBe(rs(6000));
+    expect(food.net).toBe(rs(6420));
     expect(totals.some((t) => t.categoryId === "salary")).toBe(false);
   });
 
-  it("categorySpend nets refunds against expenses", () => {
-    expect(categorySpend(txns, "food")).toBe(rs(6000));
+  it("categorySpend totals a category's expenses", () => {
+    expect(categorySpend(txns, "food")).toBe(rs(6420));
     expect(categorySpend(txns, "transport")).toBe(rs(3250));
   });
 

@@ -40,7 +40,7 @@ export const GET = withUser(async (user, req: NextRequest) => {
     const runningBalance = new Map(accounts.map((a) => [a.id, a.openingBalance]));
     const balanceAfter = new Map<string, number>();
     for (const t of allTxns) {
-      if (t.type === "income" || t.type === "refund") {
+      if (t.type === "income") {
         runningBalance.set(t.accountId, (runningBalance.get(t.accountId) ?? 0) + t.amount);
       } else if (t.type === "expense" || t.type === "transfer") {
         runningBalance.set(t.accountId, (runningBalance.get(t.accountId) ?? 0) - t.amount);

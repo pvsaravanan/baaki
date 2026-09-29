@@ -96,7 +96,7 @@ export async function loadTransactionTotals(userId: string): Promise<{ income: n
   return sums.reduce(
     (acc, s) => {
       const amount = s._sum.amount ?? 0;
-      if (s.type === "income" || s.type === "refund") acc.income += amount;
+      if (s.type === "income") acc.income += amount;
       else if (s.type === "expense") acc.expense += amount;
       return acc;
     },

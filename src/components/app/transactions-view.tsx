@@ -145,7 +145,7 @@ export function TransactionsView({
 
   // Categories on offer in the filter follow the selected transaction Type,
   // same as the add/edit form: transfers never carry a category, income
-  // filters to income/both-kind categories, expense/refund to expense/both.
+  // filters to income/both-kind categories, expense to expense/both.
   const eligibleCategories = useMemo(
     () => categories.filter((c) => categoryKindMatches(c.kind, filters.type)),
     [categories, filters.type],
@@ -412,7 +412,7 @@ function FilterField({ label, children, className }: { label: string; children: 
 function categoryKindMatches(kind: string, type: string): boolean {
   if (type === "transfer") return false; // transfers never carry a category
   if (type === "income") return kind === "income" || kind === "both";
-  if (type === "expense" || type === "refund") return kind === "expense" || kind === "both";
+  if (type === "expense") return kind === "expense" || kind === "both";
   return true; // "" = all types — no restriction
 }
 
@@ -424,7 +424,7 @@ function groupByDay(txns: TransactionDTO[]): DayGroup[] {
     if (!g) { g = { date: t.date, items: [], net: 0 }; map.set(t.date, g); }
     g.items.push(t);
     if (t.type === "expense") g.net += t.amount;
-    else if (t.type === "refund" || t.type === "income") g.net -= t.amount;
+    else if (t.type === "income") g.net -= t.amount;
   }
   return [...map.values()];
 }

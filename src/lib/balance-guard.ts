@@ -37,7 +37,7 @@ export function accountDeltas(moves: Movement[]): Map<string, number> {
   const deltas = new Map<string, number>();
   const add = (id: string, v: number) => deltas.set(id, (deltas.get(id) ?? 0) + v);
   for (const m of moves) {
-    if (m.type === "income" || m.type === "refund") add(m.accountId, m.amount);
+    if (m.type === "income") add(m.accountId, m.amount);
     else if (m.type === "expense") add(m.accountId, -m.amount);
     else if (m.type === "transfer") {
       add(m.accountId, -m.amount);

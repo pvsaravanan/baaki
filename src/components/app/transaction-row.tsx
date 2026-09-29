@@ -16,7 +16,6 @@ import { cn } from "@/lib/cn";
 
 const TONE: Record<string, "income" | "expense" | "muted" | "default"> = {
   income: "income",
-  refund: "income",
   expense: "expense",
   transfer: "muted",
 };
@@ -46,7 +45,7 @@ export function TransactionRow({
 
   const cat = txn.categoryId ? category(txn.categoryId) : null;
   const isTransfer = txn.type === "transfer";
-  // Expenses reduce the balance; income, refunds and transfers all display as a
+  // Expenses reduce the balance; income and transfers both display as a
   // positive amount (the tone/sign props below distinguish them visually).
   const signed = txn.type === "expense" ? -txn.amount : txn.amount;
 
@@ -117,12 +116,12 @@ export function TransactionRow({
 
   const badgeColor = isTransfer
     ? "#64748b"
-    : cat?.color ?? (txn.type === "income" ? "#2c6b4f" : txn.type === "refund" ? "#3f7d6e" : "#64748b");
+    : cat?.color ?? (txn.type === "income" ? "#2c6b4f" : "#64748b");
 
   // Transfers keep a plain ⇆ symbol (money moving between your own accounts);
   // everything else shows an illustration — its category's, or one for its
   // type when it has no category.
-  const fallbackIcon = txn.type === "income" ? "dollars" : txn.type === "refund" ? "payment" : "more";
+  const fallbackIcon = txn.type === "income" ? "dollars" : "more";
 
   const openOrToggle = () => {
     if (selectMode) onToggleSelect?.(txn.id);

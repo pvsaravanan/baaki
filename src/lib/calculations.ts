@@ -5,12 +5,11 @@
  * in isolation (see calculations.test.ts). All amounts are integer paise.
  *
  * Rules (from the product spec):
- *  - Balance = opening + income + refunds − expenses − transfers-out + transfers-in
+ *  - Balance = opening + income − expenses − transfers-out + transfers-in
  *  - Transfers between the user's own accounts are NOT income or expense.
- *  - Refunds reduce the effective expense amount.
- *  - Savings = income − effective expenses;  effective expense = expenses − refunds
- *  - Savings rate = (income − effective expenses) / income × 100  (0 when income = 0)
- *  - Category spending counts actual expenses (net of refunds in that category).
+ *  - Savings = income − expenses
+ *  - Savings rate = (income − expenses) / income × 100  (0 when income = 0)
+ *  - Category spending counts the expenses in that category.
  */
 
 import type { TransactionType } from "./constants";
@@ -64,7 +63,6 @@ export function accountBalance(account: CalcAccount, txns: CalcTxn[]): number {
     if (t.accountId === account.id) {
       switch (t.type) {
         case "income":
-        case "refund":
           balance += t.amount;
           break;
         case "expense":
@@ -99,8 +97,8 @@ export function actualBalance(accounts: (CalcAccount & { isArchived: boolean })[
 export interface PeriodSummary {
   income: number; // gross income
   grossExpense: number;
-  refunds: number;
-  effectiveExpense: number; // grossExpense − refunds
+  /** Total spending (same as grossExpense). */
+  effectiveExpense: number;
   transfersOut: number;
   transfersIn: number;
   net: number; // income − effectiveExpense (a.k.a. net savings / net cash flow)
@@ -112,7 +110,6 @@ export interface PeriodSummary {
 export function summarize(txns: CalcTxn[]): PeriodSummary {
   let income = 0;
   let grossExpense = 0;
-  let refunds = 0;
   let transfersOut = 0;
   let transfersIn = 0;
   let count = 0;
@@ -127,9 +124,6 @@ export function summarize(txns: CalcTxn[]): PeriodSummary {
       case "expense":
         grossExpense += t.amount;
         break;
-      case "refund":
-        refunds += t.amount;
-        break;
       case "transfer":
         transfersOut += t.amount;
         transfersIn += t.amount;
@@ -137,14 +131,13 @@ export function summarize(txns: CalcTxn[]): PeriodSummary {
     }
   }
 
-  const effectiveExpense = grossExpense - refunds;
+  const effectiveExpense = grossExpense;
   const net = income - effectiveExpense;
   const savingsRate = income > 0 ? (net / income) * 100 : 0;
 
   return {
     income,
     grossExpense,
-    refunds,
     effectiveExpense,
     transfersOut,
     transfersIn,
@@ -156,50 +149,45 @@ export function summarize(txns: CalcTxn[]): PeriodSummary {
 
 export interface CategoryTotal {
   categoryId: string | null;
-  expense: number; // gross expense in category
-  refund: number; // refunds in category
-  net: number; // expense − refund (effective spend)
+  expense: number; // expense in category
+  net: number; // spend used by budgets and charts (same as expense)
   count: number;
 }
 
 /**
- * Spending grouped by category. Only expense/refund transactions contribute.
- * `net` is the effective spend used by budgets; `expense` is the gross figure
- * used by the "expenses by category" chart.
+ * Spending grouped by category. Only expense transactions contribute.
  */
 export function categoryTotals(txns: CalcTxn[]): CategoryTotal[] {
   const map = new Map<string | null, CategoryTotal>();
   for (const t of txns) {
     if (!isActive(t)) continue;
-    if (t.type !== "expense" && t.type !== "refund") continue;
+    if (t.type !== "expense") continue;
     const key = t.categoryId ?? null;
     let entry = map.get(key);
     if (!entry) {
-      entry = { categoryId: key, expense: 0, refund: 0, net: 0, count: 0 };
+      entry = { categoryId: key, expense: 0, net: 0, count: 0 };
       map.set(key, entry);
     }
-    if (t.type === "expense") entry.expense += t.amount;
-    else entry.refund += t.amount;
-    entry.net = entry.expense - entry.refund;
+    entry.expense += t.amount;
+    entry.net = entry.expense;
     entry.count += 1;
   }
   return [...map.values()].sort((a, b) => b.net - a.net);
 }
 
-/** Effective spend for a single category (expenses − refunds). */
+/** Spend for a single category. */
 export function categorySpend(txns: CalcTxn[], categoryId: string): number {
   let spend = 0;
   for (const t of txns) {
     if (!isActive(t) || t.categoryId !== categoryId) continue;
     if (t.type === "expense") spend += t.amount;
-    else if (t.type === "refund") spend -= t.amount;
   }
   return spend;
 }
 
 export interface DailyPoint {
   date: string; // YYYY-MM-DD
-  expense: number; // effective expense that day (>= 0 floor for intensity)
+  expense: number; // expenses that day
   income: number;
   count: number;
 }
@@ -220,10 +208,8 @@ export function dailySeries(txns: CalcTxn[], start: Date, end: Date): DailyPoint
     if (!point) continue;
     point.count += 1;
     if (t.type === "expense") point.expense += t.amount;
-    else if (t.type === "refund") point.expense -= t.amount;
     else if (t.type === "income") point.income += t.amount;
   }
-  for (const p of byDay.values()) if (p.expense < 0) p.expense = Math.max(p.expense, 0);
   return [...byDay.values()];
 }
 

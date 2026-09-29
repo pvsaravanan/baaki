@@ -27,7 +27,6 @@ export interface CategorySpendRow {
   color: string;
   icon: string;
   expense: number;
-  refund: number;
   net: number;
   count: number;
 }
@@ -81,7 +80,6 @@ function toRows(txns: CalcTxn[], categories: Map<string, CategoryDTO>): Category
       color: meta?.color ?? "#94a3b8",
       icon: meta?.icon ?? DEFAULT_CATEGORY_ICON,
       expense: c.expense,
-      refund: c.refund,
       net: c.net,
       count: c.count,
     };
@@ -114,7 +112,7 @@ export async function getMonthlyAnalytics(
   const current = summarize(monthTxns);
   const previous = summarize(prevTxns);
 
-  const categoryRows = toRows(monthTxns, categories).filter((c) => c.expense > 0 || c.refund > 0);
+  const categoryRows = toRows(monthTxns, categories).filter((c) => c.expense > 0);
   const prevCategoryTotals = categoryTotals(prevTxns);
 
   // Largest single expense this month computed in-memory (0 extra DB queries).
@@ -298,7 +296,7 @@ export async function getCategoryDetail(userId: string, categoryId: string): Pro
   const deltaPct = percentChange(currentMonthSpent, previousMonthSpent);
 
   const totalSpent = categorySpend(catTxns, categoryId);
-  const transactionCount = catTxns.filter((t) => t.type === "expense" || t.type === "refund").length;
+  const transactionCount = catTxns.filter((t) => t.type === "expense").length;
   const avgPerMonth = Math.round(monthly.reduce((sum, m) => sum + m.net, 0) / monthly.length);
 
   const monthTotalExpense = summarize(filterRange(txns, currentRange.start, currentRange.end)).effectiveExpense;

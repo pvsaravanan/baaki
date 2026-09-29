@@ -134,7 +134,7 @@ export function TransactionModalProvider({ children }: { children: React.ReactNo
         open={state !== null}
         onClose={close}
         title={state?.mode === "edit" ? "Edit transaction" : "Add transaction"}
-        description={state?.mode === "edit" ? undefined : "Record income, an expense, a transfer or a refund."}
+        description={state?.mode === "edit" ? undefined : "Record an expense, income or a transfer."}
         busy={busy}
       >
         {state && loadingGroup && (

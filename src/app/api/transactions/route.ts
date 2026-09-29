@@ -35,7 +35,7 @@ export const GET = withUser(async (user, req: NextRequest) => {
   const totals = sums.reduce(
     (acc, s) => {
       const amount = s._sum.amount ?? 0;
-      if (s.type === "income" || s.type === "refund") acc.income += amount;
+      if (s.type === "income") acc.income += amount;
       else if (s.type === "expense") acc.expense += amount;
       return acc;
     },

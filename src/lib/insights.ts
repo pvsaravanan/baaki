@@ -48,9 +48,7 @@ export function generateInsights(input: InsightInput): Insight[] {
   // Top category as a share of spending.
   const topCat = currentCategories[0];
   if (topCat && current.effectiveExpense > 0 && topCat.net > 0) {
-    // effectiveExpense is the net across all categories, so a refund-heavy
-    // category with negative net can shrink the denominator below topCat.net
-    // and push the share above 100%. Clamp to a sane [0,100] range.
+    // Clamp to a sane [0,100] range.
     const share = Math.min(100, (topCat.net / current.effectiveExpense) * 100);
     out.push({
       id: "top-category-share",

@@ -33,7 +33,6 @@ export default async function ReportsPage({
     const row = byAccount.get(t.accountId) ?? { accountId: t.accountId, expense: 0, income: 0, count: 0 };
     row.count += 1;
     if (t.type === "expense") row.expense += t.amount;
-    else if (t.type === "refund") row.expense -= t.amount;
     else if (t.type === "income") row.income += t.amount;
     byAccount.set(t.accountId, row);
   }

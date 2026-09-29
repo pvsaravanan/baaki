@@ -5,7 +5,7 @@
 
 import type { CategoryIconKey } from "./category-icons";
 
-export const TRANSACTION_TYPES = ["expense", "income", "transfer", "refund"] as const;
+export const TRANSACTION_TYPES = ["expense", "income", "transfer"] as const;
 export type TransactionType = (typeof TRANSACTION_TYPES)[number];
 
 export const PAYMENT_METHODS = ["upi", "cash", "card", "net_banking", "other"] as const;
@@ -85,7 +85,6 @@ export const TYPE_LABELS: Record<TransactionType, string> = {
   expense: "Expense",
   income: "Income",
   transfer: "Transfer",
-  refund: "Refund",
 };
 
 /** Default category set seeded for every new user. Colors are theme-neutral. */

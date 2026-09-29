@@ -114,7 +114,7 @@ export const splitPartSchema = z.object({
  * A single logical expense divided into multiple real Transaction rows
  * (one per part), sharing a splitGroupId — see the schema comment on
  * Transaction.splitGroupId. Splitting is expense-only: it wouldn't have a
- * clear meaning for income/transfer/refund.
+ * clear meaning for income or transfers.
  */
 export const splitTransactionSchema = z.object({
   description: z.string().trim().min(1, "Description is required").max(200),
