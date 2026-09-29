@@ -91,6 +91,10 @@ Notes:
 
 - On serverless (e.g. Vercel), always use the **pooled** `DATABASE_URL` (`6543`) so
   functions don't exhaust direct connections. `DIRECT_URL` is only for Prisma Migrate.
+- Run server code next to the database. `vercel.json` pins Vercel functions to
+  Singapore (`sin1`), the same region as the Supabase project (`ap-southeast-1`);
+  from Vercel's default US region every query would cross the Pacific. If the
+  database ever moves, change the region to match.
 - Supabase Auth owns passwords, sessions, email delivery and password recovery.
   The legacy `AUTH_SECRET`, `RESEND_API_KEY` and `EMAIL_FROM` entries in `.env.example`
   are not used by the current application.
