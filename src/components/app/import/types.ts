@@ -31,14 +31,20 @@ export interface FieldMeta {
   key: ImportField;
   label: string;
   required?: boolean;
+  /** Needed unless the other half of the amount choice is mapped (see hasAmountMapping). */
+  amountChoice?: boolean;
+  /** Short help under the field. */
+  hint?: string;
   /** Substrings that hint a CSV header maps to this field. */
   hints: string[];
 }
 
 export const FIELDS: FieldMeta[] = [
   { key: "date", label: "Date", required: true, hints: ["date", "posted", "when"] },
-  { key: "description", label: "Description", required: true, hints: ["desc", "narration", "details", "particular", "memo", "merchant", "name"] },
-  { key: "amount", label: "Amount", required: true, hints: ["amount", "amt", "value", "debit", "credit"] },
+  { key: "description", label: "Description", required: true, hints: ["desc", "narration", "details", "particular", "memo", "merchant", "name", "remarks", "transaction remarks", "payee"] },
+  { key: "amount", label: "Amount", amountChoice: true, hint: "Use this, or Withdrawal + Deposit", hints: ["amount", "amt", "value"] },
+  { key: "withdrawal", label: "Withdrawal", amountChoice: true, hint: "Money-out column (instead of Amount)", hints: ["withdrawal", "withdrawl", "debit", "paid out", "money out"] },
+  { key: "deposit", label: "Deposit", amountChoice: true, hint: "Money-in column (instead of Amount)", hints: ["deposit", "credit", "paid in", "money in"] },
   { key: "type", label: "Type", hints: ["type", "dr", "cr", "direction"] },
   { key: "category", label: "Category", hints: ["categ", "tag"] },
   { key: "account", label: "Account", hints: ["account", "acct", "bank", "card"] },
@@ -46,7 +52,8 @@ export const FIELDS: FieldMeta[] = [
   { key: "notes", label: "Notes", hints: ["note", "remark", "comment"] },
 ];
 
-export const REQUIRED_FIELDS: ImportField[] = ["date", "description", "amount"];
+/** Always needed; plus an amount — Amount, or Withdrawal/Deposit (see hasAmountMapping). */
+export const REQUIRED_FIELDS: ImportField[] = ["date", "description"];
 
 // Keep well under typical serverless request-body limits (e.g. Vercel's
 // ~4.5MB) — the whole parsed file is sent as JSON, twice (preview + commit),

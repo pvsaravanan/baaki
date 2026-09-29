@@ -3,7 +3,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { SelectMenu } from "@/components/ui/select-menu";
-import type { ImportField } from "@/lib/csv";
+import { hasAmountMapping, type ImportField } from "@/lib/csv";
 import { FIELDS, type DateFormat } from "./types";
 
 export function MapStep({
@@ -48,11 +48,11 @@ export function MapStep({
       <CardBody className="space-y-5">
         <div className="grid gap-4 sm:grid-cols-2">
           {FIELDS.map((f) => (
-            <Field key={f.key} label={f.label} required={f.required} htmlFor={`map-${f.key}`}>
+            <Field key={f.key} label={f.label} required={f.required} hint={f.hint} htmlFor={`map-${f.key}`}>
               <SelectMenu
                 id={`map-${f.key}`}
                 value={mapping[f.key]}
-                invalid={f.required && !mapping[f.key]}
+                invalid={(f.required && !mapping[f.key]) || (f.amountChoice && !hasAmountMapping(mapping))}
                 onChange={(v) => setMapping((m) => ({ ...m, [f.key]: v }))}
                 options={[{ value: "", label: "— Not mapped —" }, ...headers.map((h) => ({ value: h, label: h }))]}
               />
@@ -116,7 +116,7 @@ export function MapStep({
 
         {!requiredMapped && (
           <p className="text-xs text-muted">
-            Map the required fields (Date, Description, Amount) to continue.
+            Map Date, Description and the amount — either one Amount column, or the Withdrawal and Deposit columns — to continue.
           </p>
         )}
       </CardBody>

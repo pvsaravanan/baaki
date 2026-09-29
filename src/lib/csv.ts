@@ -31,6 +31,8 @@ export type ImportField =
   | "date"
   | "description"
   | "amount"
+  | "withdrawal"
+  | "deposit"
   | "type"
   | "category"
   | "account"
@@ -38,6 +40,130 @@ export type ImportField =
   | "notes";
 
 export type ColumnMapping = Partial<Record<ImportField, string>>;
+
+/**
+ * The amount can come from a single Amount column, or — as most Indian bank
+ * statements lay it out — from separate Withdrawal and Deposit columns.
+ */
+export function hasAmountMapping(mapping: ColumnMapping): boolean {
+  return Boolean(mapping.amount || mapping.withdrawal || mapping.deposit);
+}
+
+export interface ParsedAmount {
+  paise: number; // always positive
+  /** "out" = money spent, "in" = money received, null = the text doesn't say. */
+  direction: "out" | "in" | null;
+}
+
+/**
+ * Read an amount the way bank statements write it: "₹1,200.50", "Rs. 450",
+ * "INR 90", "1,200.00 Dr" / "Cr 500", "(450.00)" or "450.00-" for negatives,
+ * "-450". Returns null when the text isn't an amount at all.
+ */
+export function parseAmount(raw: string): ParsedAmount | null {
+  let s = raw.trim();
+  if (!s) return null;
+  let direction: ParsedAmount["direction"] = null;
+
+  // "Dr"/"Cr" before or after the number says which way the money went.
+  const leading = /^(dr|cr)\.?\s*(.+)$/i.exec(s);
+  const trailing = /^(.+?)\s*(dr|cr)\.?$/i.exec(s);
+  if (leading || trailing) {
+    const marker = leading ? leading[1] : trailing![2];
+    s = (leading ? leading[2] : trailing![1]).trim();
+    direction = marker.toLowerCase() === "dr" ? "out" : "in";
+  }
+
+  // Currency symbols/words and grouping separators carry no meaning here.
+  s = s.replace(/₹|\brs\.?|\binr\b/gi, "").replace(/[,\s]/g, "");
+
+  // Negatives: (450.00), 450.00- or -450.
+  let negative = false;
+  const paren = /^\((.+)\)$/.exec(s);
+  if (paren) {
+    negative = true;
+    s = paren[1];
+  }
+  if (s.endsWith("-")) {
+    negative = true;
+    s = s.slice(0, -1);
+  }
+  if (s.startsWith("-")) {
+    negative = true;
+    s = s.slice(1);
+  } else if (s.startsWith("+")) {
+    s = s.slice(1);
+  }
+
+  if (!/^(\d+\.?\d*|\.\d+)$/.test(s)) return null;
+  let paise: number;
+  try {
+    paise = Math.abs(toPaise(s));
+  } catch {
+    return null;
+  }
+  if (negative && direction === null) direction = "out";
+  return { paise, direction };
+}
+
+/** Words that appear in the column-heading row of bank statements. */
+const HEADER_WORDS = [
+  "date", "narration", "description", "particulars", "details", "remarks", "amount", "amt",
+  "withdrawal", "deposit", "debit", "credit", "balance", "type", "ref", "cheque", "chq", "category", "account",
+];
+
+function headerMatches(row: string[]): { count: number; hasDate: boolean } {
+  let count = 0;
+  let hasDate = false;
+  for (const cell of row) {
+    const lower = cell.trim().toLowerCase();
+    if (!lower || lower.length > 40) continue;
+    if (HEADER_WORDS.some((w) => lower.includes(w))) count += 1;
+    if (lower.includes("date")) hasDate = true;
+  }
+  return { count, hasDate };
+}
+
+/**
+ * Where the column headings are. Bank statements often start with lines of
+ * account details (name, account number, period…) before the table; this
+ * finds the first row that reads like headings — a "date" column plus at
+ * least one other known heading — within the first 40 rows. Falls back to
+ * the first row.
+ */
+export function findHeaderRow(rows: string[][]): number {
+  const limit = Math.min(rows.length, 40);
+  for (let i = 0; i < limit; i++) {
+    const { count, hasDate } = headerMatches(rows[i]);
+    if (hasDate && count >= 2) return i;
+  }
+  return 0;
+}
+
+/**
+ * Turn parsed CSV rows into records keyed by the heading row. Blank headings
+ * become "Column N" and repeated ones get a number, so no column is lost;
+ * rows with nothing in them are dropped.
+ */
+export function recordsFromRows(rows: string[][], headerIndex: number): { headers: string[]; records: Record<string, string>[] } {
+  const seen = new Map<string, number>();
+  const headers = (rows[headerIndex] ?? []).map((cell, i) => {
+    const base = cell.trim() || `Column ${i + 1}`;
+    const n = (seen.get(base) ?? 0) + 1;
+    seen.set(base, n);
+    return n === 1 ? base : `${base} (${n})`;
+  });
+  const records: Record<string, string>[] = [];
+  for (const row of rows.slice(headerIndex + 1)) {
+    if (!row.some((cell) => cell != null && String(cell).trim() !== "")) continue;
+    const record: Record<string, string> = {};
+    headers.forEach((h, i) => {
+      record[h] = row[i] != null ? String(row[i]) : "";
+    });
+    records.push(record);
+  }
+  return { headers, records };
+}
 
 export interface ParsedImportRow {
   index: number; // original row index (0-based, excludes header)
@@ -112,14 +238,14 @@ export function validateImportRows(
   const valid: ParsedImportRow[] = [];
   const invalid: InvalidImportRow[] = [];
 
-  if (!mapping.date || !mapping.amount || !mapping.description) {
+  if (!mapping.date || !hasAmountMapping(mapping) || !mapping.description) {
     // Caller must map the required fields; report all rows as invalid.
     return {
       valid: [],
       invalid: records.map((raw, index) => ({
         index,
         raw,
-        errors: ["Map the Date, Description and Amount columns to continue"],
+        errors: ["Map the Date, Description and Amount (or Withdrawal/Deposit) columns to continue"],
       })),
       total: records.length,
     };
@@ -139,16 +265,16 @@ export function validateImportRows(
   // "income" would mis-tag every expense row with no visible error. Detect
   // that case up front and require the user to map a Type column instead of
   // guessing.
+  //
+  // Separate Withdrawal/Deposit columns always say which way the money went,
+  // and so do Dr/Cr markers or brackets in a single Amount column.
   const hasTypeColumn = Boolean(mapping.type);
-  const hasAnyNegativeAmount = !hasTypeColumn
-    ? records.some((raw) => {
-        const rawAmount = mapping.amount ? (raw[mapping.amount] ?? "").trim() : "";
-        const cleaned = rawAmount.replace(/[₹,\s]/g, "");
-        const num = Number(cleaned);
-        return Number.isFinite(num) && num < 0;
-      })
-    : true; // irrelevant when a type column is mapped
-  const fileIsAmbiguous = !hasTypeColumn && !hasAnyNegativeAmount && records.length > 0;
+  const splitColumns = !mapping.amount;
+  const hasAnyDirection =
+    splitColumns || hasTypeColumn
+      ? true // irrelevant: the direction comes from the columns / type
+      : records.some((raw) => parseAmount(raw[mapping.amount!] ?? "")?.direction != null);
+  const fileIsAmbiguous = !hasAnyDirection && records.length > 0;
 
   records.forEach((raw, index) => {
     const errors: string[] = [];
@@ -161,36 +287,51 @@ export function validateImportRows(
     const description = get("description");
     if (!description) errors.push("Description is required");
 
-    const rawAmount = get("amount");
     let amountPaise = 0;
-    let sign = 1;
-    try {
-      const cleaned = rawAmount.replace(/[₹,\s]/g, "");
-      if (cleaned === "") throw new Error("empty");
-      const num = Number(cleaned);
-      if (!Number.isFinite(num)) throw new Error("nan");
-      sign = num < 0 ? -1 : 1;
-      amountPaise = Math.abs(toPaise(cleaned));
-      if (amountPaise === 0) errors.push("Amount cannot be zero");
-    } catch {
-      errors.push(`Invalid amount: "${rawAmount}"`);
+    let direction: ParsedAmount["direction"] = null;
+    let rawAmount = get("amount");
+    if (!splitColumns) {
+      const parsed = parseAmount(rawAmount);
+      if (!parsed) errors.push(`Invalid amount: "${rawAmount}"`);
+      else if (parsed.paise === 0) errors.push("Amount cannot be zero");
+      else ({ paise: amountPaise, direction } = parsed);
+    } else {
+      // One of Withdrawal / Deposit holds the amount; the other is blank (or 0).
+      const rawOut = get("withdrawal");
+      const rawIn = get("deposit");
+      const out = rawOut ? parseAmount(rawOut) : null;
+      const inn = rawIn ? parseAmount(rawIn) : null;
+      if (rawOut && !out) errors.push(`Invalid withdrawal amount: "${rawOut}"`);
+      if (rawIn && !inn) errors.push(`Invalid deposit amount: "${rawIn}"`);
+      const outPaise = out?.paise ?? 0;
+      const inPaise = inn?.paise ?? 0;
+      rawAmount = rawOut || rawIn;
+      if (outPaise > 0 && inPaise > 0) errors.push("Both Withdrawal and Deposit have an amount — only one should");
+      else if (outPaise > 0) {
+        amountPaise = outPaise;
+        direction = "out";
+      } else if (inPaise > 0) {
+        amountPaise = inPaise;
+        direction = "in";
+      } else if (!errors.length) errors.push("No amount in Withdrawal or Deposit");
     }
 
-    // Determine type: explicit mapping wins, else infer from sign.
-    let type: TransactionType = sign < 0 ? "expense" : "income";
+    // Determine type: an explicit Type column wins, else the amount's direction.
+    let type: TransactionType = direction === "out" ? "expense" : "income";
     const rawType = get("type").toLowerCase();
     if (rawType) {
       const normalized = rawType.replace(/\s+/g, "_");
       if (isTransactionType(normalized)) type = normalized;
       else if (["debit", "dr", "withdrawal", "spent"].includes(rawType)) type = "expense";
-      else if (["credit", "cr", "deposit", "received"].includes(rawType)) type = "income";
+      // A refund is money coming back in — recorded as income.
+      else if (["credit", "cr", "deposit", "received", "refund"].includes(rawType)) type = "income";
       else errors.push(`Unknown transaction type: "${rawType}"`);
     }
     // A Type column is mapped but this particular cell is blank: the
     // file-wide ambiguity check above only fires when NO Type column is
     // mapped at all, so a blank cell here would otherwise fall through to
     // sign-based inference silently. Flag it instead of guessing.
-    const rowTypeIsAmbiguous = hasTypeColumn && !rawType && sign >= 0;
+    const rowTypeIsAmbiguous = hasTypeColumn && !rawType && direction === null;
 
     // Transfers need a destination account (see accountBalance's double-entry
     // logic), but the import mapping has no "to account" column — so a transfer
@@ -203,7 +344,7 @@ export function validateImportRows(
     }
 
     if (fileIsAmbiguous) {
-      errors.push("Cannot tell income from expense — map a Type/Debit-Credit column (this file has no negative amounts)");
+      errors.push("Cannot tell income from expense — map a Type column, or separate Withdrawal/Deposit columns (this file's amounts don't say which way the money went)");
     } else if (rowTypeIsAmbiguous) {
       errors.push(`Type column is blank for this row — can't tell income from expense for "${rawAmount}"`);
     }

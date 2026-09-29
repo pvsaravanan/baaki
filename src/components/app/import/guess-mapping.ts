@@ -22,9 +22,29 @@ function headerScore(header: string, hints: string[]): number {
 export function guessMapping(headers: string[]): Record<ImportField, string> {
   const mapping = Object.fromEntries(FIELDS.map((f) => [f.key, ""])) as Record<ImportField, string>;
   const used = new Set<string>();
+  // Bank statements with separate money-out / money-in columns ("Withdrawal
+  // Amt." / "Deposit Amt.") would otherwise hand one of them to Amount (it
+  // contains "amt"). When both halves are there, map them and skip Amount.
+  const hintsOf = (key: ImportField) => FIELDS.find((f) => f.key === key)!.hints;
+  const bestFor = (key: ImportField) =>
+    headers.reduce<{ h: string; score: number }>((best, h) => {
+      const score = headerScore(h, hintsOf(key));
+      return score > best.score ? { h, score } : best;
+    }, { h: "", score: 0 });
+  const out = bestFor("withdrawal");
+  const inn = bestFor("deposit");
+  const splitColumns = out.score > 0 && inn.score > 0 && out.h !== inn.h;
+  if (splitColumns) {
+    mapping.withdrawal = out.h;
+    mapping.deposit = inn.h;
+    used.add(out.h);
+    used.add(inn.h);
+  }
   // FIELDS is ordered required-first, so required fields claim their best
   // header before optional ones can take it.
   for (const field of FIELDS) {
+    // The split columns are only ever guessed as a pair (above).
+    if (field.key === "withdrawal" || field.key === "deposit" || (splitColumns && field.key === "amount")) continue;
     let bestHeader = "";
     let bestScore = 0;
     for (const h of headers) {

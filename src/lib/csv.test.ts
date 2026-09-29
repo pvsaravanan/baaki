@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCSV, dedupeKey, detectDateFormat, normalizeDate, validateImportRows } from "./csv";
+import { buildCSV, dedupeKey, detectDateFormat, findHeaderRow, normalizeDate, parseAmount, recordsFromRows, validateImportRows } from "./csv";
 import { toPaise } from "./money";
 
 describe("buildCSV", () => {
@@ -93,6 +93,12 @@ describe("validateImportRows", () => {
     expect(result.valid[1].type).toBe("income");
   });
 
+  it("imports a 'refund' type as income", () => {
+    const rows = [{ "Txn Date": "2026-08-02", Details: "Train ticket", Amount: "370.36", Type: "Refund" }];
+    const result = validateImportRows(rows, mapping);
+    expect(result.valid[0].type).toBe("income");
+  });
+
   it("collects invalid rows with reasons", () => {
     const rows = [
       { "Txn Date": "garbage", Details: "", Amount: "abc", Type: "" },
@@ -153,5 +159,100 @@ describe("dedupeKey", () => {
     const a = dedupeKey({ date: "2026-08-01", amount: 45000, description: "x", type: "expense" });
     const b = dedupeKey({ date: "2026-08-02", amount: 45000, description: "x", type: "expense" });
     expect(a).not.toBe(b);
+  });
+});
+
+describe("parseAmount", () => {
+  it.each([
+    ["1,200.50", 120_050, null],
+    ["₹1,200.50", 120_050, null],
+    ["Rs. 450", 45_000, null],
+    ["INR 90", 9_000, null],
+    ["-450", 45_000, "out"],
+    ["(450.00)", 45_000, "out"],
+    ["450.00-", 45_000, "out"],
+    ["1,200.00 Dr", 120_000, "out"],
+    ["1,200.00 DR.", 120_000, "out"],
+    ["500 Cr", 50_000, "in"],
+    ["Cr 500", 50_000, "in"],
+    ["₹ 2,500.00 Cr", 250_000, "in"],
+  ] as const)("reads %s", (raw, paise, direction) => {
+    expect(parseAmount(raw)).toEqual({ paise, direction });
+  });
+
+  it.each(["", "abc", "12a", "Dr", "--"])("rejects %j", (raw) => {
+    expect(parseAmount(raw)).toBeNull();
+  });
+});
+
+describe("findHeaderRow & recordsFromRows", () => {
+  // Shaped like an Indian bank statement: account details above the table.
+  const rows = [
+    ["HDFC BANK Ltd.", "", "", "", "", ""],
+    ["Account No : 50100123456789", "", "", "", "", ""],
+    ["Statement From : 01/09/2026 To : 30/09/2026", "", "", "", "", ""],
+    ["", "", "", "", "", ""],
+    ["Date", "Narration", "Chq./Ref.No.", "Withdrawal Amt.", "Deposit Amt.", "Closing Balance"],
+    ["01/09/26", "UPI-SWIGGY", "0000123", "450.00", "", "24,550.00"],
+    ["02/09/26", "SALARY SEP", "0000124", "", "85,000.00", "1,09,550.00"],
+  ];
+
+  it("skips the account details above the column headings", () => {
+    expect(findHeaderRow(rows)).toBe(4);
+  });
+
+  it("falls back to the first row when nothing looks like headings", () => {
+    expect(findHeaderRow([["a", "b"], ["1", "2"]])).toBe(0);
+  });
+
+  it("builds records under those headings, naming blank or repeated ones", () => {
+    const { headers, records } = recordsFromRows(rows, 4);
+    expect(headers).toEqual(["Date", "Narration", "Chq./Ref.No.", "Withdrawal Amt.", "Deposit Amt.", "Closing Balance"]);
+    expect(records).toHaveLength(2);
+    expect(records[1]["Deposit Amt."]).toBe("85,000.00");
+    expect(recordsFromRows([["Date", "", "Date"], ["1", "2", "3"]], 0).headers).toEqual(["Date", "Column 2", "Date (2)"]);
+  });
+
+  it("imports a whole statement with separate Withdrawal and Deposit columns", () => {
+    const { records } = recordsFromRows(rows, findHeaderRow(rows));
+    const result = validateImportRows(records, {
+      date: "Date",
+      description: "Narration",
+      withdrawal: "Withdrawal Amt.",
+      deposit: "Deposit Amt.",
+    });
+    expect(result.invalid).toEqual([]);
+    expect(result.valid.map((r) => [r.type, r.amount, r.date])).toEqual([
+      ["expense", 45_000, "2026-09-01"],
+      ["income", 8_500_000, "2026-09-02"],
+    ]);
+  });
+});
+
+describe("validateImportRows amounts", () => {
+  const mapping = { date: "Date", description: "Details", amount: "Amount" };
+  const row = (Amount: string) => ({ Date: "2026-08-01", Details: "x", Amount });
+
+  it("uses Dr/Cr markers and brackets to tell expense from income", () => {
+    const result = validateImportRows([row("1,200.00 Dr"), row("500 Cr"), row("(75.50)")], mapping);
+    expect(result.valid.map((r) => [r.type, r.amount])).toEqual([
+      ["expense", 120_000],
+      ["income", 50_000],
+      ["expense", 7_550],
+    ]);
+  });
+
+  it("flags a Withdrawal/Deposit row with both or neither filled", () => {
+    const split = { date: "Date", description: "Details", withdrawal: "Out", deposit: "In" };
+    const result = validateImportRows(
+      [
+        { Date: "2026-08-01", Details: "both", Out: "10", In: "20" },
+        { Date: "2026-08-01", Details: "neither", Out: "", In: "0.00" },
+      ],
+      split,
+    );
+    expect(result.valid).toHaveLength(0);
+    expect(result.invalid[0].errors.join(" ")).toMatch(/Both/);
+    expect(result.invalid[1].errors.join(" ")).toMatch(/No amount/);
   });
 });

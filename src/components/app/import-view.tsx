@@ -4,7 +4,8 @@ import Papa from "papaparse";
 import { useToast } from "@/components/ui/toast";
 import { useAppData } from "./app-data";
 import { apiPost, ApiError } from "@/lib/http";
-import type { ColumnMapping, ImportField } from "@/lib/csv";
+import { findHeaderRow, hasAmountMapping, recordsFromRows, type ColumnMapping, type ImportField } from "@/lib/csv";
+import { pickSheet, sheetToRows } from "@/lib/spreadsheet";
 import { Stepper } from "./import/stepper";
 import { UploadStep } from "./import/upload-step";
 import { MapStep } from "./import/map-step";
@@ -44,18 +45,75 @@ export function ImportView() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const requiredMapped = REQUIRED_FIELDS.every((f) => mapping[f]);
+  const requiredMapped = REQUIRED_FIELDS.every((f) => mapping[f]) && hasAmountMapping(mapping);
 
   // ---- File handling -------------------------------------------------------
+
+  /**
+   * Shared by CSV and Excel once the file is plain text rows: find the
+   * column headings (bank statements often have account details above
+   * them), build the records and guess the mapping.
+   */
+  function loadRows(allRows: string[][], name: string, sheetName?: string) {
+    const headerIndex = findHeaderRow(allRows);
+    const { headers: fields, records: rows } = recordsFromRows(allRows, headerIndex);
+    if (fields.length === 0) {
+      setParseError("Could not detect any columns. Make sure the file has column headings.");
+      return;
+    }
+    if (rows.length === 0) {
+      setParseError("No data rows were found in this file.");
+      return;
+    }
+    if (rows.length > MAX_ROWS) {
+      setParseError(`This file has ${rows.length} rows — up to ${MAX_ROWS} can be imported at once. Split it into smaller files.`);
+      return;
+    }
+    setFileName(name);
+    setHeaders(fields);
+    setRecords(rows);
+    setMapping(guessMapping(fields));
+    const notes = [
+      sheetName && `Using the sheet "${sheetName}".`,
+      headerIndex > 0 && `Skipped ${headerIndex} line${headerIndex === 1 ? "" : "s"} above the column headings.`,
+    ].filter(Boolean);
+    if (notes.length) toast.info(notes.join(" "));
+    setPreview(null);
+    setResult(null);
+  }
+
+  async function readExcel(file: File) {
+    try {
+      // Loaded only when an Excel file is picked, to keep the page light.
+      const { default: readXlsxFile } = await import("read-excel-file/browser");
+      const sheets = (await readXlsxFile(file)).map((s) => ({
+        sheet: s.sheet,
+        rows: sheetToRows(s.data as Parameters<typeof sheetToRows>[0]),
+      }));
+      const chosen = pickSheet(sheets);
+      if (!chosen) {
+        setParseError("This workbook has no data.");
+        return;
+      }
+      loadRows(chosen.rows, file.name, sheets.length > 1 ? chosen.sheet : undefined);
+    } catch {
+      setParseError("Could not read this Excel file. If it's password-protected, remove the password, or save it as CSV.");
+    }
+  }
 
   function handleFile(file: File | undefined | null) {
     if (!file) return;
     setParseError(null);
-    // The <input accept=".csv"> filter only applies to the native file
-    // picker — drag-and-drop bypasses it entirely, so check the extension
-    // ourselves too.
-    if (!/\.csv$/i.test(file.name) && file.type && file.type !== "text/csv") {
-      setParseError("Please choose a .csv file.");
+    // The <input accept> filter only applies to the native file picker —
+    // drag-and-drop bypasses it entirely, so check the extension ourselves too.
+    const isExcel = /\.xlsx$/i.test(file.name);
+    const isCsv = /\.csv$/i.test(file.name) || (!isExcel && file.type === "text/csv");
+    if (/\.xls$/i.test(file.name)) {
+      setParseError("Older .xls files aren't supported. Open it in Excel and save as .xlsx or .csv.");
+      return;
+    }
+    if (!isExcel && !isCsv) {
+      setParseError("Please choose a .csv or .xlsx file.");
       return;
     }
     if (file.size > MAX_FILE_SIZE_BYTES) {
@@ -64,35 +122,17 @@ export function ImportView() {
       );
       return;
     }
-    Papa.parse<Record<string, string>>(file, {
-      header: true,
+    if (isExcel) {
+      void readExcel(file);
+      return;
+    }
+    // Parse as plain rows, not with Papa's header option: the column
+    // headings aren't necessarily the first line — loadRows finds them.
+    Papa.parse<string[]>(file, {
       skipEmptyLines: true,
       // Large files parse off the main thread so the UI doesn't freeze.
       worker: true,
-      complete: (results) => {
-        const fields = results.meta.fields ?? [];
-        const rows = (results.data as Record<string, string>[]).filter((r) =>
-          Object.values(r).some((v) => v != null && String(v).trim() !== ""),
-        );
-        if (fields.length === 0) {
-          setParseError("Could not detect any columns. Make sure the file has a header row.");
-          return;
-        }
-        if (rows.length === 0) {
-          setParseError("No data rows were found in this file.");
-          return;
-        }
-        if (rows.length > MAX_ROWS) {
-          setParseError(`This file has ${rows.length} rows — up to ${MAX_ROWS} can be imported at once. Split it into smaller files.`);
-          return;
-        }
-        setFileName(file.name);
-        setHeaders(fields);
-        setRecords(rows);
-        setMapping(guessMapping(fields));
-        setPreview(null);
-        setResult(null);
-      },
+      complete: (results) => loadRows(results.data as string[][], file.name),
       error: (err) => setParseError(err.message || "Failed to parse the CSV file."),
     });
   }

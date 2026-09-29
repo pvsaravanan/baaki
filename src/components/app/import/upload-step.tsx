@@ -35,8 +35,8 @@ export function UploadStep({
   return (
     <Card>
       <CardHeader
-        title="Upload a CSV file"
-        subtitle="Your file should have a header row. We'll help you map the columns next."
+        title="Upload a file"
+        subtitle="A bank statement exported as CSV or Excel (.xlsx) works — we'll find the column headings and help you map them next."
         action={
           <Button variant="outline" size="sm" onClick={onDownloadSample}>
             <Download className="h-4 w-4" />
@@ -67,13 +67,13 @@ export function UploadStep({
             <Upload className="h-5 w-5" />
           </div>
           <p className="text-sm font-medium text-fg">
-            Drag &amp; drop your CSV here, or <span className="text-brand-hover">browse</span>
+            Drag &amp; drop your CSV or Excel file here, or <span className="text-brand-hover">browse</span>
           </p>
-          <p className="text-xs text-muted">Only .csv files are supported</p>
+          <p className="text-xs text-muted">.csv or .xlsx</p>
           <input
             ref={fileInputRef}
             type="file"
-            accept=".csv,text/csv"
+            accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             className="sr-only"
             onChange={(e) => onFile(e.target.files?.[0])}
           />
