@@ -7,12 +7,11 @@ import { Sheet } from "./sheet";
 import { MORE_SHEET_GROUPS } from "./nav-items";
 import { useTransactionModal } from "./add-transaction";
 import { cn } from "@/lib/cn";
-import { SectionIcon, type SectionIconKey } from "./section-icon";
 
-const TABS: { href: string; label: string; icon: React.ElementType; section?: SectionIconKey }[] = [
+const TABS = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard },
-  { href: "/transactions", label: "Transactions", icon: ArrowLeftRight, section: "transactions" },
-  { href: "/budgets", label: "Budgets", icon: PieChart, section: "budgets" },
+  { href: "/transactions", label: "Transactions", icon: ArrowLeftRight },
+  { href: "/budgets", label: "Budgets", icon: PieChart },
 ];
 
 export function BottomNav() {
@@ -41,13 +40,11 @@ export function BottomNav() {
           <button
             onClick={() => setMoreOpen(true)}
             className={cn(
-              "flex min-h-[44px] flex-col items-center justify-center gap-1 py-2 text-label-sm uppercase active:opacity-70",
+              "flex min-h-[44px] flex-col items-center justify-center gap-1 py-1.5 text-label-sm uppercase active:opacity-70",
               moreOpen ? "text-brand-hover" : "text-muted",
             )}
           >
-            <span className="-my-1 flex h-7 w-7 items-center justify-center">
-              <MoreHorizontal className="h-6 w-6" />
-            </span>
+            <MoreHorizontal className="h-5 w-5" />
             More
           </button>
         </div>
@@ -72,14 +69,7 @@ export function BottomNav() {
                         active ? "bg-brand text-brand-fg shadow-stamp-sm" : "text-muted hover:bg-brand-soft hover:text-secondary",
                       )}
                     >
-                      {item.section ? (
-                        <SectionIcon section={item.section} size={36} />
-                      ) : (
-                        // Same 36px box as the illustrations, so every tile is the same height.
-                        <span className="flex h-9 w-9 items-center justify-center">
-                          <Icon className="h-6 w-6" />
-                        </span>
-                      )}
+                      <Icon className="h-5 w-5" />
                       {item.label}
                     </Link>
                   );
@@ -93,19 +83,13 @@ export function BottomNav() {
   );
 }
 
-function Tab({ href, label, icon: Icon, section, active }: { href: string; label: string; icon: React.ElementType; section?: SectionIconKey; active: boolean }) {
+function Tab({ href, label, icon: Icon, active }: { href: string; label: string; icon: React.ElementType; active: boolean }) {
   return (
     <Link
       href={href}
       className={cn("flex flex-col items-center gap-1 py-2 text-label-sm uppercase", active ? "text-brand-hover dark:text-fg" : "text-muted")}
     >
-      {section ? (
-        <SectionIcon section={section} size={28} className="-my-1" />
-      ) : (
-        <span className="-my-1 flex h-7 w-7 items-center justify-center">
-          <Icon className="h-6 w-6" strokeWidth={active ? 2.2 : 1.8} />
-        </span>
-      )}
+      <Icon className="h-5 w-5" strokeWidth={active ? 2.4 : 2} />
       {label}
     </Link>
   );

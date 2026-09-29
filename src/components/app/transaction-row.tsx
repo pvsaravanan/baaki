@@ -1,8 +1,8 @@
 "use client";
 import { useState } from "react";
-import { Copy, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeftRight, Copy, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { Icon } from "@/components/icon";
 import { CategoryIcon } from "@/components/app/category-icon";
-import { SectionIcon } from "@/components/app/section-icon";
 import { Money } from "@/components/money";
 import { useAppData, useLookups } from "./app-data";
 import { useTransactionModal } from "./add-transaction";
@@ -154,7 +154,7 @@ export function TransactionRow({
         {!isTransfer ? (
           <CategoryIcon icon={cat?.icon ?? fallbackIcon} size={30} />
         ) : (
-          <SectionIcon section="transactions" size={30} />
+          <Icon name="arrow-left-right" size={20} strokeWidth={2.2} />
         )}
       </button>
 
