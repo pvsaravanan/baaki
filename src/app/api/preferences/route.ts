@@ -9,7 +9,6 @@ export const PATCH = withUser(async (user, req: NextRequest) => {
   // SECURITY: never store a pointer to another user's account.
   await assertAccountsOwned(user.id, [input.defaultAccountId]);
   const data: Record<string, unknown> = {};
-  if (input.theme !== undefined) data.theme = input.theme;
   if (input.dashboardWidgets !== undefined) data.dashboardWidgets = JSON.stringify(input.dashboardWidgets);
   if (input.defaultAccountId !== undefined) data.defaultAccountId = input.defaultAccountId;
 
@@ -18,7 +17,6 @@ export const PATCH = withUser(async (user, req: NextRequest) => {
     update: data,
     create: {
       userId: user.id,
-      theme: input.theme ?? "system",
       dashboardWidgets: JSON.stringify(input.dashboardWidgets ?? []),
       defaultAccountId: input.defaultAccountId ?? null,
     },

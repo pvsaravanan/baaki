@@ -1,12 +1,10 @@
 "use client";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart,
   PolarAngleAxis, RadialBar, RadialBarChart, ReferenceLine, ResponsiveContainer, Sector, Tooltip, XAxis, YAxis,
 } from "recharts";
-import { useTheme } from "@/components/theme-provider";
 import { categoryIconSrc } from "@/components/app/category-icon";
-import { isSilhouetteIcon } from "@/lib/category-icons";
 import { pieMidAngles, spreadAngles } from "./donut-icon-layout";
 import { formatINR, formatINRCompact } from "@/lib/money";
 
@@ -14,7 +12,6 @@ const RADIAN = Math.PI / 180;
 
 /** Resolve themed colors from CSS variables at runtime (client only). */
 export function useChartColors() {
-  const { resolved } = useTheme();
   const [colors, setColors] = useState({
     brand: "#d88060", income: "#2c6b4f", expense: "#b84b3a",
     grid: "#e5e7eb", axis: "#5f5f5f", surface: "#f4f1ea", border: "#1a1a1a", fg: "#1a1a1a",
@@ -36,7 +33,7 @@ export function useChartColors() {
       border: v("--border") || "#1a1a1a",
       fg: v("--fg") || "#1a1a1a",
     });
-  }, [resolved]);
+  }, []);
   return colors;
 }
 
@@ -345,8 +342,6 @@ function DonutChart({
   data, activeIndex = null, onHoverIndexChange, onSelectIndex, width = 0, height = 0,
 }: DonutProps & { width?: number; height?: number }) {
   const colors = useChartColors();
-  const invertSilhouettes = useTheme().resolved === "dark";
-  const uid = useId().replace(/:/g, "");
 
   // Size the ring so the icons around it always fit inside the chart box,
   // whatever the box's size: the outer edge leaves room for the icon offset
@@ -412,20 +407,7 @@ function DonutChart({
         >
           {/* A few px of slack around the icon so it's an easy tap target. */}
           <rect x={-4} y={-4} width={size + 8} height={size + 8} fill="transparent" />
-          {/* All-black silhouette icons vanish on the dark theme: invert them
-              to light ink there (an SVG filter — CSS filters on SVG content
-              aren't reliable in every browser). */}
-          {invertSilhouettes && isSilhouetteIcon(d.icon) && (
-            <filter id={`${uid}-inv-${index}`}>
-              <feColorMatrix type="matrix" values="-1 0 0 0 1  0 -1 0 0 1  0 0 -1 0 1  0 0 0 1 0" />
-            </filter>
-          )}
-          <image
-            href={categoryIconSrc(d.icon, size)}
-            width={size}
-            height={size}
-            filter={invertSilhouettes && isSilhouetteIcon(d.icon) ? `url(#${uid}-inv-${index})` : undefined}
-          />
+          <image href={categoryIconSrc(d.icon, size)} width={size} height={size} />
         </g>
       </g>
     );

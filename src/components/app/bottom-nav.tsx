@@ -87,7 +87,7 @@ function Tab({ href, label, icon: Icon, active }: { href: string; label: string;
   return (
     <Link
       href={href}
-      className={cn("flex flex-col items-center gap-1 py-2 text-label-sm uppercase", active ? "text-brand-hover dark:text-fg" : "text-muted")}
+      className={cn("flex flex-col items-center gap-1 py-2 text-label-sm uppercase", active ? "text-brand-hover" : "text-muted")}
     >
       <Icon className="h-5 w-5" strokeWidth={active ? 2.4 : 2} />
       {label}

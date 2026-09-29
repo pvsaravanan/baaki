@@ -133,7 +133,6 @@ export const loadPreference = cache(async (userId: string): Promise<PreferenceDT
   const defaultAccountId = saved && activeAccounts.some((a) => a.id === saved) ? saved : null;
 
   return {
-    theme: (pref?.theme as PreferenceDTO["theme"]) ?? "system",
     dashboardWidgets: widgets,
     defaultAccountId,
   };

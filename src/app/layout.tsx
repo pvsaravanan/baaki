@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { Roboto_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
-import { themeScript } from "@/components/theme-provider";
 
 /**
  * Run the server functions in Singapore, next to the Supabase database
@@ -32,10 +31,9 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#fbfcfd" },
-    { media: "(prefers-color-scheme: dark)", color: "#1b1c1e" },
-  ],
+  // Light theme only — the parchment page colour, even in system dark mode.
+  themeColor: "#f4f1ea",
+  colorScheme: "light",
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
@@ -44,10 +42,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning className={robotoMono.variable}>
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
-      </head>
+    <html lang="en" className={robotoMono.variable}>
       <body className="min-h-dvh bg-bg font-mono text-fg antialiased">
         <Providers>{children}</Providers>
       </body>

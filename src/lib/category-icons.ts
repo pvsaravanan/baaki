@@ -87,18 +87,6 @@ export function resolveCategoryIcon(value: string | null | undefined): CategoryI
   return LEGACY_ICONS[value] ?? DEFAULT_CATEGORY_ICON;
 }
 
-/**
- * Icons drawn as solid black silhouettes (no color of their own). They vanish
- * on the dark theme, so there they're inverted to light ink.
- */
-const SILHOUETTE_ICONS: ReadonlySet<CategoryIconKey> = new Set<CategoryIconKey>([
-  "accessories", "family-insurance", "game-controller", "menu", "money-sack", "music", "paws", "platform",
-]);
-
-export function isSilhouetteIcon(value: string | null | undefined): boolean {
-  return SILHOUETTE_ICONS.has(resolveCategoryIcon(value));
-}
-
 /** New goals start with this icon; goals saved with the old line "target" icon show it too. */
 export const DEFAULT_GOAL_ICON: CategoryIconKey = "profits";
 

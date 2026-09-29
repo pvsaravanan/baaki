@@ -224,7 +224,6 @@ export const allocationSchema = z.object({
 });
 
 export const preferenceSchema = z.object({
-  theme: z.enum(["light", "dark", "system"]).optional(),
   dashboardWidgets: z.array(z.string()).optional(),
   defaultAccountId: z.string().optional().nullable(),
 });

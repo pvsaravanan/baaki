@@ -32,8 +32,7 @@ export const SECTION_ICONS = {
 export type SectionIconKey = keyof typeof SECTION_ICONS;
 
 /**
- * A section's illustration. Like category icons, its dark outlines get a
- * hairline light halo on the dark theme so they stay legible.
+ * A section's illustration.
  */
 export function SectionIcon({ section, size = 20, className }: { section: SectionIconKey; size?: number; className?: string }) {
   return (
@@ -44,7 +43,7 @@ export function SectionIcon({ section, size = 20, className }: { section: Sectio
       height={size}
       draggable={false}
       className={cn(
-        "shrink-0 select-none object-contain dark:[filter:drop-shadow(0_0_0.6px_#f4f1ea)_drop-shadow(0_0_0.6px_#f4f1ea)]",
+        "shrink-0 select-none object-contain",
         className,
       )}
       style={{ width: size, height: size }}

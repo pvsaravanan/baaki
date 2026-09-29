@@ -163,7 +163,6 @@ export interface BudgetDTO {
 }
 
 export interface PreferenceDTO {
-  theme: "light" | "dark" | "system";
   dashboardWidgets: string[];
   defaultAccountId: string | null;
 }

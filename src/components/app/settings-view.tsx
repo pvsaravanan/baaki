@@ -3,14 +3,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Camera, Check, ChevronDown, ChevronRight, ChevronUp, Database, Download, FileSpreadsheet, LogOut, Upload,
+  Camera, ChevronDown, ChevronRight, ChevronUp, Database, Download, FileSpreadsheet, LogOut, Upload,
 } from "lucide-react";
 import { DASHBOARD_WIDGETS, normalizeWidgets, widgetKind, widgetLabel, type WidgetKey, type WidgetKind } from "@/lib/dashboard-widgets";
 import { apiPatch, ApiError, downloadFile } from "@/lib/http";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/cn";
 import { useAppData } from "@/components/app/app-data";
-import { useTheme, type Theme } from "@/components/theme-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/field";
 import { SelectMenu } from "@/components/ui/select-menu";
@@ -327,8 +326,10 @@ export function SettingsView() {
 
         {/* Preferences */}
         <Section id="preferences" title="Preferences" description="How baaki looks and behaves.">
-          <Row title="Theme" description="System follows your device's light or dark mode." stacked>
-            <ThemeTiles />
+          <Row title="Dark mode" description="This will come soon.">
+            <span className="inline-block border border-border bg-surface-2 px-2 py-1 text-label-sm uppercase text-muted">
+              Coming soon
+            </span>
           </Row>
           <Row
             title="Default account"
@@ -558,87 +559,6 @@ function ActionRow({
     <Link href={href} className={cls}>{inner}</Link>
   ) : (
     <button type="button" onClick={onClick} disabled={busy} className={cls}>{inner}</button>
-  );
-}
-
-// Fixed swatches so each tile previews its theme whatever theme is active.
-const THEME_PREVIEWS: Record<Exclude<Theme, "system">, { bg: string; card: string; ink: string; accent: string }> = {
-  light: { bg: "#f4f1ea", card: "#e9e4d9", ink: "#1a1a1a", accent: "#d88060" },
-  dark: { bg: "#191715", card: "#28251f", ink: "#efeadf", accent: "#e08a66" },
-};
-
-function ThemePreview({ theme }: { theme: Exclude<Theme, "system"> }) {
-  const c = THEME_PREVIEWS[theme];
-  return (
-    <div className="flex h-full w-full flex-col gap-1.5 p-2.5" style={{ background: c.bg }}>
-      <div className="h-1.5 w-8" style={{ background: c.ink }} />
-      <div className="flex flex-1 gap-1.5">
-        <div className="flex flex-1 flex-col gap-1 border p-1.5" style={{ background: c.card, borderColor: c.ink }}>
-          <div className="h-1 w-3/4" style={{ background: c.ink, opacity: 0.7 }} />
-          <div className="h-1 w-1/2" style={{ background: c.ink, opacity: 0.4 }} />
-          <div className="mt-auto h-2 w-6" style={{ background: c.accent }} />
-        </div>
-        <div className="w-1/3 border" style={{ background: c.card, borderColor: c.ink }} />
-      </div>
-    </div>
-  );
-}
-
-const THEME_OPTIONS: { value: Theme; label: string }[] = [
-  { value: "light", label: "Light" },
-  { value: "dark", label: "Dark" },
-  { value: "system", label: "System" },
-];
-
-/** Theme picker as preview tiles — you see what you're choosing. */
-function ThemeTiles() {
-  const { theme, setTheme } = useTheme();
-  return (
-    <div role="radiogroup" aria-label="Theme" className="grid grid-cols-3 gap-3 sm:max-w-md">
-      {THEME_OPTIONS.map((o) => {
-        const selected = theme === o.value;
-        return (
-          <button
-            key={o.value}
-            type="button"
-            role="radio"
-            aria-checked={selected}
-            onClick={() => setTheme(o.value)}
-            className="group flex flex-col gap-2 text-left focus:outline-none"
-          >
-            <span
-              className={cn(
-                "relative block aspect-[4/3] overflow-hidden border transition-[box-shadow,transform]",
-                "group-focus-visible:ring-2 group-focus-visible:ring-ring/40",
-                selected
-                  ? "border-border shadow-stamp"
-                  : "border-border/40 group-hover:-translate-x-px group-hover:-translate-y-px group-hover:border-border group-hover:shadow-stamp-sm",
-              )}
-            >
-              {o.value === "system" ? (
-                // Half light, half dark, split on the diagonal.
-                <>
-                  <span className="absolute inset-0"><ThemePreview theme="light" /></span>
-                  <span className="absolute inset-0 [clip-path:polygon(100%_0,100%_100%,0_100%)]">
-                    <ThemePreview theme="dark" />
-                  </span>
-                </>
-              ) : (
-                <ThemePreview theme={o.value} />
-              )}
-              {selected && (
-                <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center border border-border bg-brand text-brand-fg">
-                  <Check className="h-3 w-3" strokeWidth={3} aria-hidden />
-                </span>
-              )}
-            </span>
-            <span className={cn("text-label-md uppercase", selected ? "text-fg" : "text-muted group-hover:text-fg")}>
-              {o.label}
-            </span>
-          </button>
-        );
-      })}
-    </div>
   );
 }
 

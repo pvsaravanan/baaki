@@ -3,9 +3,8 @@
 @tailwind utilities;
 
 /*
-  baaki theme tokens. Light is the default (bare :root). Dark is applied via
-  a `.dark` class on <html> (set by the theme provider; "system" resolves to the
-  OS preference). Every color is defined in light first so nothing is theme-only.
+  baaki theme tokens. The app is light-only for now (dark mode is planned —
+  the previous dark palette is in git history, commit 083ee55).
 */
 /*
   College.xyz — editorial parchment + near-black ink + warm clay-coral accent.
@@ -40,44 +39,6 @@
   /* Spending-calendar heat: how much was spent on a day, as a coral wash. */
   --heat: 16 60.6% 61.2%;
   color-scheme: light;
-}
-
-/*
-  Dark mode is not specified by College.xyz. It's a soft charcoal built for
-  long, comfortable reading: a mid-dark ground (not near-black), cards one
-  step lighter so they separate by shade rather than by bright outlines,
-  low-contrast hairlines, warm off-white text below pure white, and a calm
-  sage accent. Contrast stays within WCAG AA without the glare and "vibrating
-  lines" of maximal contrast.
-*/
-.dark {
-  --bg: 220 5% 11%;           /* #1b1c1e soft charcoal */
-  --surface: 220 5% 13.5%;    /* #212225 cards: a step up from the page */
-  --surface-2: 220 5% 17.5%;  /* #2b2c2f pressed / active */
-  --border: 220 4% 27%;       /* #424346 hairlines that don't glow */
-  --border-strong: 220 4% 36%;
-  --border-faint: 220 5% 19%;
-  --fg: 40 9% 85%;            /* #dcd9d3 warm off-white, not pure white */
-  --muted: 40 4% 63%;
-  --faint: 40 3% 49%;
-  --brand: 80 9% 69%;         /* #b0b4a7 calm sage */
-  --brand-fg: 220 5% 11%;
-  --brand-soft: 80 6% 20%;
-  --brand-hover: 80 10% 75%;
-  --brand-light: 80 10% 73%;
-  --secondary: 40 9% 85%;
-  --tertiary: 220 5% 13.5%;
-  --accent: 80 12% 72%;
-  --income: 145 30% 56%;      /* #6fb487 gentle green */
-  --expense: 6 58% 65%;       /* #df7d73 gentle red */
-  --warning: 38 60% 60%;
-  --ring: 80 10% 62%;
-  --shadow: 0 0% 3%;
-  --overlay: 0 0% 3%;
-  /* A warm coral that reads on charcoal (the sage accent washes out), deep
-     enough that light day numbers stay legible on the busiest days. */
-  --heat: 14 62% 50%;
-  color-scheme: dark;
 }
 
 * {

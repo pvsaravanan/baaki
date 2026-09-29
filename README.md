@@ -63,8 +63,8 @@ phone as much as on a laptop.
   the rows, and see exactly which ones have problems (and why) before anything is saved.
   Rows you've already imported are skipped, so re-importing a statement won't double up.
 - **Export** your transactions as CSV, or a full backup of everything as JSON, at any time.
-- **Personalize** — light or dark theme, a default account for new transactions, and a
-  profile photo.
+- **Personalize** — a default account for new transactions and a profile photo. (Dark
+  mode is coming soon.)
 
 ## How it's built
 
