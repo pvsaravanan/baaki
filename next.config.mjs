@@ -7,6 +7,8 @@
  */
 const nextConfig = {
   output: "export",
+  // Names this build's cached screens (see src/lib/local-api.ts).
+  env: { NEXT_PUBLIC_BUILD_ID: String(Date.now()) },
   // Each route becomes <route>/index.html, which the app's WebView serves directly.
   trailingSlash: true,
   // No image optimisation server; icons are shipped at their real sizes.
