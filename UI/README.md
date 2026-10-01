@@ -4,7 +4,7 @@ Screenshots of every screen of the app, taken from the real app with sample data
 (three months of transactions, a September budget, three goals, two people and five
 recurring items).
 
-- `showcase-1.png`, `showcase-2.png` — five phone screens side by side (used in the project README)
+- `showcase-1.png`, `showcase-2.png` — five phone screens side by side
 - `phone/` — one phone screen each, exactly what's visible on a 390×844 phone (at 3×, 1170×2532)
 - `phone-framed/` — the same, in a phone frame
 - `mobile/` — phone, 390 px wide (at 2×), the full length of each screen
