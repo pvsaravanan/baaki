@@ -7,6 +7,7 @@ import { Money } from "@/components/money";
 import { useAppData, useLookups } from "./app-data";
 import { useTransactionModal } from "./add-transaction";
 import { useToast } from "@/components/ui/toast";
+import { ActionMenu, ActionMenuItem } from "@/components/ui/action-menu";
 import { useConfirm } from "@/components/ui/confirm";
 import { apiDelete, apiPost } from "@/lib/http";
 import { fromISODate, formatRelativeDay } from "@/lib/dates";
@@ -191,35 +192,15 @@ export function TransactionRow({
           >
             <MoreVertical className="h-4 w-4" />
           </button>
-          {menuOpen && (
-            <>
-              <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-              <div className="absolute right-0 z-20 mt-1 w-40 rounded-none border border-border bg-surface p-1 shadow-pop animate-scale-in">
-                <MenuItem icon={<Pencil className="h-4 w-4" />} onClick={() => { setMenuOpen(false); openEdit(txn); }}>Edit</MenuItem>
-                {!txn.splitGroupId && (
-                  <MenuItem icon={<Copy className="h-4 w-4" />} onClick={onDuplicate}>Duplicate</MenuItem>
-                )}
-                <MenuItem icon={<Trash2 className="h-4 w-4" />} onClick={onDelete} danger>Delete</MenuItem>
-              </div>
-            </>
-          )}
+          <ActionMenu open={menuOpen} onClose={() => setMenuOpen(false)} width={160} label="Transaction actions">
+            <ActionMenuItem icon={<Pencil className="h-4 w-4" />} onClick={() => { setMenuOpen(false); openEdit(txn); }}>Edit</ActionMenuItem>
+            {!txn.splitGroupId && (
+              <ActionMenuItem icon={<Copy className="h-4 w-4" />} onClick={onDuplicate}>Duplicate</ActionMenuItem>
+            )}
+            <ActionMenuItem icon={<Trash2 className="h-4 w-4" />} onClick={onDelete} danger>Delete</ActionMenuItem>
+          </ActionMenu>
         </div>
       )}
     </div>
-  );
-}
-
-function MenuItem({ icon, children, onClick, danger }: { icon: React.ReactNode; children: React.ReactNode; onClick: () => void; danger?: boolean }) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "flex w-full items-center gap-2 rounded-none px-2.5 py-1.5 text-sm transition-colors hover:bg-surface-2",
-        danger ? "text-expense" : "text-fg",
-      )}
-    >
-      <span className={danger ? "text-expense" : "text-muted"}>{icon}</span>
-      {children}
-    </button>
   );
 }

@@ -1,105 +1,103 @@
-# Setting up and running baaki
+# Building and running baaki
 
-How to run baaki locally, manage its database schema, deploy it, and verify changes.
+How to run baaki, build the Android app, change its database schema, and verify changes.
 For what baaki is and what it does, see the [README](../README.md).
 
 ## Quick start
 
 ```bash
-npm install
-cp .env.example .env   # then paste your Supabase connection strings (see below)
-npm run setup          # generate Prisma client, apply migrations to Postgres (empty)
-npm run dev            # http://localhost:3000
+npm install            # also generates the on-device database client
+npm run dev            # http://localhost:3000 — the app in a browser
 ```
 
-### Database (Supabase)
+Nothing to configure: there's no server, account or API key. In a browser the data is
+kept in that browser's storage (IndexedDB) for that site, so each browser profile gets its
+own separate copy, starting with the default categories and two accounts.
 
-1. Create a project at [supabase.com](https://supabase.com) and set a database password.
-2. In the dashboard, open **Connect → ORM** (Prisma) and copy the two strings into `.env`:
-   - `DATABASE_URL` — Transaction pooler (port `6543`), ends with `?pgbouncer=true`.
-   - `DIRECT_URL` — Session pooler / direct (port `5432`), used by Prisma Migrate.
-3. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` from your project's API settings. Set `SUPABASE_SERVICE_ROLE_KEY` on the server for avatar storage administration; never expose it to the browser.
-4. Configure Supabase Auth's site URL and allowed redirect URLs for your deployment, including `/auth/callback` and `/reset`.
-5. Run `npm run setup` to create the tables.
+## The Android app
 
-### Schema changes (Prisma Migrate)
+baaki ships as an Android app built with [Capacitor](https://capacitorjs.com): a native
+shell around the static build of the web app, which it serves from the phone itself.
 
-Schema changes go through migration files in `prisma/migrations/`, not `prisma db push` —
-a push has no history and no safe way to roll a production schema forward or back.
+### One-time setup
 
-- **Local dev:** edit `prisma/schema.prisma`, then run `npm run db:migrate` to generate and
-  apply a new migration against your dev database. `migrate dev` creates a disposable shadow
-  database to compute the diff; if your Postgres role can't create databases (some managed
-  Supabase roles can't), add a `shadowDatabaseUrl` to the `datasource` block pointing at a
-  separate, empty database, or generate the SQL by hand with
-  `npx prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --script`.
-- **Production:** run `npm run db:deploy` (`prisma migrate deploy`) against the target
-  project's connection strings. It only applies migrations not yet recorded as applied —
-  never diffs or auto-generates SQL — so it's safe to run in CI/CD on every deploy.
-- Commit every migration folder under `prisma/migrations/` to git; it's the only record of
-  how the schema got here.
+- **Android Studio** (includes the Android SDK and an emulator), or the command-line tools
+  plus `platform-tools`, `platforms;android-36` and `build-tools`. Set `ANDROID_HOME`.
+- **JDK 21** (Capacitor 8 builds with Java 21; Android Studio bundles one).
+- **Node 22** or later.
 
-The database starts empty. Create an account at `/register` — you begin with a set of
-default categories and two starter accounts (a bank account and cash), ready to record
-your first transaction.
+### Build and run
 
-## Scripts
-
-| Script | What it does |
+| Command | What it does |
 | --- | --- |
-| `npm run dev` | Start the dev server |
-| `npm run build` | Production build (`prisma generate` + `next build`) |
-| `npm run start` | Run the production build |
-| `npm run test` | Run the financial-logic test suite (Vitest) |
-| `npm run db:migrate` | Create and apply a new migration from schema changes (dev) |
-| `npm run db:deploy` | Apply pending migrations only, no diffing (production) |
-| `npm run db:reset` | Drop and rebuild the dev DB from migration history |
-| `npm run setup` | generate + apply migrations (empty DB) in one step |
+| `npm run build:app` | Static build to `out/`, then copies it into `android/` (`cap sync`) |
+| `npm run android` | `build:app`, then installs and starts it on a phone or emulator |
+| `npm run android:open` | Opens `android/` in Android Studio (to build, sign, profile) |
+| `cd android && ./gradlew assembleDebug` | A debug APK at `android/app/build/outputs/apk/debug/` |
 
-## Deploying
+CI (`.github/workflows/ci.yml`) also builds a debug APK on every push to `main` or
+`mobile-app`. Download it from the run's **Artifacts** and install it on a phone (allow
+"install unknown apps" for your browser or file manager).
 
-The app is a standard Next.js server and can run on any Node host (Vercel, Fly, a
-container, etc.). The database is Supabase (hosted Postgres) — see [Database](#database-supabase).
+A Play Store release needs a signed bundle: create an upload key once
+(`keytool -genkey -v -keystore baaki-upload.jks -alias baaki -keyalg RSA -keysize 2048 -validity 10000`),
+keep it and its passwords **out of git**, and use **Build → Generate Signed Bundle** in
+Android Studio. Losing the key means you can't publish updates.
 
-**1. Set environment variables on the host.** `.env` is gitignored, so it is *not*
-shipped with the code — configure these in your host's environment settings:
+### Icons and splash screen
 
-| Variable | Value |
-| --- | --- |
-| `DATABASE_URL` | Supabase **transaction pooler** (port `6543`), ending in `?pgbouncer=true`. Used by the app at runtime. |
-| `DIRECT_URL` | Supabase **session pooler / direct** (port `5432`). Used only by Prisma Migrate. |
-| `NEXT_PUBLIC_SUPABASE_URL` | Project API URL, used by Supabase Auth and Storage. |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public Supabase API key for browser/server auth clients. |
-| `SUPABASE_SERVICE_ROLE_KEY` | Server-only privileged key for avatar storage. Never expose it in client code. |
+`node scripts/make-app-icons.mjs` redraws the launcher icons (standard, round and
+adaptive) and splash screens from `src/assets/baaki_logo.svg` on the app's parchment
+colour. Re-run it after changing the logo.
 
-**2. Build.** `npm run build` runs `prisma generate` then `next build`.
+## How it works offline
 
-**3. Apply pending migrations** as its own deploy step, before traffic hits the new build,
-against the target project's connection strings:
+Everything that used to run on a server now runs inside the app:
 
-```bash
-npm run db:deploy
+```
+screen ──usePageData / apiGet / apiPost──▶ local API ──▶ route handler ──▶ Prisma ──▶ PGlite (IndexedDB)
+          src/lib/local-api.ts, http.ts      src/server/local-server.ts      src/lib/*-service.ts
 ```
 
-This only applies migration files already committed under `prisma/migrations/` that aren't
-yet recorded as applied — it never diffs `schema.prisma` or generates SQL on the fly, so it's
-safe to run unattended on every deploy. Author and test new migrations locally first with
-`npm run db:migrate`, commit the generated `prisma/migrations/<timestamp>_<name>/` folder,
-then let this step apply it in each environment.
+- **Database.** [PGlite](https://pglite.dev) is Postgres compiled to WebAssembly. It's
+  stored in the WebView's IndexedDB — the app's private storage, kept across restarts and
+  updates and removed only when the app is uninstalled. `src/lib/db.ts`.
+- **Prisma, unchanged.** The services use the same Prisma API as before, through a PGlite
+  driver adapter and Prisma's WebAssembly query compiler (`engineType = "client"`).
+  `npm run db:generate` runs `prisma generate` and then `scripts/prisma-browser.mjs`, which
+  makes the generated client load in a browser and bundles the migrations.
+- **Local API.** The route handlers in `src/server/api/**` are the ones the website ran on
+  its server. `src/server/local-server.ts` matches each `/api/...` call to its handler, so
+  forms and screens call the same URLs as before, answered on the device. Screen data
+  (dashboard, reports, …) is loaded by `src/server/pages.ts` through `usePageData`.
+- **One person, no login.** The database holds a single profile, created with starter
+  data on first launch (`src/lib/auth.ts`). The optional app lock uses the phone's own
+  fingerprint/screen lock (`src/lib/app-lock.ts`, `src/components/app/lock-gate.tsx`).
+- **No network.** A content security policy (`src/app/layout.tsx`) lets the app load only
+  its own files and blocks connections to anywhere else.
+- **Detail screens** use a query string (`/goals/detail?id=…`), since a static build
+  can't pre-render one page per record.
 
-Notes:
+### Backups
 
-- On serverless (e.g. Vercel), always use the **pooled** `DATABASE_URL` (`6543`) so
-  functions don't exhaust direct connections. `DIRECT_URL` is only for Prisma Migrate.
-- Run server code next to the database. `vercel.json` pins Vercel functions to
-  Singapore (`sin1`), the same region as the Supabase project (`ap-southeast-1`);
-  from Vercel's default US region every query would cross the Pacific. If the
-  database ever moves, change the region to match.
-- Supabase Auth owns passwords, sessions, email delivery and password recovery.
-  The legacy `AUTH_SECRET`, `RESEND_API_KEY` and `EMAIL_FROM` entries in `.env.example`
-  are not used by the current application.
-- Never commit real secrets. Keep them in the host's env config and in your local
-  gitignored `.env`; `.env.example` documents the shape with placeholders.
+Settings → Data & backup → **Full backup** writes every table to a JSON file (format
+version 2, `src/lib/backup.ts`) and opens Android's share sheet. **Restore from backup**
+replaces everything in one transaction; if any part of the file can't be read, nothing
+changes. Restore also accepts version 1, the "Full backup" from the baaki website.
+
+## Schema changes
+
+The app applies `prisma/migrations/*/migration.sql` to the on-device database on start-up,
+recording each in `_baaki_migrations` (`src/lib/local-db.ts`). Existing installs pick up
+new migrations on their next launch, so:
+
+1. Edit `prisma/schema.prisma`.
+2. Write the migration: `npm run db:migrate` (`prisma migrate dev --create-only`, needs a
+   throwaway local Postgres in `DATABASE_URL`, see `.env.example`), or write the SQL by
+   hand in a new `prisma/migrations/<timestamp>_<name>/migration.sql`.
+3. `npm run db:generate`, then commit the migration folder.
+
+Never edit a migration that has shipped: phones that already ran it won't run it again.
 
 ## Money is never a float
 
@@ -109,18 +107,16 @@ uses the Indian numbering system (`₹1,00,000`).
 
 ## Architecture
 
-Clean separation of concerns:
-
-- `src/lib/calculations.ts` — pure, dependency-free financial calculations (balance, summaries,
-  category totals, budgets, savings rate, date-range filtering). Unit-tested.
-- `src/lib/analytics.ts` — server-side monthly analytics composed from the calc layer.
+- `src/lib/calculations.ts` — pure financial calculations (balance, summaries, category
+  totals, budgets, savings rate, date-range filtering). Unit-tested.
+- `src/lib/analytics.ts` — monthly analytics composed from the calc layer.
 - `src/lib/insights.ts` — deterministic insight generation from real aggregates (no AI).
 - `src/lib/categorize.ts` — rule-based auto-categorization (no AI required).
-- `src/lib/csv.ts` — CSV export + import validation/mapping (pure, tested).
-- `src/lib/queries.ts` — server data loaders; `src/lib/tx-service.ts` — transaction business logic.
-- `src/lib/auth.ts` — verified Supabase identity mapped to the local user profile.
-- `src/lib/account-form.ts` — account form validation, optional bank nicknames and bank-icon selection.
-- `src/app/api/**` — REST route handlers with authentication and per-user ownership checks.
+- `src/lib/csv.ts`, `src/lib/spreadsheet.ts` — statement import (CSV/Excel) and CSV export.
+- `src/lib/queries.ts`, `src/lib/tx-service.ts`, `src/lib/goals-service.ts`,
+  `src/lib/contacts-service.ts`, `src/lib/recurring.ts` — data loading and business logic.
+- `src/lib/backup.ts` — full backup and restore.
+- `src/server/**` — the local API: route handlers, the router and screen loaders.
 - `src/components/**` — reusable UI kit and feature components.
 
 ## Verification
@@ -128,26 +124,10 @@ Clean separation of concerns:
 ```bash
 npm test
 npm run lint
-npx tsc --noEmit --incremental false
+npx tsc --noEmit
 npm run build
 ```
 
-Tests cover financial calculations, CSV validation, account form behavior, profile linking,
-API errors and shared-expense guards. Database and auth interactions in service tests are
-mocked; these tests do not modify a live database or replace integration testing.
-
-`npm run lint` runs ESLint via `eslint-config-next` (see `eslint.config.mjs`); CI
-(`.github/workflows/ci.yml`) runs the same four commands above on every push and PR against
-`main`, with placeholder env vars — it never touches a real database.
-Do not run `setup`, `db:migrate`, `db:deploy` or `db:reset` as verification: they change the database.
-On Windows, Prisma generation can fail with `EPERM` when replacing its query-engine DLL.
-Close any running app process holding that DLL before retrying `npm run build`.
-`npx next build` can check application compilation with an existing generated Prisma client,
-but does not verify the Prisma generation step.
-
-## Security notes
-
-- API handlers require a valid Supabase identity and scope data access to the local user.
-- Profile linking requires a confirmed email and cannot overwrite another auth identity.
-- Passwords and session lifecycle are managed by Supabase Auth, not local bcrypt sessions.
-- Keep the service-role key server-only and configure Supabase Auth redirect URLs for each deployment.
+Most service tests mock the database. `src/server/local-server.test.ts` runs the real
+routes against an in-memory PGlite (`src/test/memory-db.ts`), covering routing, first-launch
+setup, a backup → restore round trip, damaged backups, and importing the website's backup.

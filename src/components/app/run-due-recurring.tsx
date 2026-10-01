@@ -1,30 +1,41 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
+import { Capacitor } from "@capacitor/core";
 import { apiPost } from "@/lib/http";
 import { useAppData } from "./app-data";
 
 /**
- * Posts any due auto-post recurring rules once per page load, then refreshes so
- * balances reflect them. Deliberately client-side: doing this during a server
- * render meant a write on every render (including RSC prefetches).
+ * Posts any due auto-post recurring rules when the app opens, and again each
+ * time it comes back to the foreground (a phone app can stay open for days),
+ * then refreshes so balances reflect them.
  */
 export function RunDueRecurring() {
   const { refresh } = useAppData();
-  const ran = useRef(false);
 
   useEffect(() => {
-    if (ran.current) return;
-    ran.current = true;
-    apiPost<{ posted: number }>("/api/recurring/run-due")
-      .then((res) => {
-        // Use the app-wide refresh (revalidates SWR caches AND the RSC tree),
-        // not just router.refresh() — otherwise a user sitting on the
-        // transactions list sees a stale list/total after an auto-post.
-        if (res?.posted > 0) refresh();
-      })
-      .catch(() => {
-        /* non-critical: the user can still add transactions manually */
-      });
+    const run = () =>
+      apiPost<{ posted: number }>("/api/recurring/run-due")
+        .then((res) => {
+          if (res?.posted > 0) refresh();
+        })
+        .catch(() => {
+          /* non-critical: the user can still add transactions manually */
+        });
+    run();
+
+    if (!Capacitor.isNativePlatform()) return;
+    let removed = false;
+    let remove: (() => void) | undefined;
+    import("@capacitor/app").then(({ App }) =>
+      App.addListener("resume", run).then((handle) => {
+        remove = () => handle.remove();
+        if (removed) remove();
+      }),
+    );
+    return () => {
+      removed = true;
+      remove?.();
+    };
   }, [refresh]);
 
   return null;

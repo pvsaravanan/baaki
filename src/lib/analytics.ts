@@ -1,4 +1,3 @@
-import "server-only";
 import { prisma } from "./db";
 import { getUserAccounts, getUserCategories, loadBudget, loadCalcTxns } from "./queries";
 import {

@@ -1,32 +1,35 @@
-import { PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
+import { PGliteWorker } from "@electric-sql/pglite/worker";
+import { PrismaPGlite } from "pglite-prisma-adapter";
+import { PrismaClient } from "@/generated/prisma/client";
 
 /**
- * Prisma client singleton. In dev, Next.js hot-reload would otherwise create a
- * new client on every reload and exhaust connections.
+ * The app's database lives on the device: PGlite is Postgres compiled to
+ * WebAssembly. It runs in a worker (./db-worker.ts) and stores its files in
+ * the app's private file system — kept across restarts and updates, removed
+ * only with the app. Prisma talks to it through a driver adapter, so the
+ * services keep using the same Prisma API they did against the hosted
+ * database.
  *
- * Queries go through the `pg` driver adapter rather than Prisma's built-in
- * engine: over Supabase's transaction pooler (`?pgbouncer=true`) the engine
- * needs several network round trips per query (measured ~300ms per query
- * against ap-southeast-1), while `pg` needs one (~60ms). The pooled URL stays the
- * same; `pgbouncer=true` is a Prisma-engine flag that `pg` would forward to
- * the server as an unknown setting, so it's dropped here.
+ * Only ever loaded in the browser, through the local API (see
+ * src/server/local-server.ts). Call `ensureDb()` (src/lib/local-db.ts) before
+ * the first query so the schema is up to date.
  */
-function pooledUrl(): string | undefined {
-  const raw = process.env.DATABASE_URL;
-  if (!raw) return raw;
-  const url = new URL(raw);
-  url.searchParams.delete("pgbouncer");
-  return url.toString();
-}
+const dbWorker = new Worker(new URL("./db-worker.ts", import.meta.url), { type: "module" });
 
-const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
+export const pglite = new PGliteWorker(dbWorker);
 
-export const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    adapter: new PrismaPg({ connectionString: pooledUrl() }),
-    log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
-  });
+/**
+ * Rejects if the worker itself fails (e.g. the engine can't load). PGlite's
+ * own ready promise would otherwise just never settle.
+ */
+export const dbFailed = new Promise<never>((_, reject) => {
+  dbWorker.addEventListener("error", (e) => reject(new Error(e.message || "The database could not start.")));
+});
+dbFailed.catch(() => undefined); // only awaited while opening
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+// The adapter is built against an older @prisma/driver-adapter-utils than
+// this Prisma version bundles; the interface it implements is unchanged at
+// runtime, only the type identities differ.
+type Adapter = NonNullable<ConstructorParameters<typeof PrismaClient>[0]>["adapter"];
+
+export const prisma = new PrismaClient({ adapter: new PrismaPGlite(pglite as never) as unknown as Adapter });

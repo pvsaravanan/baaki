@@ -1,6 +1,6 @@
-import { requireUserOrRedirect } from "@/lib/auth";
-import { getMonthlyAnalytics } from "@/lib/analytics";
-import { monthKeyOf } from "@/lib/dates";
+"use client";
+import { usePageData } from "@/lib/local-api";
+import { ScreenData } from "@/components/app/screen-data";
 import { formatPercent } from "@/lib/money";
 import { PageHeader } from "@/components/app/page-header";
 import { Card, CardBody } from "@/components/ui/card";
@@ -9,17 +9,21 @@ import { Money } from "@/components/money";
 import { Icon } from "@/components/icon";
 import { SectionIcon } from "@/components/app/section-icon";
 import type { InsightTone } from "@/lib/insights";
+import type { PageData } from "@/server/pages";
 
-export const metadata = { title: "Insights · baaki" };
-
-export default async function InsightsPage() {
-  const user = await requireUserOrRedirect();
-  const a = await getMonthlyAnalytics(user.id, monthKeyOf(new Date()));
-
+export default function InsightsPage() {
+  const { data, error } = usePageData("insights");
   return (
     <div>
       <PageHeader title="Insights" description="What your numbers are telling you." />
+      <ScreenData data={data} error={error}>{(d) => <InsightsBody a={d.analytics} />}</ScreenData>
+    </div>
+  );
+}
 
+function InsightsBody({ a }: { a: PageData<"insights">["analytics"] }) {
+  return (
+    <>
       {/* Key computed facts */}
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Tile label="Avg daily spend">
@@ -68,7 +72,7 @@ export default async function InsightsPage() {
           })}
         </div>
       )}
-    </div>
+    </>
   );
 }
 

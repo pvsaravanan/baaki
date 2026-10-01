@@ -39,7 +39,7 @@ export function GoalCard({ goal, onAllocate }: { goal: GoalDTO; onAllocate?: () 
           <div className="flex items-center gap-2">
             {/* Stretched link: the whole card is the tap target for details. */}
             <Link
-              href={`/goals/${goal.id}`}
+              href={`/goals/detail?id=${goal.id}`}
               className="truncate text-body-md font-bold text-fg after:absolute after:inset-0 after:content-[''] focus:outline-none focus-visible:underline"
             >
               {goal.name}

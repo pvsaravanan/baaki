@@ -1,18 +1,15 @@
-import { requireUserOrRedirect } from "@/lib/auth";
-import { loadContacts } from "@/lib/contacts-service";
+"use client";
+import { usePageData } from "@/lib/local-api";
 import { PageHeader } from "@/components/app/page-header";
 import { PeopleView } from "@/components/app/people-view";
+import { ScreenData } from "@/components/app/screen-data";
 
-export const metadata = { title: "People · baaki" };
-
-export default async function PeoplePage() {
-  const user = await requireUserOrRedirect();
-  const contacts = await loadContacts(user.id);
-
+export default function PeoplePage() {
+  const { data, error } = usePageData("people");
   return (
     <div>
       <PageHeader title="People" description="Track shared expenses and settle up." />
-      <PeopleView contacts={contacts} />
+      <ScreenData data={data} error={error}>{(d) => <PeopleView contacts={d.contacts} />}</ScreenData>
     </div>
   );
 }

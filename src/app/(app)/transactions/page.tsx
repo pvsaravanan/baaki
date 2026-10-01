@@ -1,23 +1,15 @@
-import { requireUserOrRedirect } from "@/lib/auth";
-import { countTransactions, loadTransactionTotals, loadTransactions } from "@/lib/queries";
+"use client";
+import { usePageData } from "@/lib/local-api";
 import { PageHeader } from "@/components/app/page-header";
 import { TransactionsView } from "@/components/app/transactions-view";
+import { ScreenData } from "@/components/app/screen-data";
 
-export const metadata = { title: "Transactions · baaki" };
-
-export default async function TransactionsPage() {
-  const user = await requireUserOrRedirect();
-  const [initialTransactions, total, totals] = await Promise.all([
-    loadTransactions(user.id, { take: 50 }),
-    countTransactions(user.id),
-    loadTransactionTotals(user.id),
-  ]);
-
+export default function TransactionsPage() {
+  const { data, error } = usePageData("transactions");
   return (
     <div>
       <PageHeader title="Transactions" description="Search, filter and manage every transaction." />
-      <TransactionsView initialData={{ transactions: initialTransactions, total, totals }} />
+      <ScreenData data={data} error={error}>{(d) => <TransactionsView initialData={d} />}</ScreenData>
     </div>
   );
 }
-

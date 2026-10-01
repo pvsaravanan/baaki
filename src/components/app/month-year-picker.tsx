@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { monthKeyOf, monthName, type MonthKey } from "@/lib/dates";
 import { cn } from "@/lib/cn";
+import { AnchoredPopover, isInsidePopover } from "@/components/ui/anchored-popover";
 
 /** Order-independent comparison: true if `a` is chronologically after `b`. */
 function isAfter(a: MonthKey, b: MonthKey): boolean {
@@ -25,11 +26,10 @@ const DEFAULT_MIN_MONTH: MonthKey = { year: 2000, month: 1 };
  * while a form field picking a future deadline (e.g. a savings goal's target
  * date) leaves `maxMonth` unset and bounds only the past via `minMonth`.
  *
- * Renders as a dropdown anchored right under the trigger (not a full-screen
+ * Renders as a dropdown pinned to the trigger (not a full-screen
  * modal/bottom-sheet): the rest of the page stays visible and interactive
  * around it, closing on an outside click or Escape. The parent (the trigger's
- * wrapper) must be `position: relative` for the `absolute` positioning here
- * to anchor correctly.
+ * wrapper) must be `position: relative` — see AnchoredPopover.
  */
 export function MonthYearPicker({
   open,
@@ -54,6 +54,7 @@ export function MonthYearPicker({
 }) {
   const [viewYear, setViewYear] = useState(value?.year ?? monthKeyOf(new Date()).year);
   const panelRef = useRef<HTMLDivElement>(null);
+  const markerRef = useRef<HTMLSpanElement>(null);
 
   // Re-open showing the currently selected month's year (or this year, if
   // nothing's selected yet), not wherever the picker was last left scrolled to.
@@ -64,32 +65,29 @@ export function MonthYearPicker({
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (e: PointerEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) onClose();
+      // A tap on the trigger toggles it (the caller's onClick), rather than closing and reopening.
+      if (!isInsidePopover(e.target, panelRef.current, markerRef.current?.parentElement ?? null)) onClose();
     };
+    // Captured, and stopped here: Escape (or Android's Back) closes just this
+    // popup, not the form or sheet it sits in.
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key !== "Escape") return;
+      e.stopImmediatePropagation();
+      onClose();
     };
     document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKey);
+    document.addEventListener("keydown", onKey, true);
     return () => {
       document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("keydown", onKey, true);
     };
   }, [open, onClose]);
 
   if (!open) return null;
 
   return (
-    <div
-      ref={panelRef}
-      role="dialog"
-      aria-label={title}
-      className={cn(
-        "absolute left-0 right-0 top-full z-30 mt-1.5 w-full overflow-hidden",
-        "rounded-none border-2 border-border bg-surface shadow-stamp-lg animate-scale-in",
-        "sm:left-auto sm:right-0 sm:w-80",
-      )}
-    >
+    // Full trigger width on phones; 20rem, right-aligned, from `sm` up.
+    <AnchoredPopover ref={panelRef} markerRef={markerRef} open role="dialog" aria-label={title} width={{ sm: 320 }} preferredHeight={330}>
       <div className="flex items-center justify-between border-b border-border bg-brand-soft px-4 py-2.5">
         <span className="text-sm font-semibold text-fg">{title}</span>
         <div className="flex items-center gap-3">
@@ -160,6 +158,6 @@ export function MonthYearPicker({
           })}
         </div>
       </div>
-    </div>
+    </AnchoredPopover>
   );
 }

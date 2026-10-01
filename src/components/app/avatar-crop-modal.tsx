@@ -5,7 +5,7 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 
-const OUTPUT_SIZE = 512; // square px written to the uploaded file
+const OUTPUT_SIZE = 256; // square px; kept small because the photo is stored in the database
 
 /** Draw the selected crop region to a square canvas and return a JPEG blob. */
 function cropToBlob(src: string, area: Area): Promise<Blob> {

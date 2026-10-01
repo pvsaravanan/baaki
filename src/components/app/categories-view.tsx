@@ -42,9 +42,9 @@ export function CategoriesView({ categories: initial }: { categories: CategoryDT
   const confirm = useConfirm();
 
   const [categories, setCategories] = useState(initial);
-  // Resync when the server-rendered prop changes (e.g. a category created
+  // Resync when the loaded prop changes (e.g. a category created
   // elsewhere, such as the quick-add flow inside the transaction modal,
-  // triggers router.refresh() — without this the list stays stale until a
+  // triggers refresh() — without this the list stays stale until a
   // full page reload since useState(initial) only seeds on first mount).
   useEffect(() => setCategories(initial), [initial]);
   const [query, setQuery] = useState("");
@@ -189,7 +189,7 @@ function CategoryRow({
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <Link
-            href={`/categories/${category.id}`}
+            href={`/categories/detail?id=${category.id}`}
             className="truncate text-sm font-medium text-fg after:absolute after:inset-0 after:content-[''] focus:outline-none focus-visible:underline"
           >
             {category.name}

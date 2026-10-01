@@ -1,14 +1,18 @@
+"use client";
+import { Suspense } from "react";
 import Link from "next/link";
 import { ArrowUpRight, CalendarClock } from "lucide-react";
-import { requireUserOrRedirect } from "@/lib/auth";
-import { getMonthlyAnalytics } from "@/lib/analytics";
-import { loadPreference, loadRecurring, loadTransactions } from "@/lib/queries";
-import { loadGoalsOverview } from "@/lib/goals-service";
+import { usePageData } from "@/lib/local-api";
+import type { PageData } from "@/server/pages";
+import { useAppData } from "@/components/app/app-data";
+import { useMonthParam } from "@/components/app/use-month-param";
+import { ScreenData } from "@/components/app/screen-data";
+import { DashboardSkeleton } from "@/components/app/dashboard-skeleton";
 import { goalProgress } from "@/lib/goal-allocation";
 import { resolveGoalIcon } from "@/lib/category-icons";
 import { isWidgetKey, widgetKind, type WidgetKey } from "@/lib/dashboard-widgets";
 import { ShortfallBanner } from "@/components/app/goals/money-standing";
-import { monthKeyOf, monthKeyString, parseMonthKey, fromISODate, formatDate, addDays, zonedParts, type MonthKey } from "@/lib/dates";
+import { fromISODate, formatDate, addDays, zonedParts, type MonthKey } from "@/lib/dates";
 import { monthlyContributionNeeded } from "@/lib/calculations";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Money } from "@/components/money";
@@ -25,20 +29,37 @@ import { InteractiveCategoryDonut } from "@/components/app/interactive-category-
 import { IncomeExpenseCard } from "@/components/app/income-expense-card";
 import { formatINR, formatPercent } from "@/lib/money";
 
-export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ m?: string }> }) {
-  const user = await requireUserOrRedirect();
-  const { m } = await searchParams;
-  const nowKey = monthKeyOf(new Date());
-  const monthKey: MonthKey = parseMonthKey(m) ?? nowKey;
-  const isCurrent = monthKey.year === nowKey.year && monthKey.month === nowKey.month;
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<DashboardSkeleton />}>
+      <Dashboard />
+    </Suspense>
+  );
+}
 
-  const [a, pref, recent, recurring, { goals, summary: goalMoney }] = await Promise.all([
-    getMonthlyAnalytics(user.id, monthKey),
-    loadPreference(user.id),
-    loadTransactions(user.id, { take: 6 }),
-    loadRecurring(user.id),
-    loadGoalsOverview(user.id),
-  ]);
+function Dashboard() {
+  const { user } = useAppData();
+  const { m, monthKey, isCurrent } = useMonthParam();
+  const { data, error, isStale } = usePageData("dashboard", { m });
+
+  return (
+    <MonthScope monthKey={m} loading={isStale}>
+      <PageHeader
+        title={`${greeting()}, ${user.name.split(" ")[0]}`}
+        description="Here's where your money went this month."
+        actions={<MonthNav monthKey={monthKey} isCurrent={isCurrent} className="w-full sm:w-auto" />}
+      />
+      <MonthContent className="space-y-5">
+        <ScreenData data={data} error={error} skeleton={<DashboardSkeleton header={false} />}>
+          {(d) => <DashboardBody data={d} monthKey={monthKey} />}
+        </ScreenData>
+      </MonthContent>
+    </MonthScope>
+  );
+}
+
+function DashboardBody({ data, monthKey }: { data: PageData<"dashboard">; monthKey: MonthKey }) {
+  const { analytics: a, preference: pref, recent, recurring, goals, goalMoney } = data;
 
   const budgetLimit = a.budget.overallLimit ?? a.budget.lines.reduce((s, l) => s + l.limit, 0);
   const budgetRemaining = budgetLimit - a.budget.overallSpent;
@@ -58,8 +79,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   const donutData = a.categories.slice(0, 8).map((c) => ({ name: c.name, value: c.net, color: c.color, icon: c.icon }));
   const activeGoals = goals.filter((g) => g.status !== "archived").slice(0, 3);
-
-  const firstName = user.name.split(" ")[0];
 
   // Goal allocations stay in the accounts, so Balance is unchanged; the hint
   // says how much of it is still free.
@@ -225,7 +244,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
               return (
                 <Link
                   key={g.id}
-                  href={`/goals/${g.id}`}
+                  href={`/goals/detail?id=${g.id}`}
                   className="-mx-2 block px-2 py-1 transition-colors hover:bg-surface-2 focus:outline-none focus-visible:bg-surface-2"
                 >
                   <div className="mb-1 flex items-center gap-2 text-sm">
@@ -268,14 +287,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   });
 
   return (
-    <MonthScope monthKey={monthKeyString(monthKey)}>
-      <PageHeader
-        title={`${greeting()}, ${firstName}`}
-        description="Here's where your money went this month."
-        actions={<MonthNav monthKey={monthKey} isCurrent={isCurrent} className="w-full sm:w-auto" />}
-      />
-      <MonthContent className="space-y-5">
-
+    <>
       {/* Spending has eaten into money reserved for goals — say so, but never
           change the goals; the user decides what to adjust. */}
       <ShortfallBanner summary={goalMoney} goals={goals} reviewLink />
@@ -301,8 +313,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           ))}
         </div>
       </div>
-      </MonthContent>
-    </MonthScope>
+    </>
   );
 }
 

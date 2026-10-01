@@ -165,4 +165,6 @@ export interface BudgetDTO {
 export interface PreferenceDTO {
   dashboardWidgets: string[];
   defaultAccountId: string | null;
+  /** Ask for the phone's fingerprint / screen lock when the app opens. */
+  appLock: boolean;
 }

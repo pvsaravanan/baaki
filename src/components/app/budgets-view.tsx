@@ -284,7 +284,7 @@ function EditBudgetModal({
       });
       toast.success("Budget saved");
       onClose();
-      refresh(); // this is router.refresh() — calling both refetched twice
+      refresh();
     } catch (e) {
       const msg =
         e instanceof ApiError

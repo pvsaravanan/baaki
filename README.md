@@ -7,8 +7,17 @@ and what goes out, and baaki turns it into clear answers: how much you spent thi
 where it went, how you're doing against your budget, and what's left to save.
 
 It works in rupees from the ground up — Indian number formatting (`₹1,00,000`), UPI and
-net banking as payment methods, Indian bank logos — and it's built to be used on your
-phone as much as on a laptop.
+net banking as payment methods, Indian bank logos.
+
+baaki is an **Android app that works completely offline**. Everything — your data and
+every calculation — stays on your phone. There's no account to create, nothing is
+uploaded, and the app can't connect to the internet at all.
+
+![baaki on a phone: dashboard, transactions, budgets, goals and reports](UI/showcase-1.png)
+
+![baaki on a phone: adding a transaction, people, recurring, insights and settings](UI/showcase-2.png)
+
+More screens — every page, on phone and desktop — are in [UI/](UI/README.md).
 
 ## What you can do with it
 
@@ -59,10 +68,16 @@ phone as much as on a laptop.
 
 ### Your data, your control
 
-- **Import** transactions from a CSV (e.g. a bank statement): map its columns, preview
+- **Private by design** — your data lives only in baaki's own storage on your phone.
+  Turn on the **app lock** to ask for your fingerprint or screen lock whenever it opens.
+- **Back up and restore** — save a backup file to Drive, WhatsApp, Files or anywhere
+  through Android's share sheet, and restore it on a new phone. Because nothing is kept
+  online, the backup file is the only other copy — make one now and then. Restore also
+  reads the "Full backup" file from the baaki website, to bring an online account over.
+- **Import** transactions from a bank statement (CSV or Excel): map its columns, preview
   the rows, and see exactly which ones have problems (and why) before anything is saved.
   Rows you've already imported are skipped, so re-importing a statement won't double up.
-- **Export** your transactions as CSV, or a full backup of everything as JSON, at any time.
+- **Export** your transactions as CSV at any time.
 - **Personalize** — a default account for new transactions and a profile photo. (Dark
   mode is coming soon.)
 
@@ -71,25 +86,24 @@ phone as much as on a laptop.
 - Every amount is stored as whole **paise** (1 rupee = 100 paise), never as a floating-point
   number, so totals never drift by a paisa.
 - Insights and auto-categorization are deterministic rules computed from your own data
-  — your transactions are never sent to an AI service.
-- Sign-in, password reset and sessions are handled by Supabase Auth; every request is
-  checked so each person only ever sees their own data.
+  — your transactions never leave the phone.
+- The database is real Postgres, compiled to WebAssembly (PGlite) and stored inside the
+  app. A content security policy blocks every connection outside the app itself.
 
-Built with Next.js 15 (App Router), TypeScript, Prisma, Supabase (Postgres) and Tailwind CSS.
+Built with Next.js 15 (static export), TypeScript, Prisma, PGlite, Capacitor and Tailwind CSS.
 
 ## Running it yourself
 
 ```bash
 npm install
-cp .env.example .env   # add your Supabase connection strings
-npm run setup          # generate the Prisma client and create the tables
-npm run dev            # http://localhost:3000
+npm run dev            # try it in a browser: http://localhost:3000
+npm run android        # build the app and run it on a connected phone or emulator
 ```
 
-Then create an account at `/register`. You start with the default categories and two
-accounts (a bank account and cash), ready for your first transaction.
+There's nothing to configure. On first launch you start with the default categories and
+two accounts (a bank account and cash), ready for your first transaction.
 
-For database setup, schema changes, deployment, architecture and testing, see
+For the Android build, how the app works offline, schema changes and testing, see
 [docs/SETUP.md](docs/SETUP.md).
 
 ## License

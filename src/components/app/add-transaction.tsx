@@ -120,7 +120,7 @@ export function TransactionModalProvider({ children }: { children: React.ReactNo
     }
 
     // `refresh()` below then reconciles everything else (ordering, filtered
-    // views, totals, server-rendered tiles) with a real fetch in the background.
+    // views, totals, dashboard tiles) with a real fetch in the background.
     refresh();
     toast.success(mode === "add" ? (saved.length > 1 ? "Split expense added" : "Transaction added") : "Changes saved");
   };

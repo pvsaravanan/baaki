@@ -226,6 +226,7 @@ export const allocationSchema = z.object({
 export const preferenceSchema = z.object({
   dashboardWidgets: z.array(z.string()).optional(),
   defaultAccountId: z.string().optional().nullable(),
+  appLock: z.boolean().optional(),
 });
 
 /** Format a ZodError into a flat field->message map for the client. */

@@ -1,46 +1,24 @@
-import { requireUserOrRedirect } from "@/lib/auth";
-import { getMonthlyAnalytics } from "@/lib/analytics";
-import { monthKeyOf, daysInMonth, parseMonthKey, type MonthKey } from "@/lib/dates";
+"use client";
+import { Suspense } from "react";
+import { usePageData } from "@/lib/local-api";
+import { useMonthParam } from "@/components/app/use-month-param";
 import { TrendsView } from "@/components/app/trends-view";
+import { ScreenData } from "@/components/app/screen-data";
 
-export const metadata = { title: "Trends · baaki" };
-
-export default async function TrendsPage({ searchParams }: { searchParams: Promise<{ m?: string }> }) {
-  const user = await requireUserOrRedirect();
-  const { m } = await searchParams;
-  const nowKey = monthKeyOf(new Date());
-  const monthKey: MonthKey = parseMonthKey(m) ?? nowKey;
-  const isCurrent = monthKey.year === nowKey.year && monthKey.month === nowKey.month;
-
-  const a = await getMonthlyAnalytics(user.id, monthKey);
-  const budget = a.budget.overallLimit;
-  const spent = a.budget.overallSpent;
-  const daysInMo = daysInMonth(monthKey);
-
-  let cum = 0;
-  const pace = a.daily.map((d) => {
-    cum += d.expense;
-    const dayNum = Number(d.date.slice(-2));
-    return {
-      label: String(dayNum),
-      cumulative: cum,
-      ideal: budget ? Math.round((budget * dayNum) / daysInMo) : null,
-    };
-  });
-
+export default function TrendsPage() {
   return (
-    <TrendsView
-      monthKey={monthKey}
-      isCurrent={isCurrent}
-      netTrend={a.incomeExpenseTrend.map((t) => ({ label: t.label, net: t.income - t.expense }))}
-      categoryChange={a.categoryComparison.map((c) => ({ name: c.name, delta: c.delta }))}
-      pace={pace}
-      budget={budget}
-      spent={spent}
-      savingsRate={a.current.savingsRate}
-      budgetUsedPct={budget && budget > 0 ? (spent / budget) * 100 : null}
-      topShare={a.current.effectiveExpense > 0 && a.categories[0] ? (a.categories[0].net / a.current.effectiveExpense) * 100 : null}
-      topName={a.categories[0]?.name ?? null}
-    />
+    <Suspense>
+      <Trends />
+    </Suspense>
+  );
+}
+
+function Trends() {
+  const { m, monthKey, isCurrent } = useMonthParam();
+  const { data, error } = usePageData("trends", { m });
+  return (
+    <ScreenData data={data} error={error}>
+      {(d) => <TrendsView monthKey={monthKey} isCurrent={isCurrent} {...d} />}
+    </ScreenData>
   );
 }

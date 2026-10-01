@@ -20,7 +20,7 @@ export function AccountsView({ accounts: initial }: { accounts: AccountDTO[] }) 
   const confirm = useConfirm();
 
   const [accounts, setAccounts] = useState(initial);
-  // Resync when the server-rendered prop changes — see the identical note in
+  // Resync when the loaded prop changes — see the identical note in
   // CategoriesView; without this the list stays stale until a full reload.
   useEffect(() => setAccounts(initial), [initial]);
   const [formOpen, setFormOpen] = useState(false);

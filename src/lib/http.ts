@@ -1,6 +1,12 @@
 "use client";
+import { localFetch } from "./local-api";
+import { saveFile } from "./save-file";
 
-/** Client-side fetch helpers. Throw ApiError (with field errors) on failure. */
+/**
+ * Client-side request helpers. Throw ApiError (with field errors) on failure.
+ * Requests are answered on the device by the local API (./local-api) — the
+ * same `/api/...` routes the app used to call over the network.
+ */
 
 export class ApiError extends Error {
   status: number;
@@ -32,37 +38,22 @@ async function handle<T>(res: Response): Promise<T> {
   return data as T;
 }
 
-// Every form in the app disables its modal's close button while a request is
-// in flight (so an in-flight save can't be silently abandoned) and only
-// re-enables it once the request settles. Without a timeout, a hung request
-// (dead connection, cold serverless start) never settles and the modal is
-// stuck forever with no escape hatch. 20s is generous for this app's payload
-// sizes but still short enough that a genuinely hung request doesn't trap
-// the user indefinitely.
-const REQUEST_TIMEOUT_MS = 20_000;
-
-async function timedFetch(url: string, init: RequestInit): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+async function request(url: string, init: RequestInit): Promise<Response> {
   try {
-    return await fetch(url, { ...init, signal: controller.signal });
+    return await localFetch(url, init);
   } catch (err) {
-    if (err instanceof DOMException && err.name === "AbortError") {
-      throw new ApiError("Request timed out. Check your connection and try again.", 0);
-    }
-    throw new ApiError("Network error. Check your connection and try again.", 0);
-  } finally {
-    clearTimeout(timer);
+    console.error("[local-api]", err);
+    throw new ApiError("Something went wrong. Please try again.", 500);
   }
 }
 
 export async function apiGet<T>(url: string): Promise<T> {
-  return handle<T>(await timedFetch(url, { headers: { Accept: "application/json" } }));
+  return handle<T>(await request(url, { headers: { Accept: "application/json" } }));
 }
 
 export async function apiSend<T>(url: string, method: string, body?: unknown): Promise<T> {
   return handle<T>(
-    await timedFetch(url, {
+    await request(url, {
       method,
       headers: { "Content-Type": "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body),
@@ -78,23 +69,16 @@ export const apiDelete = <T>(url: string, body?: unknown) => apiSend<T>(url, "DE
 /** SWR default fetcher. */
 export const swrFetcher = <T>(url: string) => apiGet<T>(url);
 
-// Exports can legitimately take longer than a normal CRUD request on a large
-// history — give it more room than the general request timeout above.
-const DOWNLOAD_TIMEOUT_MS = 60_000;
-
 /**
- * Fetch a file download (e.g. a CSV/JSON export) and save it via a blob link,
- * instead of a bare `<a href>` navigation — which would otherwise navigate
- * the whole tab away to a raw JSON/HTML error page if the request fails,
- * with no in-app feedback. Returns true on success.
+ * Produce a file (e.g. a CSV/JSON export) from the local API and hand it to
+ * the user — the share sheet on the phone, a download in a browser. Returns
+ * true on success.
  */
 export async function downloadFile(url: string, onError: (message: string) => void): Promise<boolean> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
   try {
-    const res = await fetch(url, { signal: controller.signal });
+    const res = await localFetch(url);
     if (!res.ok) {
-      let message = `Download failed (${res.status})`;
+      let message = `Export failed (${res.status})`;
       try {
         const data = await res.json();
         if (data?.error) message = data.error;
@@ -107,20 +91,9 @@ export async function downloadFile(url: string, onError: (message: string) => vo
     const blob = await res.blob();
     const cd = res.headers.get("content-disposition") ?? "";
     const match = /filename="?([^";]+)"?/.exec(cd);
-    const filename = match?.[1] ?? "download";
-    const blobUrl = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = blobUrl;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(blobUrl);
-    return true;
+    return await saveFile(match?.[1] ?? "download", blob);
   } catch {
-    onError("Could not download the file. Check your connection and try again.");
+    onError("Could not create the file. Please try again.");
     return false;
-  } finally {
-    clearTimeout(timer);
   }
 }

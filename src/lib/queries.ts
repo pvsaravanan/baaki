@@ -1,4 +1,3 @@
-import "server-only";
 import { cache } from "react";
 import { prisma } from "./db";
 import { accountBalance, type CalcTxn } from "./calculations";
@@ -135,6 +134,7 @@ export const loadPreference = cache(async (userId: string): Promise<PreferenceDT
   return {
     dashboardWidgets: widgets,
     defaultAccountId,
+    appLock: pref?.appLock ?? false,
   };
 });
 

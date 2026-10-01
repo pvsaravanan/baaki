@@ -1,6 +1,7 @@
 "use client";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { Capacitor } from "@capacitor/core";
 import { AlertCircle, CheckCircle2, Info, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 
@@ -25,6 +26,18 @@ const ToastContext = createContext<ToastContextValue | null>(null);
 
 let counter = 0;
 
+/** A light tap when something saves (and a firmer one when it fails), on the phone. */
+function haptic(kind: "success" | "error") {
+  if (!Capacitor.isNativePlatform()) return;
+  import("@capacitor/haptics")
+    .then(({ Haptics, NotificationType }) =>
+      Haptics.notification({ type: kind === "success" ? NotificationType.Success : NotificationType.Error }),
+    )
+    .catch(() => {
+      /* no vibration motor, or it's switched off */
+    });
+}
+
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
@@ -42,8 +55,14 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
   const value: ToastContextValue = {
     toast,
-    success: (message, action) => toast({ message, tone: "success", action }),
-    error: (message) => toast({ message, tone: "error", duration: 6000 }),
+    success: (message, action) => {
+      haptic("success");
+      toast({ message, tone: "success", action });
+    },
+    error: (message) => {
+      haptic("error");
+      toast({ message, tone: "error", duration: 6000 });
+    },
     info: (message) => toast({ message, tone: "info" }),
   };
 

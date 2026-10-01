@@ -1,11 +1,9 @@
-import "server-only";
-import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { UnauthorizedError, requireUser, type SessionUser } from "./auth";
 import { fieldErrors } from "./validation";
 
-export function json(data: unknown, init?: ResponseInit): NextResponse {
-  return NextResponse.json(data, init);
+export function json(data: unknown, init?: ResponseInit): Response {
+  return Response.json(data, init);
 }
 
 export function apiError(
@@ -13,8 +11,8 @@ export function apiError(
   status = 400,
   extra?: Record<string, unknown>,
   headers?: Record<string, string>,
-): NextResponse {
-  return NextResponse.json({ error: message, ...extra }, { status, headers });
+): Response {
+  return Response.json({ error: message, ...extra }, { status, headers });
 }
 
 /**

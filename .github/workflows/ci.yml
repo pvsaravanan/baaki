@@ -2,31 +2,46 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, mobile-app]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   ci:
     runs-on: ubuntu-latest
-    # No real database is touched: prisma generate only reads schema.prisma,
-    # and these routes render dynamically (cookie-based auth) rather than
-    # statically, so `next build` never needs a live connection either — these
-    # placeholders just satisfy env var presence checks at build time.
-    env:
-      DATABASE_URL: "postgresql://user:pass@localhost:5432/db?pgbouncer=true"
-      DIRECT_URL: "postgresql://user:pass@localhost:5432/db"
-      NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co"
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: "sb_publishable_ci_placeholder"
-      SUPABASE_SERVICE_ROLE_KEY: "ci-placeholder-service-role-key"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
           cache: npm
+      # `npm ci` also generates the on-device Prisma client (postinstall).
       - run: npm ci
-      - run: npx prisma generate
       - run: npm run lint
       - run: npx tsc --noEmit
       - run: npm test
       - run: npm run build
+
+  # A debug APK to install on a phone for testing (Actions → this run →
+  # Artifacts → baaki-debug-apk). Release builds are signed locally.
+  android:
+    runs-on: ubuntu-latest
+    needs: ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - run: npm run build:app
+      - run: ./gradlew assembleDebug
+        working-directory: android
+      - uses: actions/upload-artifact@v4
+        with:
+          name: baaki-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk

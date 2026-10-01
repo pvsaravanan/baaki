@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { AnchoredPopover, isInsidePopover } from "./anchored-popover";
 
 export interface SelectMenuOption {
   value: string;
@@ -16,7 +17,8 @@ export interface SelectMenuOption {
  * dark, rounded, blue-highlight popup with zero relation to baaki's
  * sharp-edged cream/coral theme, and no CSS can reach it. This renders both
  * the trigger and the option list ourselves, in the same anchored-dropdown
- * style as MonthYearPicker/DatePicker.
+ * style as MonthYearPicker/DatePicker. The option list floats above the app
+ * (see AnchoredPopover), so it's never clipped and never pushes a form around.
  */
 export function SelectMenu({
   id,
@@ -45,26 +47,31 @@ export function SelectMenu({
 }) {
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const selected = options.find((o) => o.value === value);
 
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (e: PointerEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) setOpen(false);
+      if (!isInsidePopover(e.target, panelRef.current, wrapperRef.current)) setOpen(false);
     };
+    // Captured, and stopped here: Escape (or Android's Back) closes just this
+    // popup, not the form or sheet it sits in.
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key !== "Escape") return;
+      e.stopImmediatePropagation();
+      setOpen(false);
     };
     document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKey);
+    document.addEventListener("keydown", onKey, true);
     return () => {
       document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("keydown", onKey, true);
     };
   }, [open]);
 
   return (
-    <div className={cn("relative", className)}>
+    <div ref={wrapperRef} className={cn("relative", className)}>
       <button
         type="button"
         id={id}
@@ -84,16 +91,8 @@ export function SelectMenu({
         <ChevronDown className="h-4 w-4 shrink-0 text-muted" />
       </button>
 
-      {open && (
-        // Matches the trigger's own width exactly (left-0 right-0, no w-max)
-        // — a panel sized to its widest option can grow past the trigger's
-        // container (e.g. a narrow grid column) and force a page-wide
-        // horizontal scrollbar. Long labels wrap instead of widening it.
-        <div
-          ref={panelRef}
-          role="listbox"
-          className="absolute left-0 right-0 top-full z-30 mt-1.5 max-h-64 overflow-y-auto rounded-none border-2 border-border bg-surface shadow-stamp-lg animate-scale-in"
-        >
+      {/* Exactly the trigger's width: long labels wrap instead of widening it. */}
+      <AnchoredPopover ref={panelRef} open={open} role="listbox" maxHeight={256}>
           {options.map((opt) => {
             const isSelected = opt.value === value;
             return (
@@ -119,8 +118,7 @@ export function SelectMenu({
               </button>
             );
           })}
-        </div>
-      )}
+      </AnchoredPopover>
     </div>
   );
 }

@@ -10,7 +10,7 @@ import type {
   Tag,
   Transaction,
   TransactionTag,
-} from "@prisma/client";
+} from "@/generated/prisma/client";
 import { toISODate } from "./dates";
 import { allocatedAmount } from "./goal-allocation";
 import type {

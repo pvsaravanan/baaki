@@ -23,7 +23,9 @@ export function Sheet({
       'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        onClose();
+        // Only the topmost dialog closes (e.g. a form opened from this sheet).
+        const dialogs = document.querySelectorAll('[aria-modal="true"]');
+        if (dialogs[dialogs.length - 1] === panelRef.current?.parentElement) onClose();
         return;
       }
       // Trap Tab within the sheet so keyboard users can't reach the covered

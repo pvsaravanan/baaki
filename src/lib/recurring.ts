@@ -1,5 +1,4 @@
-import "server-only";
-import type { RecurringTransaction } from "@prisma/client";
+import type { RecurringTransaction } from "@/generated/prisma/client";
 import { prisma } from "./db";
 import { findOccurrenceIndex, occurrenceAt, startOfDay } from "./dates";
 import type { Frequency } from "./constants";

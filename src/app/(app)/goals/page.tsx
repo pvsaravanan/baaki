@@ -1,18 +1,20 @@
-import { requireUserOrRedirect } from "@/lib/auth";
-import { loadGoalsOverview } from "@/lib/goals-service";
+"use client";
+import { usePageData } from "@/lib/local-api";
 import { PageHeader } from "@/components/app/page-header";
 import { GoalsOverview } from "@/components/app/goals/goals-overview";
+import { GoalsSkeleton } from "@/components/app/goals/goals-skeleton";
+import { ScreenData } from "@/components/app/screen-data";
 
-export const metadata = { title: "Goals · baaki" };
-
-export default async function GoalsPage() {
-  const user = await requireUserOrRedirect();
-  const { goals, summary } = await loadGoalsOverview(user.id);
-
+export default function GoalsPage() {
+  const { data, error } = usePageData("goals");
   return (
-    <div>
-      <PageHeader title="Goals" description="Give your money a purpose without spending or moving it." />
-      <GoalsOverview goals={goals} summary={summary} />
-    </div>
+    <ScreenData data={data} error={error} skeleton={<GoalsSkeleton />}>
+      {(d) => (
+        <div>
+          <PageHeader title="Goals" description="Give your money a purpose without spending or moving it." />
+          <GoalsOverview goals={d.goals} summary={d.summary} />
+        </div>
+      )}
+    </ScreenData>
   );
 }

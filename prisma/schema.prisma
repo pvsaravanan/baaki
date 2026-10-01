@@ -7,17 +7,25 @@
 // (see src/lib/constants.ts + zod schemas) rather than as native DB enums, so
 // adding/renaming a value is a code change with no schema migration.
 
+// The app runs entirely on the device: this client talks to PGlite (Postgres
+// compiled to WebAssembly, stored in the WebView's IndexedDB) through a driver
+// adapter, with Prisma's JavaScript query compiler instead of a native engine.
+// `npm run db:generate` also patches the output for the browser — see
+// scripts/prisma-browser.mjs.
 generator client {
-  provider = "prisma-client-js"
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  runtime      = "workerd"
+  moduleFormat = "esm"
+  engineType   = "client"
 }
 
+// Only used when authoring a new migration (`prisma migrate dev` against a
+// local Postgres). The app applies prisma/migrations/*.sql to the on-device
+// database itself on start-up (src/lib/local-db.ts).
 datasource db {
   provider = "postgresql"
-  // Pooled connection (Supabase pgBouncer, port 6543) for app queries.
   url      = env("DATABASE_URL")
-  // Direct/session connection (port 5432) for `prisma db push` / migrations,
-  // which can't run through the transaction pooler.
-  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -56,6 +64,7 @@ model UserPreference {
   monthStartDay    Int     @default(1) // day of month the financial month begins
   dashboardWidgets String  @default("[]") // JSON array of widget config
   defaultAccountId String?
+  appLock          Boolean @default(false) // ask for fingerprint / screen lock on open
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -278,20 +287,6 @@ model TransactionTag {
 
   @@id([transactionId, tagId])
   @@index([tagId])
-}
-
-/**
- * Backing store for the fixed-window rate limiter (see src/lib/rate-limit.ts).
- * A real table rather than in-process state so a limit holds across the
- * multiple serverless instances one deployment can run behind, instead of
- * each instance keeping (and under-enforcing against) its own count.
- */
-model RateLimitBucket {
-  key     String   @id
-  count   Int
-  resetAt DateTime
-
-  @@index([resetAt])
 }
 
 /** A person you split expenses with. No login of their own — a label + ledger. */

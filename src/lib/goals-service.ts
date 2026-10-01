@@ -1,5 +1,4 @@
-import "server-only";
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "./db";
 import { BadRequestError, NotFoundError } from "./api";
 import { actualBalance, type CalcTxn } from "./calculations";

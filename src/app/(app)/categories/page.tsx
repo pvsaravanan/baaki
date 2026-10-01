@@ -1,18 +1,15 @@
-import { requireUserOrRedirect } from "@/lib/auth";
-import { loadCategories } from "@/lib/queries";
+"use client";
+import { usePageData } from "@/lib/local-api";
 import { PageHeader } from "@/components/app/page-header";
 import { CategoriesView } from "@/components/app/categories-view";
+import { ScreenData } from "@/components/app/screen-data";
 
-export const metadata = { title: "Categories · baaki" };
-
-export default async function CategoriesPage() {
-  const user = await requireUserOrRedirect();
-  const categories = await loadCategories(user.id);
-
+export default function CategoriesPage() {
+  const { data, error } = usePageData("categories");
   return (
     <div>
       <PageHeader title="Categories" description="Organize spending and income, and set monthly budgets." />
-      <CategoriesView categories={categories} />
+      <ScreenData data={data} error={error}>{(d) => <CategoriesView categories={d.categories} />}</ScreenData>
     </div>
   );
 }

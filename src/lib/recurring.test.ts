@@ -1,4 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// Only the date maths is tested here; keep the on-device database out of it.
+vi.mock("./db", () => ({ prisma: {} }));
+
 import { computeNextOccurrence, upcomingOccurrences } from "./recurring";
 import { fromISODate, toISODate } from "./dates";
 

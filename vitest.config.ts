@@ -5,13 +5,12 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/**/*.test.ts"],
+    // The database tests start a real (in-memory) Postgres; give them room.
+    testTimeout: 30_000,
   },
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
-      // `server-only` is a Next.js build-time guard with no runtime module.
-      // Stub it so server modules can be unit-tested directly.
-      "server-only": fileURLToPath(new URL("./src/test/server-only-stub.ts", import.meta.url)),
     },
   },
 });

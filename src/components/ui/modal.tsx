@@ -48,8 +48,10 @@ export function Modal({
       );
 
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !busy) {
-        onClose();
+      if (e.key === "Escape") {
+        // Only the topmost dialog closes (a form opened from another form).
+        const dialogs = document.querySelectorAll('[aria-modal="true"]');
+        if (!busy && dialogs[dialogs.length - 1] === overlayRef.current) onClose();
         return;
       }
       // Focus trap: keep Tab within the dialog so keyboard users can't reach

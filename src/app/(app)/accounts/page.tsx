@@ -1,18 +1,15 @@
-import { requireUserOrRedirect } from "@/lib/auth";
-import { loadAccounts } from "@/lib/queries";
+"use client";
+import { usePageData } from "@/lib/local-api";
 import { PageHeader } from "@/components/app/page-header";
 import { AccountsView } from "@/components/app/accounts-view";
+import { ScreenData } from "@/components/app/screen-data";
 
-export const metadata = { title: "Accounts · baaki" };
-
-export default async function AccountsPage() {
-  const user = await requireUserOrRedirect();
-  const accounts = await loadAccounts(user.id);
-
+export default function AccountsPage() {
+  const { data, error } = usePageData("accounts");
   return (
     <div>
       <PageHeader title="Accounts" description="Track balances across your banks, cash and cards." />
-      <AccountsView accounts={accounts} />
+      <ScreenData data={data} error={error}>{(d) => <AccountsView accounts={d.accounts} />}</ScreenData>
     </div>
   );
 }

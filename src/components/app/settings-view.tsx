@@ -1,13 +1,13 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
-  Camera, ChevronDown, ChevronRight, ChevronUp, Database, Download, FileSpreadsheet, LogOut, Upload,
+  Camera, ChevronDown, ChevronRight, ChevronUp, Database, Download, FileSpreadsheet, History, Upload,
 } from "lucide-react";
 import { DASHBOARD_WIDGETS, normalizeWidgets, widgetKind, widgetLabel, type WidgetKey, type WidgetKind } from "@/lib/dashboard-widgets";
-import { apiPatch, ApiError, downloadFile } from "@/lib/http";
-import { createClient } from "@/lib/supabase/client";
+import { apiPatch, apiPost, ApiError, downloadFile } from "@/lib/http";
+import { lockAvailability, unlockWithDevice } from "@/lib/app-lock";
+import { localFetch } from "@/lib/local-api";
 import { cn } from "@/lib/cn";
 import { useAppData } from "@/components/app/app-data";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import { AvatarCropModal } from "./avatar-crop-modal";
 import { UserAvatar } from "./user-avatar";
 import { ExportModal } from "./export-modal";
 import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/components/ui/confirm";
 
 interface WidgetItem {
   key: WidgetKey;
@@ -49,17 +50,15 @@ const WIDGET_GROUPS: { kind: WidgetKind; title: string; hint: string }[] = [
 const SECTIONS = [
   { id: "profile", label: "Profile" },
   { id: "preferences", label: "Preferences" },
+  { id: "security", label: "Security" },
   { id: "dashboard", label: "Dashboard" },
   { id: "data", label: "Data & backup" },
-  { id: "session", label: "Session" },
 ] as const;
 
 export function SettingsView() {
   const { user, accounts, preference, refresh } = useAppData();
   const { success, error } = useToast();
-  const router = useRouter();
-
-  const [signingOut, setSigningOut] = useState(false);
+  const confirm = useConfirm();
   const [savingAccount, setSavingAccount] = useState(false);
 
   const [name, setName] = useState(user.name);
@@ -77,6 +76,67 @@ export function SettingsView() {
     setDownloadingBackup(true);
     await downloadFile("/api/export?format=json", (message) => error(message));
     setDownloadingBackup(false);
+  }
+
+  const restoreRef = useRef<HTMLInputElement>(null);
+  const [restoring, setRestoring] = useState(false);
+
+  async function handleRestoreSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // let the same file be picked again later
+    if (!file) return;
+    let backup: unknown;
+    try {
+      backup = JSON.parse(await file.text());
+    } catch {
+      error("That file isn't a baaki backup.");
+      return;
+    }
+    const ok = await confirm({
+      title: "Restore this backup?",
+      message:
+        "Everything in baaki on this phone will be replaced with the backup's contents. Make a backup first if you want to keep what's here now.",
+      confirmLabel: "Restore",
+      danger: true,
+    });
+    if (!ok) return;
+    setRestoring(true);
+    try {
+      const res = await apiPost<{ accounts: number; transactions: number }>("/api/backup/restore", backup);
+      success(`Restored ${res.transactions} transactions across ${res.accounts} accounts`);
+      refresh();
+    } catch (e2) {
+      error(e2 instanceof ApiError ? e2.message : "Could not restore the backup");
+    } finally {
+      setRestoring(false);
+    }
+  }
+
+  const [lockNote, setLockNote] = useState<string | null>(null);
+  const [lockAvailable, setLockAvailable] = useState(false);
+  const [savingLock, setSavingLock] = useState(false);
+  useEffect(() => {
+    lockAvailability()
+      .then(({ available, reason }) => {
+        setLockAvailable(available);
+        setLockNote(reason ?? null);
+      })
+      .catch(() => setLockNote("The app lock isn't available on this phone."));
+  }, []);
+
+  async function handleAppLock(on: boolean) {
+    setSavingLock(true);
+    try {
+      // Turning it on proves the unlock works before the app starts relying on it.
+      if (on && !(await unlockWithDevice("Turn on the app lock"))) return;
+      await apiPatch("/api/preferences", { appLock: on });
+      success(on ? "App lock is on" : "App lock is off");
+      refresh();
+    } catch (e2) {
+      error(e2 instanceof ApiError ? e2.message : "Could not change the app lock");
+    } finally {
+      setSavingLock(false);
+    }
   }
   const [cropSrc, setCropSrc] = useState<string | null>(null);
 
@@ -104,7 +164,7 @@ export function SettingsView() {
     try {
       const fd = new FormData();
       fd.append("file", blob, "avatar.jpg");
-      const res = await fetch("/api/user/avatar", { method: "POST", body: fd });
+      const res = await localFetch("/api/user/avatar", { method: "POST", body: fd });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error ?? "Upload failed");
@@ -122,7 +182,7 @@ export function SettingsView() {
   async function handleRemoveAvatar() {
     setUploadingAvatar(true);
     try {
-      const res = await fetch("/api/user/avatar", { method: "DELETE" });
+      const res = await localFetch("/api/user/avatar", { method: "DELETE" });
       if (!res.ok) throw new Error("Remove failed");
       success("Photo removed");
       refresh();
@@ -154,19 +214,6 @@ export function SettingsView() {
     () => JSON.stringify(enabledOrder) !== JSON.stringify(preference.dashboardWidgets),
     [enabledOrder, preference.dashboardWidgets],
   );
-
-  async function handleSignOut() {
-    setSigningOut(true);
-    const supabase = createClient();
-    const { error: signOutError } = await supabase.auth.signOut();
-    if (signOutError) {
-      setSigningOut(false);
-      error(signOutError.message || "Could not sign out");
-      return;
-    }
-    router.push("/login");
-    router.refresh();
-  }
 
   async function handleSaveName() {
     setSavingName(true);
@@ -275,7 +322,6 @@ export function SettingsView() {
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-headline-sm text-fg">{user.name}</p>
-              <p className="mt-1 truncate text-body-sm text-muted">{user.email}</p>
               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
                 <button
                   type="button"
@@ -300,7 +346,7 @@ export function SettingsView() {
           </div>
           <Row
             title="Display name"
-            description="Used in your dashboard greeting and account menu."
+            description="Used in your dashboard greeting."
             htmlFor="profile-name"
             stacked
           >
@@ -318,9 +364,6 @@ export function SettingsView() {
                 Save
               </Button>
             </div>
-          </Row>
-          <Row title="Email" description="Used to sign in. It can't be changed here.">
-            <span className="block max-w-full truncate text-body-sm text-fg sm:max-w-[16rem]">{user.email}</span>
           </Row>
         </Section>
 
@@ -343,6 +386,23 @@ export function SettingsView() {
               onChange={handleDefaultAccount}
               options={[{ value: "", label: "No default" }, ...accounts.map((a) => ({ value: a.id, label: a.name }))]}
               className="w-full sm:w-56"
+            />
+          </Row>
+        </Section>
+
+        {/* Security */}
+        <Section id="security" title="Security" description="Keep baaki private on your phone.">
+          <Row
+            title="App lock"
+            description={
+              lockNote ?? "Ask for your fingerprint or screen lock when baaki opens, and after a minute away."
+            }
+          >
+            <Switch
+              checked={preference.appLock}
+              disabled={savingLock || (!lockAvailable && !preference.appLock)}
+              onChange={() => handleAppLock(!preference.appLock)}
+              label="App lock"
             />
           </Row>
         </Section>
@@ -430,7 +490,11 @@ export function SettingsView() {
         </Section>
 
         {/* Data & backup */}
-        <Section id="data" title="Data & backup" description="Your data is always yours — take it with you any time.">
+        <Section
+          id="data"
+          title="Data & backup"
+          description="Everything is stored only on this phone. Back it up to Drive or another safe place now and then — it's the only copy."
+        >
           <ActionRow
             icon={<Database className="h-5 w-5" aria-hidden />}
             title="Full backup"
@@ -438,6 +502,21 @@ export function SettingsView() {
             onClick={handleBackupDownload}
             busy={downloadingBackup}
             trailing={<Download className="h-4 w-4" aria-hidden />}
+          />
+          <ActionRow
+            icon={<History className="h-5 w-5" aria-hidden />}
+            title="Restore from backup"
+            description="Replace what's here with a baaki backup — from this app or the baaki website."
+            onClick={() => restoreRef.current?.click()}
+            busy={restoring}
+            trailing={<Upload className="h-4 w-4" aria-hidden />}
+          />
+          <input
+            ref={restoreRef}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={handleRestoreSelected}
           />
           <ActionRow
             icon={<FileSpreadsheet className="h-5 w-5" aria-hidden />}
@@ -448,21 +527,11 @@ export function SettingsView() {
           />
           <ActionRow
             icon={<Upload className="h-5 w-5" aria-hidden />}
-            title="Import or restore"
-            description="Bring in a bank CSV or restore a baaki backup."
+            title="Import transactions"
+            description="Bring in a bank statement (CSV or Excel)."
             href="/import"
             trailing={<ChevronRight className="h-4 w-4" aria-hidden />}
           />
-        </Section>
-
-        {/* Session */}
-        <Section id="session" title="Session">
-          <Row title="Sign out" description={`Signed in as ${user.email}`}>
-            <Button variant="outline" onClick={handleSignOut} loading={signingOut} className="w-full sm:w-auto">
-              <LogOut className="h-4 w-4" aria-hidden />
-              Sign out
-            </Button>
-          </Row>
         </Section>
       </div>
 

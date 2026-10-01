@@ -6,12 +6,12 @@ import { cn } from "@/lib/cn";
 /**
  * Smooth month switching for pages driven by `?m=YYYY-MM`.
  *
- * Switching months re-renders the page on the server. Without this, a tap
- * gave no feedback until the new month arrived, then everything snapped. Here
- * the navigation runs as a transition, so the current month stays on screen
- * (dimmed) while the next loads, the switcher's label updates at once, and
- * the new month fades up in place. Deliberately no movement: sliding the
- * content sideways read as the page shaking.
+ * Switching months changes `?m=` and loads that month's data from the
+ * device. The current month stays on screen (dimmed) while the next loads —
+ * the screen passes `loading` while it's still showing the previous month —
+ * the switcher's label updates at once, and the new month fades up in place.
+ * Deliberately no movement: sliding the content sideways read as the page
+ * shaking.
  */
 interface MonthScopeValue {
   pending: boolean;
@@ -26,9 +26,19 @@ export function useMonthScope() {
   return useContext(MonthScopeContext);
 }
 
-export function MonthScope({ monthKey, children }: { monthKey: string; children: React.ReactNode }) {
+export function MonthScope({
+  monthKey,
+  loading = false,
+  children,
+}: {
+  monthKey: string;
+  /** The screen is still showing the previous month's data. */
+  loading?: boolean;
+  children: React.ReactNode;
+}) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [navigating, startTransition] = useTransition();
+  const pending = navigating || loading;
   const [target, setTarget] = useState<string | null>(null);
 
   const navigate = useCallback(
