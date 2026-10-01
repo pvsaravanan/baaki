@@ -5,7 +5,14 @@
 A personal finance app for everyday money in India. It runs entirely on your Android
 phone: no account, no server, nothing uploaded, and it can't reach the internet.
 
-Screenshots of every screen and a [walkthrough video](UI/walkthrough.mp4) are in [UI/](UI/README.md).
+<p align="center">
+  <img src="UI/phone/01-dashboard.png" width="24%" alt="Dashboard">
+  <img src="UI/phone/02-transactions.png" width="24%" alt="Transactions">
+  <img src="UI/phone/04-budgets.png" width="24%" alt="Budgets">
+  <img src="UI/phone/05-goals.png" width="24%" alt="Goals">
+</p>
+
+Every screen, and a [walkthrough video](UI/walkthrough.mp4), are in [UI/](UI/README.md).
 
 Amounts are stored in whole paise, so totals never drift. Everything is computed on the
 phone; the database is Postgres compiled to WebAssembly (PGlite).
