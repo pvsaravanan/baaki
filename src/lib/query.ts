@@ -2,7 +2,7 @@
  * Shared transaction filter builder. Used by both the list API
  * (/api/transactions) and the CSV export (/api/export).
  */
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
 import { fromISODate, endOfDayExclusive } from "./dates";
 
 /** Parse a query param as a finite integer, or null when absent/non-numeric. */
@@ -36,7 +36,11 @@ export function buildWhere(userId: string, params: URLSearchParams): Prisma.Tran
   const types = csv("type");
   if (types.length) where.type = { in: types };
   const accounts = csv("accountId");
-  if (accounts.length) where.accountId = { in: accounts };
+  if (accounts.length) {
+    // A transfer belongs to both of its accounts: the one the money left
+    // (accountId) and the one it arrived in (transferAccountId).
+    and.push({ OR: [{ accountId: { in: accounts } }, { transferAccountId: { in: accounts } }] });
+  }
   const methods = csv("paymentMethod");
   if (methods.length) where.paymentMethod = { in: methods };
 
