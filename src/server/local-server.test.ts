@@ -188,5 +188,10 @@ describe("the on-device app", () => {
     const balance = (id: string) => shell.accounts.find((x: AccountDTO) => x.id === id)!.balance;
     expect(balance(a.id)).toBe(75_000);
     expect(balance(b.id)).toBe(25_000);
+
+    const { perAccount } = await loadPage("reports", {});
+    const count = (id: string) => perAccount.find((r: { accountId: string }) => r.accountId === id)?.count;
+    expect(count(a.id)).toBe(1);
+    expect(count(b.id)).toBe(1);
   });
 });

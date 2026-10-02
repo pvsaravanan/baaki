@@ -105,12 +105,18 @@ export const PAGE_LOADERS = {
     // Per-account activity for the selected month.
     const { start, end } = monthRange(monthKey);
     const byAccount = new Map<string, PerAccountRow>();
+    const rowOf = (accountId: string) => {
+      let row = byAccount.get(accountId);
+      if (!row) byAccount.set(accountId, (row = { accountId, expense: 0, income: 0, count: 0 }));
+      return row;
+    };
     for (const t of filterRange(txns, start, end)) {
-      const row = byAccount.get(t.accountId) ?? { accountId: t.accountId, expense: 0, income: 0, count: 0 };
+      const row = rowOf(t.accountId);
       row.count += 1;
       if (t.type === "expense") row.expense += t.amount;
       else if (t.type === "income") row.income += t.amount;
-      byAccount.set(t.accountId, row);
+      // A transfer is also activity on the account it arrived in.
+      if (t.type === "transfer" && t.transferAccountId) rowOf(t.transferAccountId).count += 1;
     }
 
     const serialized: ReportsAnalytics = {
