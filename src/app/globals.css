@@ -140,6 +140,14 @@ button, a, input, select, textarea {
   background: hsl(var(--faint));
 }
 
+/* Phone layout: no vertical scrollbar — touch scrolling doesn't need one.
+   (A width of 0 hides only the vertical bar; horizontal bars keep their height.) */
+@media (max-width: 767px) {
+  ::-webkit-scrollbar {
+    width: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

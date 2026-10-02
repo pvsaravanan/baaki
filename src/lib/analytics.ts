@@ -4,7 +4,7 @@ import {
   actualBalance,
   averageDailySpend,
   budgetStatus,
-  categorySpend,
+  categoryAmount,
   categoryTotals,
   dailySeries,
   filterRange,
@@ -256,6 +256,11 @@ function cappedEnd(start: Date, end: Date): Date {
 }
 
 export interface CategoryDetail {
+  /**
+   * What the page measures: spending for an expense category, money received
+   * for an income one. The amounts below are of that kind.
+   */
+  kind: "expense" | "income";
   /** Net spend per month, oldest first, last 12 months. */
   monthly: { label: string; month: number; year: number; net: number }[];
   currentMonthSpent: number;
@@ -279,47 +284,58 @@ export interface CategoryDetail {
 /** Everything the category detail page needs for one category. */
 export async function getCategoryDetail(userId: string, categoryId: string): Promise<CategoryDetail> {
   const nowKey = monthKeyOf(new Date());
-  const [txns, budget, merchantRows] = await Promise.all([
+  const [txns, budget, category, merchantRows] = await Promise.all([
     loadCalcTxns(userId),
     loadBudget(userId, nowKey.year, nowKey.month),
+    prisma.category.findFirst({ where: { id: categoryId, userId }, select: { kind: true } }),
     // merchant/description breakdown needs fields loadCalcTxns doesn't select
     // (it's shared/cached for the whole app), so this is a small dedicated query.
     prisma.transaction.findMany({
-      where: { userId, categoryId, deletedAt: null, type: "expense" },
-      select: { merchant: true, description: true, amount: true },
+      where: { userId, categoryId, deletedAt: null, type: { in: ["expense", "income"] } },
+      select: { type: true, merchant: true, description: true, amount: true },
     }),
   ]);
 
   const catTxns = txns.filter((t) => t.categoryId === categoryId);
 
+  // An income category is about money received. A category that takes both
+  // (like "Other") follows what's actually in it: income when it only holds income.
+  const hasIncome = catTxns.some((t) => t.type === "income");
+  const hasExpense = catTxns.some((t) => t.type === "expense");
+  const kind: CategoryDetail["kind"] =
+    category?.kind === "income" || (category?.kind === "both" && hasIncome && !hasExpense) ? "income" : "expense";
+
   const monthly: CategoryDetail["monthly"] = [];
   for (let i = 11; i >= 0; i--) {
     const key = addMonths(nowKey, -i);
     const r = monthRange(key);
-    const net = categorySpend(filterRange(catTxns, r.start, r.end), categoryId);
+    const net = categoryAmount(filterRange(catTxns, r.start, r.end), categoryId, kind);
     monthly.push({ label: monthName(key.month, true), month: key.month, year: key.year, net });
   }
 
   const currentRange = monthRange(nowKey);
   const prevRange = monthRange(addMonths(nowKey, -1));
-  const currentMonthSpent = categorySpend(filterRange(catTxns, currentRange.start, currentRange.end), categoryId);
-  const previousMonthSpent = categorySpend(filterRange(catTxns, prevRange.start, prevRange.end), categoryId);
+  const currentMonthSpent = categoryAmount(filterRange(catTxns, currentRange.start, currentRange.end), categoryId, kind);
+  const previousMonthSpent = categoryAmount(filterRange(catTxns, prevRange.start, prevRange.end), categoryId, kind);
   const deltaPct = percentChange(currentMonthSpent, previousMonthSpent);
 
-  const totalSpent = categorySpend(catTxns, categoryId);
-  const transactionCount = catTxns.filter((t) => t.type === "expense").length;
+  const totalSpent = categoryAmount(catTxns, categoryId, kind);
+  const transactionCount = catTxns.filter((t) => t.type === kind).length;
   const avgPerMonth = Math.round(monthly.reduce((sum, m) => sum + m.net, 0) / monthly.length);
 
-  const monthTotalExpense = summarize(filterRange(txns, currentRange.start, currentRange.end)).effectiveExpense;
+  const monthSummary = summarize(filterRange(txns, currentRange.start, currentRange.end));
+  const monthTotalExpense = kind === "income" ? monthSummary.income : monthSummary.effectiveExpense;
   const shareOfMonthExpenses = monthTotalExpense > 0 ? (currentMonthSpent / monthTotalExpense) * 100 : null;
 
-  const budgetLine = budget.categories.find((bc) => bc.categoryId === categoryId);
+  // Budgets are limits on spending, so they only apply to expense categories.
+  const budgetLine = kind === "expense" ? budget.categories.find((bc) => bc.categoryId === categoryId) : undefined;
   const budgetOut = budgetLine
     ? { limit: budgetLine.limit, spent: currentMonthSpent, status: budgetStatus(currentMonthSpent, budgetLine.limit) }
     : null;
 
   const byMerchant = new Map<string, { total: number; count: number }>();
   for (const r of merchantRows) {
+    if (r.type !== kind) continue;
     const key = (r.merchant?.trim() || r.description?.trim() || "Other").slice(0, 60);
     const entry = byMerchant.get(key) ?? { total: 0, count: 0 };
     entry.total += r.amount;
@@ -332,6 +348,7 @@ export async function getCategoryDetail(userId: string, categoryId: string): Pro
     .slice(0, 6);
 
   return {
+    kind,
     monthly,
     currentMonthSpent,
     previousMonthSpent,

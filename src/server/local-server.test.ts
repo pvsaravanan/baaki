@@ -243,4 +243,24 @@ describe("the on-device app", () => {
     expect((await call("POST", "/api/backup/restore", backup)).status).toBe(200);
     expect((await spent()).accountIds.sort()).toEqual([a.id, b.id].sort());
   });
+  it("shows what an income category received, not spending", async () => {
+    const created = await call<{ categories: CategoryDTO[] }>("POST", "/api/categories", { name: "Bank Interest", kind: "income" });
+    expect(created.status).toBe(201);
+    const interest = created.data.categories.find((c) => c.name === "Bank Interest")!;
+    const { data: list } = await call<{ accounts: AccountDTO[] }>("GET", "/api/accounts");
+    const today = new Date().toISOString().slice(0, 10);
+    expect((await call("POST", "/api/transactions", {
+      type: "income", amount: 4_800, description: "Interest", date: today, categoryId: interest.id, accountId: list.accounts[0].id,
+    })).status).toBe(201);
+
+    const { detail } = await loadPage("category", { id: interest.id });
+    expect(detail).toMatchObject({ kind: "income", currentMonthSpent: 4_800, totalSpent: 4_800, transactionCount: 1, budget: null });
+    expect(detail!.topMerchants).toEqual([{ label: "Interest", total: 4_800, count: 1 }]);
+    expect(detail!.shareOfMonthExpenses).toBeGreaterThan(0);
+
+    // An expense category still measures spending.
+    const shell = await loadPage("shell", {});
+    const expenseCat = shell.categories.find((c: CategoryDTO) => c.kind === "expense")!;
+    expect((await loadPage("category", { id: expenseCat.id })).detail!.kind).toBe("expense");
+  });
 });

@@ -175,14 +175,19 @@ export function categoryTotals(txns: CalcTxn[]): CategoryTotal[] {
   return [...map.values()].sort((a, b) => b.net - a.net);
 }
 
-/** Spend for a single category. */
-export function categorySpend(txns: CalcTxn[], categoryId: string): number {
-  let spend = 0;
+/** Total of one kind of transaction (expenses or income) in a single category. */
+export function categoryAmount(txns: CalcTxn[], categoryId: string, type: "expense" | "income"): number {
+  let total = 0;
   for (const t of txns) {
     if (!isActive(t) || t.categoryId !== categoryId) continue;
-    if (t.type === "expense") spend += t.amount;
+    if (t.type === type) total += t.amount;
   }
-  return spend;
+  return total;
+}
+
+/** Spend for a single category. */
+export function categorySpend(txns: CalcTxn[], categoryId: string): number {
+  return categoryAmount(txns, categoryId, "expense");
 }
 
 export interface DailyPoint {
