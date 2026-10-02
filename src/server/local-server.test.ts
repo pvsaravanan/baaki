@@ -169,4 +169,24 @@ describe("the on-device app", () => {
     const { data } = await call<{ transactions: { date: string; tags: string[] }[] }>("GET", "/api/transactions");
     expect(data.transactions[0]).toMatchObject({ date: "2026-09-18", tags: ["home"] });
   });
+  it("lists a transfer under both of its accounts", async () => {
+    await call("POST", "/api/accounts", { name: "Transfer from", type: "bank", openingBalance: 100_000 });
+    await call("POST", "/api/accounts", { name: "Transfer to", type: "cash" });
+    const { data: list } = await call<{ accounts: AccountDTO[] }>("GET", "/api/accounts");
+    const a = list.accounts.find((x) => x.name === "Transfer from")!;
+    const b = list.accounts.find((x) => x.name === "Transfer to")!;
+    const today = new Date().toISOString().slice(0, 10);
+    expect((await call("POST", "/api/transactions", {
+      type: "transfer", amount: 25_000, description: "Move to cash", date: today, accountId: a.id, transferAccountId: b.id,
+    })).status).toBe(201);
+
+    for (const id of [a.id, b.id]) {
+      const { data } = await call<{ transactions: { description: string }[] }>("GET", `/api/transactions?accountId=${id}`);
+      expect(data.transactions.map((t) => t.description)).toEqual(["Move to cash"]);
+    }
+    const shell = await loadPage("shell", {});
+    const balance = (id: string) => shell.accounts.find((x: AccountDTO) => x.id === id)!.balance;
+    expect(balance(a.id)).toBe(75_000);
+    expect(balance(b.id)).toBe(25_000);
+  });
 });

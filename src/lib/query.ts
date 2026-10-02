@@ -36,7 +36,11 @@ export function buildWhere(userId: string, params: URLSearchParams): Prisma.Tran
   const types = csv("type");
   if (types.length) where.type = { in: types };
   const accounts = csv("accountId");
-  if (accounts.length) where.accountId = { in: accounts };
+  if (accounts.length) {
+    // A transfer belongs to both of its accounts: the one the money left
+    // (accountId) and the one it arrived in (transferAccountId).
+    and.push({ OR: [{ accountId: { in: accounts } }, { transferAccountId: { in: accounts } }] });
+  }
   const methods = csv("paymentMethod");
   if (methods.length) where.paymentMethod = { in: methods };
 
