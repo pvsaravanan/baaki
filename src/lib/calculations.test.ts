@@ -3,6 +3,7 @@ import {
   accountBalance,
   averageDailySpend,
   budgetStatus,
+  categoryAmount,
   categorySpend,
   categoryTotals,
   dailySeries,
@@ -120,6 +121,18 @@ describe("categoryTotals & categorySpend", () => {
     expect(food.expense).toBe(rs(6420));
     expect(food.net).toBe(rs(6420));
     expect(totals.some((t) => t.categoryId === "salary")).toBe(false);
+  });
+
+  it("categoryAmount totals a category's income separately from its expenses", () => {
+    const txns = [
+      tx({ type: "income", amount: 4_800, categoryId: "interest" }),
+      tx({ type: "income", amount: 200, categoryId: "interest" }),
+      tx({ type: "expense", amount: 900, categoryId: "interest" }),
+      tx({ type: "income", amount: 7_000, categoryId: "salary" }),
+    ];
+    expect(categoryAmount(txns, "interest", "income")).toBe(5_000);
+    expect(categoryAmount(txns, "interest", "expense")).toBe(900);
+    expect(categorySpend(txns, "interest")).toBe(900);
   });
 
   it("categorySpend totals a category's expenses", () => {

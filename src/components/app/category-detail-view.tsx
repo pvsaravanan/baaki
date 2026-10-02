@@ -11,9 +11,13 @@ import type { CategoryDetail } from "@/lib/analytics";
 
 export function CategoryDetailView({ category, detail }: { category: CategoryDTO; detail: CategoryDetail }) {
   const {
-    monthly, currentMonthSpent, previousMonthSpent, deltaPct, avgPerMonth,
+    kind, monthly, currentMonthSpent, previousMonthSpent, deltaPct, avgPerMonth,
     totalSpent, transactionCount, shareOfMonthExpenses, monthTotalExpenses, budget, topMerchants,
   } = detail;
+
+  // Expense categories are about spending; income categories about money received.
+  const income = kind === "income";
+  const amountTone = income ? "income" : "expense";
 
   const utilizationPct = budget && budget.limit > 0 ? (budget.spent / budget.limit) * 100 : null;
   const maxMerchant = topMerchants[0]?.total ?? 0;
@@ -34,7 +38,7 @@ export function CategoryDetailView({ category, detail }: { category: CategoryDTO
             <h1 className="text-headline-md text-fg sm:text-headline-lg">{category.name}</h1>
             <p className="mt-1 text-body-sm text-muted">
               {!category.isActive && "Inactive · "}
-              How this category&apos;s spend has moved over time.
+              How this category&apos;s {income ? "income" : "spend"} has moved over time.
             </p>
           </div>
         </div>
@@ -43,17 +47,25 @@ export function CategoryDetailView({ category, detail }: { category: CategoryDTO
       {/* KPI row */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="This month">
-          <Money paise={currentMonthSpent} tone="expense" className="text-headline-sm font-semibold" />
+          <Money paise={currentMonthSpent} tone={amountTone} className="text-headline-sm font-semibold" />
         </Stat>
         <Stat label="vs last month">
-          <span className={deltaPct === null ? "text-fg" : deltaPct > 0 ? "text-expense" : deltaPct < 0 ? "text-income" : "text-fg"}>
+          <span
+            className={
+              deltaPct === null || deltaPct === 0
+                ? "text-fg"
+                : (deltaPct > 0) === income
+                  ? "text-income"
+                  : "text-expense"
+            }
+          >
             {formatDelta(deltaPct)}
           </span>
         </Stat>
         <Stat label="12-mo average">
           <Money paise={avgPerMonth} tone="default" className="text-headline-sm font-semibold" />
         </Stat>
-        <Stat label="All-time spend">
+        <Stat label={income ? "All-time income" : "All-time spend"}>
           <Money paise={totalSpent} tone="default" className="text-headline-sm font-semibold" />
         </Stat>
       </div>
@@ -61,12 +73,15 @@ export function CategoryDetailView({ category, detail }: { category: CategoryDTO
       <div className="grid min-w-0 gap-5 lg:grid-cols-2">
         {/* Monthly trend — full width */}
         <Card className="min-w-0 lg:col-span-2">
-          <CardHeader title="Monthly spend" subtitle="Last 12 months" />
+          <CardHeader title={income ? "Monthly income" : "Monthly spend"} subtitle="Last 12 months" />
           <CardBody className="pt-2">
             {totalSpent > 0 ? (
               <SpendBars data={monthly.map((m) => ({ label: m.label, value: m.net }))} color={category.color} />
             ) : (
-              <EmptyState title="No spending yet" description="Once you record a transaction in this category, its trend shows up here." />
+              <EmptyState
+                title={income ? "No income yet" : "No spending yet"}
+                description="Once you record a transaction in this category, its trend shows up here."
+              />
             )}
           </CardBody>
         </Card>
@@ -91,33 +106,45 @@ export function CategoryDetailView({ category, detail }: { category: CategoryDTO
 
         {/* Share of this month's total spend */}
         <Card className="min-w-0">
-          <CardHeader title="Share of spending" subtitle="This month, vs everything else" />
+          <CardHeader
+            title={income ? "Share of income" : "Share of spending"}
+            subtitle={income ? "This month, vs all other income" : "This month, vs everything else"}
+          />
           <CardBody className="pt-2">
             {shareOfMonthExpenses !== null ? (
               <div className="flex flex-col items-center gap-2">
                 <CategoryDonut
                   data={[
                     { name: category.name, value: currentMonthSpent, color: category.color, icon: category.icon },
-                    { name: "Everything else", value: Math.max(0, monthTotalExpenses - currentMonthSpent), color: "#94a3b8" },
+                    { name: income ? "Other income" : "Everything else", value: Math.max(0, monthTotalExpenses - currentMonthSpent), color: "#94a3b8" },
                   ]}
                   height={200}
                 />
                 <p className="text-body-sm text-muted">
-                  <span className="font-semibold text-fg">{shareOfMonthExpenses.toFixed(1)}%</span> of this month&apos;s spending
+                  <span className="font-semibold text-fg">{shareOfMonthExpenses.toFixed(1)}%</span> of this month&apos;s {income ? "income" : "spending"}
                 </p>
               </div>
             ) : (
-              <EmptyState title="No spending this month" description="This category's share of spend will show up once you record something." />
+              <EmptyState
+                title={income ? "No income this month" : "No spending this month"}
+                description={`This category's share of ${income ? "income" : "spend"} will show up once you record something.`}
+              />
             )}
           </CardBody>
         </Card>
 
         {/* Top merchants/descriptions within this category */}
         <Card className={budget ? "min-w-0" : "min-w-0 lg:col-span-2"}>
-          <CardHeader title="Where it goes" subtitle="Top merchants in this category (expenses only)" />
+          <CardHeader
+            title={income ? "Where it comes from" : "Where it goes"}
+            subtitle={income ? "Top sources in this category (income only)" : "Top merchants in this category (expenses only)"}
+          />
           <CardBody className="space-y-2.5 pt-2">
             {topMerchants.length === 0 ? (
-              <EmptyState title="Nothing to show yet" description="Merchant totals appear once you have a few expenses here." />
+              <EmptyState
+                title="Nothing to show yet"
+                description={income ? "Source totals appear once you have some income here." : "Merchant totals appear once you have a few expenses here."}
+              />
             ) : (
               topMerchants.map((m) => (
                 <div key={m.label} className="space-y-1">
