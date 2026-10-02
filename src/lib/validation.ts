@@ -170,6 +170,8 @@ export const budgetSchema = z.object({
   categories: z
     .array(z.object({ categoryId: z.string().min(1), limit: positivePaise }))
     .default([]),
+  /** Accounts the budget covers. Empty (or left out) means all accounts. */
+  accountIds: z.array(z.string().min(1)).default([]),
 });
 
 export const recurringSchema = z

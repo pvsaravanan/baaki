@@ -153,7 +153,7 @@ export async function loadRecurring(userId: string): Promise<RecurringDTO[]> {
 export async function loadBudget(userId: string, year: number, month: number): Promise<BudgetDTO> {
   const budget = await prisma.budget.findUnique({
     where: { userId_year_month: { userId, year, month } },
-    include: { categories: true },
+    include: { categories: true, accounts: true },
   });
 
   if (budget) {
@@ -163,6 +163,7 @@ export async function loadBudget(userId: string, year: number, month: number): P
       month,
       overallLimit: budget.overallLimit,
       categories: budget.categories.map((c) => ({ categoryId: c.categoryId, limit: c.limit })),
+      accountIds: budget.accounts.map((a) => a.accountId),
     };
   }
 
@@ -177,5 +178,6 @@ export async function loadBudget(userId: string, year: number, month: number): P
     month,
     overallLimit: null,
     categories: cats.map((c) => ({ categoryId: c.id, limit: c.monthlyBudget! })),
+    accountIds: [],
   };
 }

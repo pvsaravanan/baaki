@@ -98,7 +98,7 @@ export const GET = withUser(async (user, req: NextRequest) => {
     prisma.transaction.findMany({ where: { userId: user.id, deletedAt: null }, include: { tags: { include: { tag: true } } } }),
     prisma.category.findMany({ where: { userId: user.id } }),
     prisma.account.findMany({ where: { userId: user.id } }),
-    prisma.budget.findMany({ where: { userId: user.id }, include: { categories: true } }),
+    prisma.budget.findMany({ where: { userId: user.id }, include: { categories: true, accounts: true } }),
     prisma.financialGoal.findMany({ where: { userId: user.id }, include: { contributions: true } }),
     prisma.recurringTransaction.findMany({ where: { userId: user.id } }),
     prisma.tag.findMany({ where: { userId: user.id } }),

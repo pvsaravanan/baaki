@@ -28,7 +28,7 @@ export const GET = withUser(async (user, req: NextRequest) => {
   return json({ budget: await loadBudget(user.id, year, month) });
 });
 
-/** Upsert the budget for a month, replacing its category limits. */
+/** Upsert the budget for a month, replacing its category limits and account scope. */
 export const PUT = withUser(async (user, req: NextRequest) => {
   const input = budgetSchema.parse(await req.json());
 
@@ -46,12 +46,24 @@ export const PUT = withUser(async (user, req: NextRequest) => {
   }
   const cats = [...byCategory].map(([categoryId, limit]) => ({ categoryId, limit }));
 
+  // Same for accounts. If none of the chosen ones is the user's, the budget
+  // covers all accounts, exactly as if none had been chosen.
+  const ownedAccounts = await prisma.account.findMany({
+    where: { userId: user.id, id: { in: input.accountIds } },
+    select: { id: true },
+  });
+  const accountIds = ownedAccounts.map((a) => a.id);
+
   await prisma.$transaction(async (db) => {
     const budget = await db.budget.upsert({
       where: { userId_year_month: { userId: user.id, year: input.year, month: input.month } },
       update: { overallLimit: input.overallLimit ?? null },
       create: { userId: user.id, year: input.year, month: input.month, overallLimit: input.overallLimit ?? null },
     });
+    await db.budgetAccount.deleteMany({ where: { budgetId: budget.id } });
+    if (accountIds.length) {
+      await db.budgetAccount.createMany({ data: accountIds.map((accountId) => ({ budgetId: budget.id, accountId })) });
+    }
     await db.budgetCategory.deleteMany({ where: { budgetId: budget.id } });
     if (cats.length) {
       await db.budgetCategory.createMany({
