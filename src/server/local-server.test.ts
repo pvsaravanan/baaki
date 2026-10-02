@@ -4,6 +4,7 @@ vi.mock("@/lib/db", async () => (await import("@/test/memory-db")).memoryDb());
 
 import { handle, loadPage, matchRoute } from "./local-server";
 import type { AccountDTO, CategoryDTO } from "@/lib/types";
+import { monthKeyOf } from "@/lib/dates";
 
 async function call<T>(method: string, url: string, body?: unknown): Promise<{ status: number; data: T }> {
   const res = await handle(url, {
@@ -193,5 +194,53 @@ describe("the on-device app", () => {
     const count = (id: string) => perAccount.find((r: { accountId: string }) => r.accountId === id)?.count;
     expect(count(a.id)).toBe(1);
     expect(count(b.id)).toBe(1);
+  });
+  it("counts budget spending only in the accounts the budget covers", async () => {
+    await call("POST", "/api/accounts", { name: "Budget A", type: "bank", openingBalance: 1_000_000 });
+    await call("POST", "/api/accounts", { name: "Budget B", type: "cash", openingBalance: 1_000_000 });
+    const { data: list } = await call<{ accounts: AccountDTO[] }>("GET", "/api/accounts");
+    const a = list.accounts.find((x) => x.name === "Budget A")!;
+    const b = list.accounts.find((x) => x.name === "Budget B")!;
+    const shell = await loadPage("shell", {});
+    const food = shell.categories.find((c: CategoryDTO) => c.kind !== "income")!;
+    const today = new Date().toISOString().slice(0, 10);
+    for (const [account, amount] of [[a, 10_000], [b, 30_000]] as const) {
+      expect((await call("POST", "/api/transactions", {
+        type: "expense", amount, description: "Budget test", date: today, categoryId: food.id, accountId: account.id,
+      })).status).toBe(201);
+    }
+
+    const { year, month } = monthKeyOf(new Date());
+    const save = (accountIds: string[]) =>
+      call("PUT", "/api/budgets", { year, month, overallLimit: 100_000, categories: [{ categoryId: food.id, limit: 50_000 }], accountIds });
+    const spent = async () => {
+      const { budget } = await loadPage("budgets", {});
+      return { overall: budget.overallSpent, line: budget.lines.find((l) => l.categoryId === food.id)!.spent, accountIds: budget.accountIds };
+    };
+
+    // No accounts chosen: every account counts.
+    await save([]);
+    const all = await spent();
+    expect(all.accountIds).toEqual([]);
+    expect(all.overall).toBeGreaterThanOrEqual(40_000);
+
+    // One account, then several added together.
+    await save([a.id]);
+    expect(await spent()).toEqual({ overall: 10_000, line: 10_000, accountIds: [a.id] });
+    await save([b.id]);
+    expect((await spent()).overall).toBe(30_000);
+    await save([a.id, b.id]);
+    expect(await spent()).toMatchObject({ overall: 40_000, line: 40_000 });
+
+    // Accounts that aren't the user's are ignored, which leaves all accounts.
+    await save(["not-my-account"]);
+    expect((await spent()).accountIds).toEqual([]);
+
+    // The scope survives a backup and restore.
+    await save([a.id, b.id]);
+    const backup = await (await handle("/api/export?format=json")).json();
+    expect(backup.budgetAccounts).toHaveLength(2);
+    expect((await call("POST", "/api/backup/restore", backup)).status).toBe(200);
+    expect((await spent()).accountIds.sort()).toEqual([a.id, b.id].sort());
   });
 });

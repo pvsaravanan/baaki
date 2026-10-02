@@ -25,6 +25,8 @@ export interface InsightInput {
   /** Effective expense per month, oldest → newest, including the current month. */
   monthlyExpenseTrend: number[];
   overallBudgetLimit: number | null;
+  /** What counts toward the budget: spending in the accounts it covers. */
+  overallBudgetSpent: number;
   avgDailySpend: number;
   subscriptionSpend: number;
 }
@@ -39,6 +41,7 @@ export function generateInsights(input: InsightInput): Insight[] {
     categoryNames,
     monthlyExpenseTrend,
     overallBudgetLimit,
+    overallBudgetSpent,
     avgDailySpend,
     subscriptionSpend,
   } = input;
@@ -110,7 +113,7 @@ export function generateInsights(input: InsightInput): Insight[] {
 
   // Budget utilization.
   if (overallBudgetLimit && overallBudgetLimit > 0) {
-    const status = budgetStatus(current.effectiveExpense, overallBudgetLimit);
+    const status = budgetStatus(overallBudgetSpent, overallBudgetLimit);
     if (status.state === "over") {
       out.push({
         id: "budget-over",

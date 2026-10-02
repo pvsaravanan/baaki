@@ -12,6 +12,7 @@ import { CategoryIcon } from "@/components/app/category-icon";
 import { SectionIcon } from "@/components/app/section-icon";
 import { useToast } from "@/components/ui/toast";
 import { useAppData } from "./app-data";
+import { AccountChips, BudgetAccountsField } from "./budget-accounts";
 import { apiPut, ApiError } from "@/lib/http";
 import { toPaise, toRupees, formatPercent } from "@/lib/money";
 import { budgetStatus, type BudgetState, type BudgetStatus } from "@/lib/calculations";
@@ -33,6 +34,8 @@ interface BudgetData {
   overallSpent: number;
   status: BudgetStatus | null;
   lines: BudgetLineData[];
+  /** Accounts the budget covers; empty means all accounts. */
+  accountIds: string[];
 }
 
 const PROGRESS_TONE: Record<BudgetState, "brand" | "warning" | "expense"> = {
@@ -61,6 +64,7 @@ export function BudgetsView({
   monthKey: MonthKey;
 }) {
   const [editing, setEditing] = useState(false);
+  const { accounts } = useAppData();
 
   const hasBudget = budget.overallLimit != null || budget.lines.length > 0;
   const totalLimit = budget.overallLimit ?? budget.lines.reduce((s, l) => s + l.limit, 0);
@@ -90,7 +94,11 @@ export function BudgetsView({
           <Card>
             <CardHeader
               title="Monthly budget"
-              subtitle="Overall spending across all categories"
+              subtitle={
+                budget.accountIds.length === 0
+                  ? "Overall spending across all categories and accounts"
+                  : "Overall spending across all categories, in the accounts below"
+              }
               action={
                 <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
                   <Pencil className="h-3.5 w-3.5" />
@@ -99,6 +107,10 @@ export function BudgetsView({
               }
             />
             <CardBody className="space-y-4">
+              <div className="space-y-1.5">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-muted">Accounts</p>
+                <AccountChips accounts={accounts} selected={budget.accountIds} />
+              </div>
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <Summary label="Budget">
                   <Money paise={totalLimit} tone="default" className="text-lg font-semibold" />
@@ -234,7 +246,12 @@ function EditBudgetModal({
 }) {
   const toast = useToast();
   const router = useRouter();
-  const { refresh } = useAppData();
+  const { refresh, accounts } = useAppData();
+  const isNew = budget.overallLimit == null && budget.lines.length === 0;
+
+  // Archived accounts aren't offered, unless the budget already covers one.
+  const [accountIds, setAccountIds] = useState<string[]>(budget.accountIds);
+  const pickable = accounts.filter((a) => !a.isArchived || budget.accountIds.includes(a.id));
 
   const currentLimits = new Map(budget.lines.map((l) => [l.categoryId, l.limit]));
 
@@ -281,6 +298,7 @@ function EditBudgetModal({
         month: monthKey.month,
         overallLimit,
         categories: cats,
+        accountIds,
       });
       toast.success("Budget saved");
       onClose();
@@ -303,7 +321,7 @@ function EditBudgetModal({
     <Modal
       open={open}
       onClose={onClose}
-      title="Edit budget"
+      title={isNew ? "Create budget" : "Edit budget"}
       description="Amounts are in rupees. Leave a field empty to remove that limit."
       size="lg"
       busy={saving}
@@ -313,7 +331,7 @@ function EditBudgetModal({
             Cancel
           </Button>
           <Button onClick={handleSave} loading={saving}>
-            Save budget
+            {isNew ? "Create budget" : "Save budget"}
           </Button>
         </div>
       }
@@ -324,6 +342,8 @@ function EditBudgetModal({
             {error}
           </p>
         )}
+
+        <BudgetAccountsField accounts={pickable} selected={accountIds} onChange={setAccountIds} />
 
         <Field label="Overall monthly limit (₹)" hint="Total budget across all categories.">
           <Input

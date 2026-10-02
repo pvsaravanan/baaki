@@ -160,6 +160,8 @@ export interface BudgetDTO {
   month: number;
   overallLimit: number | null;
   categories: BudgetCategoryDTO[];
+  /** Accounts whose spending counts toward this budget; empty means all accounts. */
+  accountIds: string[];
 }
 
 export interface PreferenceDTO {

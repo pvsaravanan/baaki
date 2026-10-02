@@ -45,6 +45,7 @@ const SPECS = {
   transactionTags: { transactionId: "s", tagId: "s" },
   budgets: { id: "s", year: "i", month: "i", overallLimit: "i?", createdAt: "d", updatedAt: "d" },
   budgetCategories: { id: "s", budgetId: "s", categoryId: "s", limit: "i" },
+  budgetAccounts: { budgetId: "s", accountId: "s" },
   goals: {
     id: "s", name: "s", icon: "s", color: "s", targetAmount: "i", targetDate: "d?", accountId: "s?", status: "s",
     createdAt: "d", updatedAt: "d",
@@ -71,7 +72,7 @@ export async function buildBackup(userId: string) {
       prisma.tag.findMany({ where }),
       prisma.recurringTransaction.findMany({ where }),
       prisma.transaction.findMany({ where, include: { tags: true }, orderBy: [{ date: "asc" }, { createdAt: "asc" }] }),
-      prisma.budget.findMany({ where, include: { categories: true } }),
+      prisma.budget.findMany({ where, include: { categories: true, accounts: true } }),
       prisma.financialGoal.findMany({ where, include: { contributions: true } }),
       prisma.contact.findMany({ where, include: { shares: true } }),
     ]);
@@ -96,8 +97,9 @@ export async function buildBackup(userId: string) {
     recurring: recurring.map((r) => omit(r, "userId")),
     transactions: transactions.map((r) => omit(r, "userId", "tags")),
     transactionTags: transactions.flatMap((t) => t.tags),
-    budgets: budgets.map((r) => omit(r, "userId", "categories")),
+    budgets: budgets.map((r) => omit(r, "userId", "categories", "accounts")),
     budgetCategories: budgets.flatMap((b) => b.categories),
+    budgetAccounts: budgets.flatMap((b) => b.accounts),
     goals: goals.map((r) => omit(r, "userId", "contributions")),
     goalContributions: goals.flatMap((g) => g.contributions),
     contacts: contacts.map((r) => omit(r, "userId", "shares")),
@@ -188,12 +190,15 @@ export async function restoreBackup(userId: string, input: unknown): Promise<Res
   let transactions: Row[];
   let transactionTags: Row[];
   let budgetCategories: Row[];
+  let budgetAccounts: Row[];
   let goalContributions: Row[];
   let expenseShares: Row[];
   if (backup.version === 2) {
     transactions = rows(backup, "transactions");
     transactionTags = rows(backup, "transactionTags");
     budgetCategories = rows(backup, "budgetCategories");
+    // Backups made before budgets could cover chosen accounts have none: all accounts.
+    budgetAccounts = rows(backup, "budgetAccounts");
     goalContributions = rows(backup, "goalContributions", stamps);
     expenseShares = rows(backup, "expenseShares", stamps);
   } else {
@@ -212,6 +217,7 @@ export async function restoreBackup(userId: string, input: unknown): Promise<Res
         Array.isArray(r[key]) ? (r[key] as Row[]) : [],
       );
     budgetCategories = rows({ budgetCategories: nested("budgets", "categories") }, "budgetCategories");
+    budgetAccounts = [];
     goalContributions = rows({ goalContributions: nested("goals", "contributions") }, "goalContributions", stamps);
     expenseShares = [];
   }
@@ -244,6 +250,7 @@ export async function restoreBackup(userId: string, input: unknown): Promise<Res
     await tx.transactionTag.createMany({ data: transactionTags as never });
     await tx.budget.createMany({ data: own(budgets) as never });
     await tx.budgetCategory.createMany({ data: budgetCategories as never });
+    await tx.budgetAccount.createMany({ data: budgetAccounts as never });
     await tx.financialGoal.createMany({ data: own(goals) as never });
     await tx.goalContribution.createMany({ data: goalContributions as never });
     await tx.contact.createMany({ data: own(contacts) as never });

@@ -88,6 +88,7 @@ model Account {
   recurring        RecurringTransaction[] @relation("RecurringAccount")
   recurringInbound RecurringTransaction[] @relation("RecurringTransferDestination")
   goals            FinancialGoal[]
+  budgets          BudgetAccount[]
 
   // Backstop for the check-then-create race in the accounts API. Names are
   // compared case-insensitively in the app layer; this catches exact-duplicate
@@ -182,6 +183,8 @@ model Budget {
 
   user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   categories BudgetCategory[]
+  /// Accounts whose spending counts toward this budget. None = all accounts.
+  accounts   BudgetAccount[]
 
   @@unique([userId, year, month])
   @@index([userId])
@@ -198,6 +201,17 @@ model BudgetCategory {
 
   @@unique([budgetId, categoryId])
   @@index([categoryId])
+}
+
+model BudgetAccount {
+  budgetId  String
+  accountId String
+
+  budget  Budget  @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@id([budgetId, accountId])
+  @@index([accountId])
 }
 
 model RecurringTransaction {

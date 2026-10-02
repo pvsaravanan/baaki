@@ -65,6 +65,8 @@ export interface MonthlyAnalytics {
     overallSpent: number;
     status: BudgetStatus | null;
     lines: BudgetLine[];
+    /** Accounts the budget covers; empty means all accounts. */
+    accountIds: string[];
   };
   incomeExpenseTrend: { label: string; month: number; year: number; income: number; expense: number }[];
   insights: Insight[];
@@ -150,8 +152,15 @@ export async function getMonthlyAnalytics(
     .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
     .slice(0, 8);
 
+  // Budget spending counts only the accounts the budget covers (all of them
+  // when none are chosen), added together. Everything else on the dashboard
+  // stays across all accounts.
+  const budgetAccounts = new Set(budget.accountIds);
+  const budgetTxns = budgetAccounts.size ? monthTxns.filter((t) => budgetAccounts.has(t.accountId)) : monthTxns;
+  const budgetCurrent = budgetAccounts.size ? summarize(budgetTxns) : current;
+
   // Budget lines.
-  const spentByCategory = new Map(categoryTotals(monthTxns).map((c) => [c.categoryId, c.net]));
+  const spentByCategory = new Map(categoryTotals(budgetTxns).map((c) => [c.categoryId, c.net]));
   const lines: BudgetLine[] = budget.categories.map((bc) => {
     const meta = categories.get(bc.categoryId);
     const spent = spentByCategory.get(bc.categoryId) ?? 0;
@@ -165,7 +174,7 @@ export async function getMonthlyAnalytics(
       status: budgetStatus(spent, bc.limit),
     };
   });
-  const overallSpent = current.effectiveExpense;
+  const overallSpent = budgetCurrent.effectiveExpense;
   const overallStatus = budget.overallLimit ? budgetStatus(overallSpent, budget.overallLimit) : null;
 
   // Income vs expense trend, up to 12 months (the client chart lets the user
@@ -180,7 +189,9 @@ export async function getMonthlyAnalytics(
   // Rising-spend streak insight uses the trailing 6 months of the same trend.
   const monthlyExpenseTrend = incomeExpenseTrend.slice(-6).map((m) => m.expense);
 
-  const subscriptionSpend = subscriptionCategoryId ? spentByCategory.get(subscriptionCategoryId) ?? 0 : 0;
+  const subscriptionSpend = subscriptionCategoryId
+    ? categoryTotals(monthTxns).find((c) => c.categoryId === subscriptionCategoryId)?.net ?? 0
+    : 0;
   const avgDaily = averageDailySpend(current.effectiveExpense, range.start, cappedEnd(range.start, range.end));
 
   const insights = generateInsights({
@@ -191,6 +202,7 @@ export async function getMonthlyAnalytics(
     categoryNames: new Map([...categories.entries()].map(([id, c]) => [id, c.name])),
     monthlyExpenseTrend,
     overallBudgetLimit: budget.overallLimit,
+    overallBudgetSpent: overallSpent,
     avgDailySpend: avgDaily,
     subscriptionSpend,
   });
@@ -222,7 +234,7 @@ export async function getMonthlyAnalytics(
     totalBalance: actualBalance(accountsRaw, txns),
     avgDailySpend: avgDaily,
     subscriptionSpend,
-    budget: { overallLimit: budget.overallLimit, overallSpent, status: overallStatus, lines },
+    budget: { overallLimit: budget.overallLimit, overallSpent, status: overallStatus, lines, accountIds: budget.accountIds },
     incomeExpenseTrend,
     insights,
   };
