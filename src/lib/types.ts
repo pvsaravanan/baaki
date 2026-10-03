@@ -57,9 +57,6 @@ export interface TransactionDTO {
   notes: string | null;
   recurringId: string | null;
   tags: string[];
-  // Non-null when this row is one part of a multi-category/multi-account
-  // split expense; every row sharing this id was one logical purchase.
-  splitGroupId: string | null;
   // People this expense is shared with (see ExpenseShare). Empty for most
   // transactions.
   shares: ShareDTO[];

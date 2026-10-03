@@ -5,7 +5,6 @@ import { Modal } from "@/components/ui/modal";
 import { TransactionForm } from "./transaction-form";
 import { useAppData } from "./app-data";
 import { useToast } from "@/components/ui/toast";
-import { apiGet } from "@/lib/http";
 import type { TransactionDTO } from "@/lib/types";
 
 interface TransactionModalValue {
@@ -21,7 +20,7 @@ const Ctx = createContext<TransactionModalValue | null>(null);
 type TxnList = { transactions: TransactionDTO[]; total: number; totals?: { income: number; expense: number } };
 type ModalState =
   | { mode: "add"; prefillDate?: string }
-  | { mode: "edit"; txn: TransactionDTO; group?: TransactionDTO[] | null }
+  | { mode: "edit"; txn: TransactionDTO }
   | null;
 
 export function TransactionModalProvider({ children }: { children: React.ReactNode }) {
@@ -32,23 +31,7 @@ export function TransactionModalProvider({ children }: { children: React.ReactNo
   const [busy, setBusy] = useState(false);
 
   const openAdd = useCallback((prefill?: { date?: string }) => setState({ mode: "add", prefillDate: prefill?.date }), []);
-  const openEdit = useCallback((txn: TransactionDTO) => {
-    if (!txn.splitGroupId) {
-      setState({ mode: "edit", txn });
-      return;
-    }
-    // A split expense's other parts live under the same splitGroupId — fetch
-    // them all before the form renders so it opens directly in split-edit mode.
-    setState({ mode: "edit", txn, group: null });
-    apiGet<{ transactions: TransactionDTO[] }>(`/api/transactions/split/${txn.splitGroupId}`)
-      .then((res) => {
-        setState((s) => (s && s.mode === "edit" && s.txn.id === txn.id ? { ...s, group: res.transactions } : s));
-      })
-      .catch(() => {
-        // Fall back to editing just this one row rather than getting stuck loading.
-        setState((s) => (s && s.mode === "edit" && s.txn.id === txn.id ? { mode: "edit", txn } : s));
-      });
-  }, []);
+  const openEdit = useCallback((txn: TransactionDTO) => setState({ mode: "edit", txn }), []);
   const close = useCallback(() => setState(null), []);
 
   // Keyboard shortcut: "n" opens a new transaction (unless typing in a field).
@@ -67,9 +50,8 @@ export function TransactionModalProvider({ children }: { children: React.ReactNo
     return () => window.removeEventListener("keydown", handler);
   }, [openAdd, state]);
 
-  const onSaved = (result: TransactionDTO | TransactionDTO[], mode: "add" | "edit") => {
+  const onSaved = (saved: TransactionDTO, mode: "add" | "edit") => {
     close();
-    const saved = Array.isArray(result) ? result : [result];
 
     // A cache key with no filter params beyond paging — the "browse
     // everything" view. Splicing a new row into every OTHER cached view too
@@ -93,12 +75,10 @@ export function TransactionModalProvider({ children }: { children: React.ReactNo
         if (!curr) return curr;
         const transactions = curr.transactions.slice();
         let changed = false;
-        for (const txn of saved) {
-          const idx = transactions.findIndex((t) => t.id === txn.id);
-          if (idx !== -1) {
-            transactions[idx] = txn;
-            changed = true;
-          }
+        const idx = transactions.findIndex((t) => t.id === saved.id);
+        if (idx !== -1) {
+          transactions[idx] = saved;
+          changed = true;
         }
         return changed ? { ...curr, transactions } : curr;
       },
@@ -110,10 +90,8 @@ export function TransactionModalProvider({ children }: { children: React.ReactNo
         isUnfilteredTxnListKey,
         (curr?: TxnList) => {
           if (!curr) return curr;
-          const existingIds = new Set(curr.transactions.map((t) => t.id));
-          const toAdd = saved.filter((t) => !existingIds.has(t.id));
-          if (toAdd.length === 0) return curr;
-          return { ...curr, transactions: [...toAdd, ...curr.transactions], total: curr.total + toAdd.length };
+          if (curr.transactions.some((t) => t.id === saved.id)) return curr;
+          return { ...curr, transactions: [saved, ...curr.transactions], total: curr.total + 1 };
         },
         { revalidate: false },
       );
@@ -122,10 +100,8 @@ export function TransactionModalProvider({ children }: { children: React.ReactNo
     // `refresh()` below then reconciles everything else (ordering, filtered
     // views, totals, server-rendered tiles) with a real fetch in the background.
     refresh();
-    toast.success(mode === "add" ? (saved.length > 1 ? "Split expense added" : "Transaction added") : "Changes saved");
+    toast.success(mode === "add" ? "Transaction added" : "Changes saved");
   };
-
-  const loadingGroup = state?.mode === "edit" && state.group === null;
 
   return (
     <Ctx.Provider value={{ openAdd, openEdit }}>
@@ -137,14 +113,10 @@ export function TransactionModalProvider({ children }: { children: React.ReactNo
         description={state?.mode === "edit" ? undefined : "Record an expense, income or a transfer."}
         busy={busy}
       >
-        {state && loadingGroup && (
-          <div className="flex justify-center py-10 text-sm text-muted">Loading…</div>
-        )}
-        {state && !loadingGroup && (
+        {state && (
           <TransactionForm
             key={state.mode === "edit" ? state.txn.id : "add"}
             initial={state.mode === "edit" ? state.txn : undefined}
-            initialGroup={state.mode === "edit" && state.group ? state.group : undefined}
             prefillDate={state.mode === "add" ? state.prefillDate : undefined}
             onSaved={(txn) => onSaved(txn, state.mode)}
             onCancel={close}

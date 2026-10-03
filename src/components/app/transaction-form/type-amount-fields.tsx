@@ -5,13 +5,9 @@ import type { TransactionType } from "@/lib/constants";
 import { TYPE_OPTIONS } from "./types";
 
 /**
- * The type switch (Expense/Income/Transfer) with the Amount input
- * beneath it — or, when editing a split expense, a fixed "Split expense"
- * label instead of the switch (a saved split's type can't change) and no
- * amount input (each split part carries its own amount instead).
+ * The type switch (Expense/Income/Transfer) with the Amount input beneath it.
  */
 export function TypeAndAmountFields({
-  splitEnabled,
   type,
   setType,
   categories,
@@ -21,7 +17,6 @@ export function TypeAndAmountFields({
   amountError,
   editing,
 }: {
-  splitEnabled: boolean;
   type: TransactionType;
   setType: (v: TransactionType) => void;
   categories: CategoryDTO[];
@@ -33,12 +28,7 @@ export function TypeAndAmountFields({
 }) {
   return (
     <>
-      {splitEnabled ? (
-        <div className="rounded-none border border-border bg-surface-2 px-3 py-2 text-sm font-medium text-fg">
-          Split expense
-        </div>
-      ) : (
-        <Segmented
+      <Segmented
           value={type}
           onChange={(v) => {
             setType(v);
@@ -57,9 +47,7 @@ export function TypeAndAmountFields({
           options={TYPE_OPTIONS}
           className="w-full [&>button]:flex-1"
         />
-      )}
 
-      {!splitEnabled && (
         <div>
           <label htmlFor="amount" className="block text-label-md uppercase text-muted">
             Amount
@@ -82,7 +70,6 @@ export function TypeAndAmountFields({
           </div>
           {amountError && <p className="mt-1 text-body-sm text-expense">{amountError}</p>}
         </div>
-      )}
     </>
   );
 }

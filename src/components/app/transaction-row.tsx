@@ -56,32 +56,15 @@ export function TransactionRow({
 
   async function onDelete() {
     setMenuOpen(false);
-    const isSplit = !!txn.splitGroupId;
     const ok = await confirm({
-      title: isSplit ? "Delete this split expense?" : "Delete this transaction?",
-      message: isSplit
-        ? "Every part of this split expense will be deleted together."
-        : "You can undo this right after.",
+      title: "Delete this transaction?",
+      message: "You can undo this right after.",
       confirmLabel: "Delete",
       danger: true,
     });
     if (!ok) return;
     setBusy(true);
     try {
-      if (txn.splitGroupId) {
-        const splitGroupId = txn.splitGroupId;
-        // Every part of a split expense is one logical purchase — delete them together.
-        await apiDelete(`/api/transactions/split/${splitGroupId}`);
-        done();
-        toast.success("Split expense deleted", {
-          label: "Undo",
-          onClick: async () => {
-            await apiPost(`/api/transactions/split/${splitGroupId}/restore`).catch(() => {});
-            done();
-          },
-        });
-        return;
-      }
       await apiDelete(`/api/transactions/${txn.id}`);
       done();
       toast.success("Transaction deleted", {
@@ -164,9 +147,6 @@ export function TransactionRow({
           {txn.recurringId && (
             <span className="shrink-0 rounded bg-brand-soft px-1.5 py-0.5 text-2xs font-medium text-brand-hover">auto</span>
           )}
-          {txn.splitGroupId && (
-            <span className="shrink-0 rounded bg-surface-2 px-1.5 py-0.5 text-2xs font-medium text-muted">split</span>
-          )}
           {txn.shares.length > 0 && (
             <span className="shrink-0 rounded bg-brand-soft px-1.5 py-0.5 text-2xs font-medium text-brand-hover">shared</span>
           )}
@@ -196,9 +176,7 @@ export function TransactionRow({
               <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
               <div className="absolute right-0 z-20 mt-1 w-40 rounded-none border border-border bg-surface p-1 shadow-pop animate-scale-in">
                 <MenuItem icon={<Pencil className="h-4 w-4" />} onClick={() => { setMenuOpen(false); openEdit(txn); }}>Edit</MenuItem>
-                {!txn.splitGroupId && (
-                  <MenuItem icon={<Copy className="h-4 w-4" />} onClick={onDuplicate}>Duplicate</MenuItem>
-                )}
+                <MenuItem icon={<Copy className="h-4 w-4" />} onClick={onDuplicate}>Duplicate</MenuItem>
                 <MenuItem icon={<Trash2 className="h-4 w-4" />} onClick={onDelete} danger>Delete</MenuItem>
               </div>
             </>

@@ -135,12 +135,6 @@ model Transaction {
   paymentMethod     String?   // upi | cash
   notes             String?
   recurringId       String?   // set when generated from a recurring rule
-  // Links sibling rows that together make up one logical "split expense" (the
-  // same purchase divided across categories and/or accounts). Each row is a
-  // normal, independent transaction — balances, budgets and category totals
-  // need no special-casing — this id just lets the UI bundle them for display
-  // and editing. Null for ordinary, unsplit transactions.
-  splitGroupId      String?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
   deletedAt         DateTime? // soft delete
@@ -151,8 +145,7 @@ model Transaction {
   transferAccount Account?        @relation("TransferDestination", fields: [transferAccountId], references: [id])
   recurring       RecurringTransaction? @relation(fields: [recurringId], references: [id])
   tags            TransactionTag[]
-  // People this transaction (or, for a split group, this row specifically)
-  // is shared with — see ExpenseShare.
+  // People this transaction is shared with — see ExpenseShare.
   shares          ExpenseShare[]
 
   @@index([userId, date])
@@ -160,7 +153,6 @@ model Transaction {
   @@index([accountId])
   @@index([categoryId])
   @@index([type])
-  @@index([splitGroupId])
 }
 
 model Budget {

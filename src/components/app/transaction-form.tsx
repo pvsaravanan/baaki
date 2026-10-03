@@ -17,11 +17,10 @@ import type { TransactionDTO } from "@/lib/types";
 import { calculateExpenseSplit, type ExpenseSplitMethod } from "@/lib/expense-split";
 import { TypeAndAmountFields } from "./transaction-form/type-amount-fields";
 import { CategoryAccountFields } from "./transaction-form/category-account-fields";
-import { SplitPartsEditor } from "./transaction-form/split-parts-editor";
 import { DateMethodFields } from "./transaction-form/date-method-fields";
 import { PeopleSplitSection } from "./transaction-form/people-split-section";
 import { TagsInput } from "./transaction-form/tags-input";
-import type { PartRow, ShareRow } from "./transaction-form/types";
+import type { ShareRow } from "./transaction-form/types";
 import { GoalMoneyNotice, reservedGoalsText } from "./transaction-form/goal-money-notice";
 
 /** Parse a rupee string to paise, or 0 if it doesn't parse — for running totals, not submission. */
@@ -35,17 +34,14 @@ function safePaise(s: string): number {
 
 export function TransactionForm({
   initial,
-  initialGroup,
   prefillDate,
   onSaved,
   onCancel,
   onBusyChange,
 }: {
   initial?: TransactionDTO;
-  /** All parts of an existing split expense, when editing one. Takes priority over `initial`. */
-  initialGroup?: TransactionDTO[];
   prefillDate?: string;
-  onSaved: (txn: TransactionDTO | TransactionDTO[]) => void;
+  onSaved: (txn: TransactionDTO) => void;
   onCancel?: () => void;
   /** Notifies the parent (which owns the Modal) while a save is in flight. */
   onBusyChange?: (busy: boolean) => void;
@@ -53,21 +49,12 @@ export function TransactionForm({
   const { accounts, categories, contacts, preference, goalMoney } = useAppData();
   const confirm = useConfirm();
 
-  const editingGroup = !!initialGroup && initialGroup.length > 0;
-  // Shared fields (description, date, notes…) are uniform across a split
-  // group, so any row stands in for them.
-  const primary = editingGroup ? initialGroup![0] : initial;
-  // People-shares are attached to whichever part was created first. Since all
-  // parts of a split share an identical createdAt (one DB transaction), that
-  // "first" row isn't reliably initialGroup[0] after a re-fetch — so find the
-  // row that actually carries the shares rather than assuming a position.
-  const groupShares = editingGroup ? initialGroup!.find((t) => t.shares.length > 0)?.shares ?? [] : primary?.shares ?? [];
-  const editingSingle = !!initial && !editingGroup;
-  const editing = editingGroup || editingSingle;
-  const splitGroupId = editingGroup ? initialGroup![0].splitGroupId! : null;
+  const editing = !!initial;
+  const primary = initial;
+  const existingShares = primary?.shares ?? [];
 
-  const [type, setType] = useState<TransactionType>(editingGroup ? "expense" : primary?.type ?? "expense");
-  const [amount, setAmount] = useState(primary && !editingGroup ? String(toRupees(primary.amount)) : "");
+  const [type, setType] = useState<TransactionType>(primary?.type ?? "expense");
+  const [amount, setAmount] = useState(primary ? String(toRupees(primary.amount)) : "");
   const [description, setDescription] = useState(primary?.description ?? "");
   const [date, setDate] = useState(primary?.date ?? prefillDate ?? toISODate(new Date()));
   const [categoryId, setCategoryId] = useState(() => {
@@ -78,9 +65,6 @@ export function TransactionForm({
   });
   const [newCatOpen, setNewCatOpen] = useState(false);
   const fallbackAccountId = accounts.find((a) => a.id === preference.defaultAccountId)?.id ?? (accounts.find((a) => !a.isArchived) ?? accounts[0])?.id ?? "";
-  // Splits are always an expense breakdown — used to seed every blank split
-  // row so a newly-added part isn't left uncategorized.
-  const fallbackExpenseCategoryId = categories.find((c) => c.isActive && (c.kind === "expense" || c.kind === "both"))?.id ?? "";
   const [accountId, setAccountId] = useState(primary?.accountId ?? fallbackAccountId);
   const [transferAccountId, setTransferAccountId] = useState(primary?.transferAccountId ?? "");
   const initialMethodIsCustom = primary?.paymentMethod ? !(PAYMENT_METHODS as readonly string[]).includes(primary.paymentMethod) : false;
@@ -90,36 +74,16 @@ export function TransactionForm({
   const [showNotes, setShowNotes] = useState(!!primary?.notes);
   const [tags, setTags] = useState<string[]>(primary?.tags ?? []);
   const [tagInput, setTagInput] = useState("");
-  const [touchedCategory, setTouchedCategory] = useState(editingSingle);
+  const [touchedCategory, setTouchedCategory] = useState(editing);
   const [autoSuggestedName, setAutoSuggestedName] = useState<string | null>(null);
 
-  // Split-by-category/account. Locked ON when editing an existing group;
-  // otherwise only offered when creating a fresh expense (converting an
-  // already-saved single transaction into a split isn't supported here).
-  const [splitEnabled, setSplitEnabled] = useState(editingGroup);
-  const [parts, setParts] = useState<PartRow[]>(
-    editingGroup
-      ? initialGroup!.map((t) => ({ amount: String(toRupees(t.amount)), categoryId: t.categoryId ?? "", accountId: t.accountId }))
-      : editingSingle && primary
-        ? // Converting a saved single into a split: seed part 1 from it, add a blank part 2.
-          [
-            { amount: String(toRupees(primary.amount)), categoryId: primary.categoryId ?? fallbackExpenseCategoryId, accountId: primary.accountId },
-            { amount: "", categoryId: fallbackExpenseCategoryId, accountId: primary.accountId },
-          ]
-        : [
-            { amount: "", categoryId: fallbackExpenseCategoryId, accountId: fallbackAccountId },
-            { amount: "", categoryId: fallbackExpenseCategoryId, accountId: fallbackAccountId },
-          ],
-  );
-  const [splitTotal, setSplitTotal] = useState("");
-
-  // Split-with-people. Shares live on the group's primary row (or the plain
-  // transaction itself) and are capped against the group/transaction total.
-  const [peopleEnabled, setPeopleEnabled] = useState(groupShares.length > 0);
-  const [shareMode, setShareMode] = useState<ExpenseSplitMethod>(groupShares.length > 0 ? "amounts" : "equal");
+  // Split-with-people. Shares live on the transaction itself and are capped
+  // against its amount.
+  const [peopleEnabled, setPeopleEnabled] = useState(existingShares.length > 0);
+  const [shareMode, setShareMode] = useState<ExpenseSplitMethod>(existingShares.length > 0 ? "amounts" : "equal");
   const [yourWeight, setYourWeight] = useState("1");
   const [shareRows, setShareRows] = useState<ShareRow[]>(
-    groupShares.map((s) => ({ contactId: s.contactId, amount: String(toRupees(s.amount)), percent: "", weight: "1" })),
+    existingShares.map((s) => ({ contactId: s.contactId, amount: String(toRupees(s.amount)), percent: "", weight: "1" })),
   );
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -139,17 +103,17 @@ export function TransactionForm({
 
   // Deterministic category suggestion from the description.
   const suggestion = useMemo(() => {
-    if (isTransfer || splitEnabled || touchedCategory || categoryId) return null;
+    if (isTransfer || touchedCategory || categoryId) return null;
     const key = suggestCategoryKey(description);
     if (!key) return null;
     return eligibleCategories.find((c) => c.systemKey === key) ?? null;
-  }, [description, isTransfer, splitEnabled, touchedCategory, categoryId, eligibleCategories]);
+  }, [description, isTransfer, touchedCategory, categoryId, eligibleCategories]);
 
   // Auto-apply the suggested category when the user types a description.
   // Only for new transactions — never override a manually-picked category.
   useEffect(() => {
     if (editing) return;
-    if (isTransfer || splitEnabled || touchedCategory) return;
+    if (isTransfer || touchedCategory) return;
     const trimmed = description.trim();
     if (!trimmed) {
       setAutoSuggestedName(null);
@@ -167,31 +131,12 @@ export function TransactionForm({
     } else {
       setAutoSuggestedName(null);
     }
-  }, [description, isTransfer, splitEnabled, touchedCategory, editing, eligibleCategories]);
+  }, [description, isTransfer, touchedCategory, editing, eligibleCategories]);
 
   function addTag(value: string) {
     const v = value.trim();
     if (v && !tags.includes(v)) setTags((t) => [...t, v]);
     setTagInput("");
-  }
-
-  function updatePart(i: number, patch: Partial<PartRow>) {
-    setParts((prev) => prev.map((p, idx) => (idx === i ? { ...p, ...patch } : p)));
-  }
-  function addPart() {
-    setParts((prev) => [...prev, { amount: "", categoryId: fallbackExpenseCategoryId, accountId: fallbackAccountId }]);
-  }
-  function removePart(i: number) {
-    setParts((prev) => (prev.length > 2 ? prev.filter((_, idx) => idx !== i) : prev));
-  }
-  /** Divide the entered total equally across the current parts (remainder to the first). */
-  function splitPartsEqually() {
-    const total = safePaise(splitTotal);
-    if (total <= 0) return;
-    const n = parts.length;
-    const per = Math.floor(total / n);
-    const remainder = total - per * n;
-    setParts((prev) => prev.map((p, i) => ({ ...p, amount: String(toRupees(per + (i === 0 ? remainder : 0))) })));
   }
 
   function updateShare(i: number, patch: Partial<ShareRow>) {
@@ -207,9 +152,7 @@ export function TransactionForm({
     setShareRows((prev) => prev.filter((_, idx) => idx !== i));
   }
 
-  const partsTotal = useMemo(() => parts.reduce((s, p) => s + safePaise(p.amount), 0), [parts]);
-  const mainAmountPaise = safePaise(amount);
-  const totalForShares = splitEnabled ? partsTotal : mainAmountPaise;
+  const totalForShares = safePaise(amount);
   const selectedShareRows = useMemo(() => shareRows.filter((r) => r.contactId), [shareRows]);
   const selectedShareCount = selectedShareRows.length;
   const splitResult = useMemo(() => calculateExpenseSplit(
@@ -238,16 +181,12 @@ export function TransactionForm({
   // How much of this entry would come out of money reserved for goals (the
   // part beyond what's available) — shown as you type, confirmed on save.
   const fromGoals = useMemo(() => {
-    const before: Movement[] = editingGroup
-      ? initialGroup!.map((t) => ({ type: t.type, amount: t.amount, accountId: t.accountId, transferAccountId: t.transferAccountId }))
-      : initial
-        ? [{ type: initial.type, amount: initial.amount, accountId: initial.accountId, transferAccountId: initial.transferAccountId }]
-        : [];
-    const after: Movement[] = splitEnabled
-      ? parts.map((p) => ({ type: "expense", amount: safePaise(p.amount), accountId: p.accountId }))
-      : [{ type, amount: Math.max(0, safePaise(amount)), accountId, transferAccountId: isTransfer ? transferAccountId : null }];
+    const before: Movement[] = initial
+      ? [{ type: initial.type, amount: initial.amount, accountId: initial.accountId, transferAccountId: initial.transferAccountId }]
+      : [];
+    const after: Movement[] = [{ type, amount: Math.max(0, safePaise(amount)), accountId, transferAccountId: isTransfer ? transferAccountId : null }];
     return goalMoneySpent(goalMoney.summary, actualBalanceChange(before, after, accounts));
-  }, [editingGroup, initialGroup, initial, splitEnabled, parts, type, amount, accountId, isTransfer, transferAccountId, goalMoney, accounts]);
+  }, [initial, type, amount, accountId, isTransfer, transferAccountId, goalMoney, accounts]);
 
   /** Ask before saving an expense that dips into goal money. Goals are never changed. */
   function confirmGoalSpend(): Promise<boolean> {
@@ -282,49 +221,6 @@ export function TransactionForm({
             .map((r) => ({ contactId: r.contactId, amount: shareAmountPaise(r) }))
             .filter((s) => s.amount > 0)
         : [];
-
-    if (splitEnabled) {
-      if (parts.length < 2) localErrors.parts = "Add at least 2 splits";
-      for (const p of parts) {
-        if (!p.accountId) { localErrors.parts = "Choose an account for every split"; break; }
-        if (!p.categoryId) { localErrors.parts = "Choose a category for every split"; break; }
-        if (safePaise(p.amount) <= 0) { localErrors.parts = "Every split needs an amount greater than zero"; break; }
-      }
-      if (!description.trim()) localErrors.description = "Description is required";
-      if (Object.keys(localErrors).length) {
-        setErrors(localErrors);
-        return;
-      }
-
-      if (!(await confirmGoalSpend())) return;
-
-      const payload = {
-        description: description.trim(),
-        date,
-        paymentMethod: (methodSelect === "__custom__" ? customMethod.trim().toLowerCase() : methodSelect) || null,
-        notes: notes.trim() || null,
-        tags,
-        parts: parts.map((p) => ({ amount: safePaise(p.amount), categoryId: p.categoryId, accountId: p.accountId })),
-        shares,
-        // Converting a saved single expense into a split: the server replaces it.
-        replaceId: editingSingle ? initial!.id : undefined,
-      };
-
-      setSaving(true);
-      try {
-        const res = editingGroup
-          ? await apiPatch<{ transactions: TransactionDTO[] }>(`/api/transactions/split/${splitGroupId}`, payload)
-          : await apiPost<{ transactions: TransactionDTO[] }>("/api/transactions", payload);
-        onSaved(res.transactions);
-      } catch (err) {
-        if (err instanceof ApiError) {
-          setFormError(err.message);
-          if (err.fields) setErrors(err.fields);
-        } else setFormError("Could not save. Please try again.");
-        setSaving(false);
-      }
-      return;
-    }
 
     let paise = 0;
     let amountParsed = true;
@@ -366,7 +262,7 @@ export function TransactionForm({
 
     setSaving(true);
     try {
-      const res = editingSingle
+      const res = editing
         ? await apiPatch<{ transaction: TransactionDTO }>(`/api/transactions/${initial!.id}`, payload)
         : await apiPost<{ transaction: TransactionDTO }>("/api/transactions", payload);
       onSaved(res.transaction);
@@ -388,7 +284,6 @@ export function TransactionForm({
       )}
 
       <TypeAndAmountFields
-        splitEnabled={splitEnabled}
         type={type}
         setType={setType}
         categories={categories}
@@ -398,7 +293,7 @@ export function TransactionForm({
         amountError={errors.amount}
         editing={editing}
       />
-      {!splitEnabled && <GoalMoneyNotice fromGoals={fromGoals} goalMoney={goalMoney} />}
+      <GoalMoneyNotice fromGoals={fromGoals} goalMoney={goalMoney} />
 
       <Field label="Description" htmlFor="description" error={errors.description} required>
         <Input
@@ -417,39 +312,22 @@ export function TransactionForm({
         </p>
       )}
 
-      {splitEnabled ? (
-        <SplitPartsEditor
-          parts={parts}
-          partsTotal={partsTotal}
-          partsError={errors.parts}
-          splitTotal={splitTotal}
-          setSplitTotal={setSplitTotal}
-          onSplitEqually={splitPartsEqually}
-          accounts={accounts}
-          eligibleCategories={eligibleCategories}
-          updatePart={updatePart}
-          addPart={addPart}
-          removePart={removePart}
-        />
-      ) : (
-        <CategoryAccountFields
-          isTransfer={isTransfer}
-          categoryId={categoryId}
-          setCategoryId={setCategoryId}
-          setTouchedCategory={setTouchedCategory}
-          categoryError={errors.categoryId}
-          eligibleCategories={eligibleCategories}
-          onNewCategory={() => setNewCatOpen(true)}
-          accountId={accountId}
-          setAccountId={setAccountId}
-          accountError={errors.accountId}
-          accounts={accounts}
-          transferAccountId={transferAccountId}
-          setTransferAccountId={setTransferAccountId}
-          transferAccountError={errors.transferAccountId}
-        />
-      )}
-      {splitEnabled && <GoalMoneyNotice fromGoals={fromGoals} goalMoney={goalMoney} />}
+      <CategoryAccountFields
+        isTransfer={isTransfer}
+        categoryId={categoryId}
+        setCategoryId={setCategoryId}
+        setTouchedCategory={setTouchedCategory}
+        categoryError={errors.categoryId}
+        eligibleCategories={eligibleCategories}
+        onNewCategory={() => setNewCatOpen(true)}
+        accountId={accountId}
+        setAccountId={setAccountId}
+        accountError={errors.accountId}
+        accounts={accounts}
+        transferAccountId={transferAccountId}
+        setTransferAccountId={setTransferAccountId}
+        transferAccountError={errors.transferAccountId}
+      />
 
       <DateMethodFields
         date={date}
@@ -460,25 +338,6 @@ export function TransactionForm({
         customMethod={customMethod}
         setCustomMethod={setCustomMethod}
       />
-
-      {/* Split toggle — new expenses, or converting a saved single expense.
-          An existing split group stays locked on. */}
-      {type === "expense" && (
-        <label className="flex items-center gap-2 text-sm text-fg">
-          <input
-            type="checkbox"
-            checked={splitEnabled}
-            disabled={editingGroup}
-            onChange={(e) => setSplitEnabled(e.target.checked)}
-            className="h-4 w-4"
-          />
-          Split across categories or accounts
-          {editingGroup && <span className="text-xs text-faint">(this is a split expense)</span>}
-          {editingSingle && !editingGroup && splitEnabled && (
-            <span className="text-xs text-faint">(converting to a split)</span>
-          )}
-        </label>
-      )}
 
       <PeopleSplitSection
         type={type}
