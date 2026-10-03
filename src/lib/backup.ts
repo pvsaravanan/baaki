@@ -39,7 +39,7 @@ const SPECS = {
   },
   transactions: {
     id: "s", type: "s", amount: "i", description: "s", merchant: "s?", date: "d", categoryId: "s?", accountId: "s",
-    transferAccountId: "s?", paymentMethod: "s?", notes: "s?", recurringId: "s?", splitGroupId: "s?",
+    transferAccountId: "s?", paymentMethod: "s?", notes: "s?", recurringId: "s?",
     createdAt: "d", updatedAt: "d", deletedAt: "d?",
   },
   transactionTags: { transactionId: "s", tagId: "s" },

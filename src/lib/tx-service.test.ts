@@ -20,7 +20,7 @@ beforeEach(() => {
   db.category.findFirst.mockResolvedValue({ id: "category", kind: "expense" });
   // An existing ₹70 expense on the account.
   db.transaction.findFirst.mockResolvedValue({
-    id: "transaction", splitGroupId: null, type: "expense", amount: 7000, accountId: "account", transferAccountId: null,
+    id: "transaction", type: "expense", amount: 7000, accountId: "account", transferAccountId: null,
   });
   db.transaction.findMany.mockResolvedValue([]);
   db.expenseShare.findMany.mockResolvedValue([{ contactId: "friend", amount: 6000 }]);

@@ -96,7 +96,6 @@ export function serializeTransaction(t: TxnWithTags): TransactionDTO {
     notes: t.notes,
     recurringId: t.recurringId,
     tags: t.tags?.map((tt) => tt.tag.name) ?? [],
-    splitGroupId: t.splitGroupId,
     shares:
       t.shares?.map((s) => ({
         id: s.id,

@@ -102,36 +102,6 @@ export const transactionSchema = z
 
 export type TransactionInput = z.infer<typeof transactionSchema>;
 
-/** One category/account allocation within a split expense. */
-export const splitPartSchema = z.object({
-  amount: positivePaise,
-  categoryId: z.string().min(1, "Choose a category"),
-  accountId: z.string().min(1, "Account is required"),
-  description: z.string().trim().max(200).optional(),
-});
-
-/**
- * A single logical expense divided into multiple real Transaction rows
- * (one per part), sharing a splitGroupId — see the schema comment on
- * Transaction.splitGroupId. Splitting is expense-only: it wouldn't have a
- * clear meaning for income or transfers.
- */
-export const splitTransactionSchema = z.object({
-  description: z.string().trim().min(1, "Description is required").max(200),
-  merchant: z.string().trim().max(120).optional().nullable(),
-  date: isoDate,
-  paymentMethod: z.string().trim().max(60).optional().nullable(),
-  notes: z.string().trim().max(1000).optional().nullable(),
-  tags: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
-  parts: z.array(splitPartSchema).min(2, "Add at least 2 splits").max(10, "Up to 10 splits"),
-  // Shares apply against the group's total (sum of all parts), not any
-  // single part — a friend's portion of the whole purchase doesn't care how
-  // you've broken it down by category or account.
-  shares: z.array(shareInputSchema).max(20).optional(),
-});
-
-export type SplitTransactionInput = z.infer<typeof splitTransactionSchema>;
-
 export const contactSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(80),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default("#64748b"),

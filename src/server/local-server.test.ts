@@ -23,7 +23,7 @@ describe("route matching", () => {
   });
 
   it("reads nested parameters", () => {
-    expect(matchRoute("/api/transactions/split/g1/restore")?.params).toEqual({ groupId: "g1" });
+    expect(matchRoute("/api/transactions/t1/restore")?.params).toEqual({ id: "t1" });
     expect(matchRoute("/api/contacts/c1/shares")?.params).toEqual({ id: "c1" });
   });
 

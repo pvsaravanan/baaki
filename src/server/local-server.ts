@@ -33,8 +33,6 @@ import * as r_transactions_id_restore from "./api/transactions/[id]/restore/rout
 import * as r_transactions_id from "./api/transactions/[id]/route";
 import * as r_transactions_bulk_delete from "./api/transactions/bulk-delete/route";
 import * as r_transactions from "./api/transactions/route";
-import * as r_transactions_split_groupId_restore from "./api/transactions/split/[groupId]/restore/route";
-import * as r_transactions_split_groupId from "./api/transactions/split/[groupId]/route";
 import * as r_user_avatar from "./api/user/avatar/route";
 import * as r_user from "./api/user/route";
 
@@ -82,8 +80,6 @@ const ROUTES: [string, object][] = [
   ["/api/transactions/:id", r_transactions_id],
   ["/api/transactions/bulk-delete", r_transactions_bulk_delete],
   ["/api/transactions", r_transactions],
-  ["/api/transactions/split/:groupId/restore", r_transactions_split_groupId_restore],
-  ["/api/transactions/split/:groupId", r_transactions_split_groupId],
   ["/api/user/avatar", r_user_avatar],
   ["/api/user", r_user],
 ];
