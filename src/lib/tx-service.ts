@@ -102,6 +102,11 @@ async function resolveTagIds(userId: string, names: string[]): Promise<string[]>
   return rows.map((r) => r.id);
 }
 
+/** A repayment is created by settling a share, and only that changes it. */
+function assertNotRepayment(t: { type: string }) {
+  if (t.type === "repayment") throw new BadRequestError("A repayment can't be changed. Settle or edit the shared expense instead.");
+}
+
 function toData(userId: string, input: TransactionInput): Prisma.TransactionUncheckedCreateInput {
   const date = fromISODate(input.date);
   if (!date) throw new NotFoundError("Invalid date");
@@ -156,6 +161,7 @@ export async function updateTransaction(userId: string, id: string, input: Trans
     select: { id: true, ...MOVEMENT_FIELDS },
   });
   if (!existing) throw new NotFoundError("Transaction not found");
+  assertNotRepayment(existing);
   await assertOwnership(userId, input);
   await assertSufficientBalance(userId, [existing], [movementOf(input)]);
   // A transfer can never carry shares (see createTransaction / validation.ts).
@@ -200,8 +206,10 @@ export async function assertSharesValid(userId: string, shares: ShareInput[], ca
   if (!shares.length) return;
   const sum = shares.reduce((s, x) => s + x.amount, 0);
   if (sum > cap) throw new BadRequestError("Shared amounts can't exceed the total");
-  const contactIds = [...new Set(shares.map((s) => s.contactId))];
-  if (contactIds.length !== shares.length) throw new BadRequestError("Each person can only have one share");
+  if (new Set(shares.map((s) => s.contactId)).size !== shares.length) {
+    throw new BadRequestError("Each person can only have one share");
+  }
+  const contactIds = shares.map((s) => s.contactId).filter((id): id is string => id !== null);
   const contacts = await prisma.contact.findMany({ where: { id: { in: contactIds }, userId }, select: { id: true } });
   if (contacts.length !== contactIds.length) throw new NotFoundError("Contact not found");
 }
@@ -259,6 +267,7 @@ export async function attachShares(
 export async function softDeleteTransaction(userId: string, id: string): Promise<void> {
   const existing = await prisma.transaction.findFirst({ where: { id, userId, deletedAt: null } });
   if (!existing) throw new NotFoundError("Transaction not found");
+  assertNotRepayment(existing);
   await prisma.transaction.update({ where: { id }, data: { deletedAt: new Date() } });
 }
 
@@ -267,7 +276,7 @@ export async function bulkSoftDeleteTransactions(userId: string, ids: string[]):
   const unique = [...new Set(ids)];
   if (unique.length === 0) return 0;
   const result = await prisma.transaction.updateMany({
-    where: { id: { in: unique }, userId, deletedAt: null },
+    where: { id: { in: unique }, userId, deletedAt: null, type: { not: "repayment" } },
     data: { deletedAt: new Date() },
   });
   return result.count;
@@ -296,6 +305,7 @@ export async function duplicateTransaction(userId: string, id: string): Promise<
     include: { tags: true },
   });
   if (!original) throw new NotFoundError("Transaction not found");
+  assertNotRepayment(original);
   await assertSufficientBalance(userId, [], [original]);
   const copy = await prisma.transaction.create({
     data: {

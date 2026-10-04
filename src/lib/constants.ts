@@ -5,8 +5,14 @@
 
 import type { CategoryIconKey } from "./category-icons";
 
+/** The kinds of entry a person can record. */
 export const TRANSACTION_TYPES = ["expense", "income", "transfer"] as const;
-export type TransactionType = (typeof TRANSACTION_TYPES)[number];
+/**
+ * Everything that can sit in the transaction list. A "repayment" is money
+ * someone paid back for their share of a split: it raises an account's balance
+ * but is neither income nor spending, and only settling a share creates one.
+ */
+export type TransactionType = (typeof TRANSACTION_TYPES)[number] | "repayment";
 
 export const PAYMENT_METHODS = ["upi", "cash", "card", "net_banking", "other"] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
@@ -85,6 +91,7 @@ export const TYPE_LABELS: Record<TransactionType, string> = {
   expense: "Expense",
   income: "Income",
   transfer: "Transfer",
+  repayment: "Repayment",
 };
 
 /** Default category set seeded for every new user. Colors are theme-neutral. */
@@ -129,6 +136,6 @@ export const DEFAULT_CATEGORIES: DefaultCategory[] = [
   { key: "other", name: "Other", icon: "more", color: "#8a8578", kind: "both" },
 ];
 
-export function isTransactionType(v: string): v is TransactionType {
+export function isTransactionType(v: string): v is (typeof TRANSACTION_TYPES)[number] {
   return (TRANSACTION_TYPES as readonly string[]).includes(v);
 }

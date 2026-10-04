@@ -75,9 +75,10 @@ export function PeopleSplitSection({
       {peopleEnabled && (
         <div className="space-y-3 pt-1">
           <ExpenseSplitMethodPicker value={shareMode} onChange={setShareMode} />
-          {availableContacts.length === 0 && (
-            <p className="text-xs text-faint">No active people yet — add one from the People page first.</p>
-          )}
+          <p className="text-xs text-faint">
+            Only your share counts as your spending. What others owe stays pending until you mark it paid
+            {availableContacts.length === 0 ? " — and you can name who it was later." : "."}
+          </p>
           {shareMode === "shares" && (
             <Field label="Your shares" htmlFor="your-split-weight" hint="Use 0 if none of this expense is yours.">
               <Input id="your-split-weight" inputMode="decimal" maxLength={24} value={yourWeight} onChange={(e) => setYourWeight(e.target.value)} placeholder="1" />
@@ -85,7 +86,7 @@ export function PeopleSplitSection({
           )}
           {shareRows.map((row, i) => {
             const inputField = shareMode === "percent" ? "percent" : shareMode === "shares" ? "weight" : "amount";
-            const personName = contacts.find((contact) => contact.id === row.contactId)?.name ?? `Person ${i + 1}`;
+            const personName = contacts.find((contact) => contact.id === row.contactId)?.name ?? "Someone";
             return (
               <div key={i} className="space-y-2 border border-border-faint bg-surface-2 p-2">
                 <div className="flex items-center gap-2">
@@ -95,7 +96,11 @@ export function PeopleSplitSection({
                     onChange={(v) => updateShare(i, { contactId: v })}
                     className="min-w-0 flex-1"
                     options={[
-                      { value: "", label: "Choose person…" },
+                      {
+                        value: "",
+                        label: "Someone",
+                        disabled: shareRows.some((other, index) => index !== i && other.contactId === ""),
+                      },
                       ...availableContacts.map((c) => ({
                         value: c.id,
                         label: `${c.name}${c.isArchived ? " (archived)" : ""}`,

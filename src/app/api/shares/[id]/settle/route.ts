@@ -6,7 +6,7 @@ import { settleShare } from "@/lib/contacts-service";
 type Ctx = { params: Promise<{ id: string }> };
 
 const bodySchema = z.object({
-  // If set, also records the matching real transaction (Income if they owed
+  // If set, also records the matching real transaction (a Repayment, not income, if they owed
   // you, Expense if you owed them) in `accountId` — so the cash movement shows
   // in your balances, not just the ledger.
   record: z.boolean().default(false),

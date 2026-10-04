@@ -108,7 +108,7 @@ export function SettleModal({
               onChange={(e) => setRecord(e.target.checked)}
               className="h-4 w-4"
             />
-            {youOwe ? "Also record this as an expense (money paid)" : "Also record this as income (money received)"}
+            {youOwe ? "Also record this as an expense (money paid)" : "Also add the money to an account (not counted as income)"}
           </label>
           {!hasAccounts && (
             <p className="text-xs text-muted">Add an account first to record this settlement as a transaction.</p>

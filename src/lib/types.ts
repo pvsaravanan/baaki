@@ -66,7 +66,7 @@ export type ShareDirection = "owed_to_you" | "you_owe";
 
 export interface ShareDTO {
   id: string;
-  contactId: string;
+  contactId: string | null; // null = "Someone": not named yet
   contactName: string;
   amount: number; // paise, this contact's share
   direction: ShareDirection;

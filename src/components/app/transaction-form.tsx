@@ -83,7 +83,7 @@ export function TransactionForm({
   const [shareMode, setShareMode] = useState<ExpenseSplitMethod>(existingShares.length > 0 ? "amounts" : "equal");
   const [yourWeight, setYourWeight] = useState("1");
   const [shareRows, setShareRows] = useState<ShareRow[]>(
-    existingShares.map((s) => ({ contactId: s.contactId, amount: String(toRupees(s.amount)), percent: "", weight: "1" })),
+    existingShares.map((s) => ({ contactId: s.contactId ?? "", amount: String(toRupees(s.amount)), percent: "", weight: "1" })),
   );
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -143,17 +143,19 @@ export function TransactionForm({
     setShareRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
   }
   function addShareRow() {
+    // A row's contactId is "" for "Someone": a share nobody is named for yet.
+    // Start from the first person not already in the split, or "Someone".
     const used = new Set(shareRows.map((r) => r.contactId));
-    const next = contacts.find((c) => !c.isArchived && !used.has(c.id));
-    if (!next || shareRows.length >= 20) return;
-    setShareRows((prev) => [...prev, { contactId: next.id, amount: "", percent: "", weight: "1" }]);
+    const next = contacts.find((c) => !c.isArchived && !used.has(c.id))?.id ?? (used.has("") ? null : "");
+    if (next === null || shareRows.length >= 20) return;
+    setShareRows((prev) => [...prev, { contactId: next, amount: "", percent: "", weight: "1" }]);
   }
   function removeShare(i: number) {
     setShareRows((prev) => prev.filter((_, idx) => idx !== i));
   }
 
   const totalForShares = safePaise(amount);
-  const selectedShareRows = useMemo(() => shareRows.filter((r) => r.contactId), [shareRows]);
+  const selectedShareRows = shareRows;
   const selectedShareCount = selectedShareRows.length;
   const splitResult = useMemo(() => calculateExpenseSplit(
     totalForShares,
@@ -167,7 +169,6 @@ export function TransactionForm({
 
   /** A row's effective share in paise, derived from the active split mode. */
   function shareAmountPaise(row: ShareRow): number {
-    if (!row.contactId) return 0;
     const index = selectedShareRows.indexOf(row) + 1; // participants include you
     return splitResult.amounts[index] ?? 0;
   }
@@ -176,7 +177,9 @@ export function TransactionForm({
   const yourShare = splitResult.amounts[0];
 
   const availableContacts = contacts.filter((c) => !c.isArchived || shareRows.some((row) => row.contactId === c.id));
-  const canAddPerson = shareRows.length < 20 && contacts.some((c) => !c.isArchived && !shareRows.some((row) => row.contactId === c.id));
+  const canAddPerson =
+    shareRows.length < 20 &&
+    (!shareRows.some((row) => row.contactId === "") || contacts.some((c) => !c.isArchived && !shareRows.some((row) => row.contactId === c.id)));
 
   // How much of this entry would come out of money reserved for goals (the
   // part beyond what's available) — shown as you type, confirmed on save.
@@ -206,9 +209,6 @@ export function TransactionForm({
     const localErrors: Record<string, string> = {};
 
     const sharing = type === "expense" && peopleEnabled;
-    if (sharing && shareRows.some((r) => !r.contactId)) {
-      localErrors.shares = "Choose a person for every split row";
-    }
     if (sharing && new Set(selectedShareRows.map((r) => r.contactId)).size !== selectedShareCount) {
       localErrors.shares = "Each person can only appear once";
     }
@@ -218,7 +218,7 @@ export function TransactionForm({
     const shares =
       sharing && !localErrors.shares
         ? selectedShareRows
-            .map((r) => ({ contactId: r.contactId, amount: shareAmountPaise(r) }))
+            .map((r) => ({ contactId: r.contactId || null, amount: shareAmountPaise(r) }))
             .filter((s) => s.amount > 0)
         : [];
 
