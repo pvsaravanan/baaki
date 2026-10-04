@@ -13,7 +13,8 @@ export interface PartRow {
 }
 
 export interface ShareRow {
-  contactId: string;
+  /** Who owes this share; a saved person with this name is used, else one is added. */
+  name: string;
   amount: string;
   percent: string;
   weight: string;

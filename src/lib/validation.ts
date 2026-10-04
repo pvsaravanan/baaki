@@ -57,13 +57,16 @@ export const resetSchema = z.object({
 
 /**
  * Someone's share of a transaction's cost — see ExpenseShare in the schema.
- * Leave `contactId` out for "Someone": a share nobody has been named for yet.
+ * Name the person with `contactId` (a saved person) or `name`: an existing
+ * person with that name is used, otherwise a new one is added. With neither,
+ * the share is for "Someone" who hasn't been named yet (older entries).
  */
 export const shareInputSchema = z.object({
   contactId: z.string().min(1).nullish().transform((v) => v ?? null),
+  name: z.string().trim().min(1).max(80).nullish().transform((v) => v ?? null),
   amount: positivePaise,
 });
-export type ShareInput = z.infer<typeof shareInputSchema>;
+export type ShareInput = { contactId?: string | null; name?: string | null; amount: number };
 
 export const transactionSchema = z
   .object({

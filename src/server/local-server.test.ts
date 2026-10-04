@@ -339,4 +339,38 @@ describe("the on-device app", () => {
     const bad = await call("POST", "/api/contacts", { name: "Ravi", avatarUrl: "https://example.com/x.png" });
     expect(bad.status).toBe(422);
   });
+
+  it("adds the person you type in a split, or reuses one with the same name", async () => {
+    const shell = await loadPage("shell", {});
+    const bank = shell.accounts[0];
+    const food = shell.categories.find((c: CategoryDTO) => c.systemKey === "food")!.id;
+    const today = new Date().toISOString().slice(0, 10);
+    await call("POST", "/api/transactions", {
+      type: "income", amount: 1_000_000, description: "Pay", date: today, categoryId: shell.categories.find((c: CategoryDTO) => c.kind === "income")!.id, accountId: bank.id,
+    });
+    const split = (name: string, amount: number) => call<{ transaction: { shares: { contactId: string; contactName: string }[] } }>(
+      "POST", "/api/transactions",
+      { type: "expense", amount, description: "Lunch", date: today, categoryId: food, accountId: bank.id, shares: [{ name, amount: amount / 2 }] },
+    );
+
+    const owedBefore = (await loadPage("people", {})).contacts.find((c: { name: string }) => c.name === "Mohammed")?.owedToYou ?? 0;
+    const first = await split("Mohammed", 20_000);
+    expect(first.status).toBe(201);
+    expect(first.data.transaction.shares[0].contactName).toBe("Mohammed");
+
+    // The same name in another case is the same person, not a second one.
+    const second = await split("mohammed", 10_000);
+    expect(second.data.transaction.shares[0].contactId).toBe(first.data.transaction.shares[0].contactId);
+    const people = (await loadPage("people", {})).contacts.filter((c: { name: string }) => c.name.toLowerCase() === "mohammed");
+    expect(people).toHaveLength(1);
+    expect(people[0].owedToYou).toBe(owedBefore + 15_000);
+
+    // The same person twice in one split is refused, and adds nobody.
+    const twice = await call("POST", "/api/transactions", {
+      type: "expense", amount: 30_000, description: "Dinner", date: today, categoryId: food, accountId: bank.id,
+      shares: [{ name: "Priya", amount: 5_000 }, { name: "priya", amount: 5_000 }],
+    });
+    expect(twice.status).toBe(400);
+    expect((await loadPage("people", {})).contacts.some((c: { name: string }) => c.name === "Priya")).toBe(false);
+  });
 });

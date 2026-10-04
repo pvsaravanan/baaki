@@ -1,6 +1,5 @@
 import { X } from "lucide-react";
 import { Field, Input } from "@/components/ui/field";
-import { SelectMenu } from "@/components/ui/select-menu";
 import { formatINR } from "@/lib/money";
 import type { ContactDTO } from "@/lib/types";
 import type { TransactionType } from "@/lib/constants";
@@ -22,7 +21,6 @@ export function PeopleSplitSection({
   updateShare,
   removeShare,
   contacts,
-  availableContacts,
   canAddPerson,
   selectedShareCount,
   shareAmountPaise,
@@ -45,7 +43,6 @@ export function PeopleSplitSection({
   updateShare: (i: number, patch: Partial<ShareRow>) => void;
   removeShare: (i: number) => void;
   contacts: ContactDTO[];
-  availableContacts: ContactDTO[];
   canAddPerson: boolean;
   selectedShareCount: number;
   shareAmountPaise: (row: ShareRow) => number;
@@ -76,8 +73,7 @@ export function PeopleSplitSection({
         <div className="space-y-3 pt-1">
           <ExpenseSplitMethodPicker value={shareMode} onChange={setShareMode} />
           <p className="text-xs text-faint">
-            Only your share counts as your spending. What others owe stays pending until you mark it paid
-            {availableContacts.length === 0 ? " — and you can name who it was later." : "."}
+            Only your share counts as your spending. What others owe stays pending until you mark it paid.
           </p>
           {shareMode === "shares" && (
             <Field label="Your shares" htmlFor="your-split-weight" hint="Use 0 if none of this expense is yours.">
@@ -86,32 +82,42 @@ export function PeopleSplitSection({
           )}
           {shareRows.map((row, i) => {
             const inputField = shareMode === "percent" ? "percent" : shareMode === "shares" ? "weight" : "amount";
-            const personName = contacts.find((contact) => contact.id === row.contactId)?.name ?? "Someone";
+            const personName = row.name.trim() || `Person ${i + 1}`;
+            // Saved people matching what's been typed, to fill the name in with a tap.
+            const typed = row.name.trim().toLowerCase();
+            const taken = new Set(shareRows.map((other) => other.name.trim().toLowerCase()));
+            const suggestions = contacts
+              .filter((c) => !c.isArchived && !taken.has(c.name.toLowerCase()) && c.name.toLowerCase().includes(typed))
+              .slice(0, 5);
             return (
               <div key={i} className="space-y-2 border border-border-faint bg-surface-2 p-2">
                 <div className="flex items-center gap-2">
-                  <SelectMenu
-                    ariaLabel={`Person ${i + 1}`}
-                    value={row.contactId}
-                    onChange={(v) => updateShare(i, { contactId: v })}
+                  <Input
+                    aria-label={`Person ${i + 1} name`}
+                    maxLength={80}
+                    placeholder="Name, e.g. Mohammed"
+                    value={row.name}
+                    onChange={(e) => updateShare(i, { name: e.target.value })}
                     className="min-w-0 flex-1"
-                    options={[
-                      {
-                        value: "",
-                        label: "Someone",
-                        disabled: shareRows.some((other, index) => index !== i && other.contactId === ""),
-                      },
-                      ...availableContacts.map((c) => ({
-                        value: c.id,
-                        label: `${c.name}${c.isArchived ? " (archived)" : ""}`,
-                        disabled: shareRows.some((other, index) => index !== i && other.contactId === c.id),
-                      })),
-                    ]}
                   />
                   <button type="button" onClick={() => removeShare(i)} aria-label={`Remove ${personName} from split`} className="p-2">
                     <X className="h-4 w-4 text-faint hover:text-expense" />
                   </button>
                 </div>
+                {suggestions.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {suggestions.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => updateShare(i, { name: c.name })}
+                        className="rounded-none border border-border bg-surface px-2 py-1 text-xs text-fg hover:bg-surface-2"
+                      >
+                        {c.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <div className="flex items-end justify-between gap-3">
                   {shareMode !== "equal" && (
                     <Field

@@ -145,8 +145,9 @@ export async function createTransaction(userId: string, input: TransactionInput)
       },
     });
     if (shares?.length) {
+      const people = await resolveShares(tx, userId, shares);
       await tx.expenseShare.createMany({
-        data: shares.map((s) => ({ transactionId: txn.id, contactId: s.contactId, amount: s.amount })),
+        data: people.map((s) => ({ transactionId: txn.id, contactId: s.contactId, amount: s.amount })),
       });
     }
     return txn;
@@ -170,7 +171,9 @@ export async function updateTransaction(userId: string, id: string, input: Trans
   // Validate shares before mutating the row so invalid shares don't commit the
   // edit (and blow away the old tags) and only then throw.
   const retainedShares = shares === undefined
-    ? await prisma.expenseShare.findMany({ where: { transactionId: id }, select: { contactId: true, amount: true } })
+    ? (await prisma.expenseShare.findMany({ where: { transactionId: id }, select: { contactId: true, amount: true } })).map(
+        (s) => ({ ...s, name: null }),
+      )
     : shares;
   await assertSharesValid(userId, retainedShares, input.amount);
   const tagIds = await resolveTagIds(userId, input.tags ?? []);
@@ -205,12 +208,51 @@ export async function assertSharesValid(userId: string, shares: ShareInput[], ca
   if (!shares.length) return;
   const sum = shares.reduce((s, x) => s + x.amount, 0);
   if (sum > cap) throw new BadRequestError("Shared amounts can't exceed the total");
-  if (new Set(shares.map((s) => s.contactId)).size !== shares.length) {
+  const keys = shares.map((s) => s.contactId ?? (s.name ? `name:${s.name.toLowerCase()}` : null));
+  if (new Set(keys).size !== shares.length) {
     throw new BadRequestError("Each person can only have one share");
   }
   const contactIds = shares.map((s) => s.contactId).filter((id): id is string => id !== null);
   const contacts = await prisma.contact.findMany({ where: { id: { in: contactIds }, userId }, select: { id: true } });
   if (contacts.length !== contactIds.length) throw new NotFoundError("Contact not found");
+}
+
+const PERSON_COLORS = ["#64748b", "#0d9488", "#6366f1", "#f97316", "#84cc16", "#06b6d4", "#ef4444", "#ec4899", "#a855f7", "#f59e0b"];
+
+/**
+ * Turn the people named in a split into saved people: a share that names a
+ * saved person (by id, or by name without regard to case) uses them, and a new
+ * name adds a new person. Shares with neither stay "Someone". Run it after the
+ * shares are validated, with the same client the shares are written with.
+ */
+async function resolveShares(
+  db: Pick<typeof prisma, "contact">,
+  userId: string,
+  shares: ShareInput[],
+): Promise<{ contactId: string | null; amount: number }[]> {
+  const people: { contactId: string | null; amount: number }[] = [];
+  const seen = new Set<string | null>();
+  for (const share of shares) {
+    let contactId = share.contactId ?? null;
+    if (!contactId && share.name) {
+      const found = await db.contact.findFirst({
+        where: { userId, name: { equals: share.name, mode: "insensitive" } },
+        select: { id: true },
+      });
+      contactId =
+        found?.id ??
+        (
+          await db.contact.create({
+            data: { userId, name: share.name, color: PERSON_COLORS[share.name.length % PERSON_COLORS.length] },
+            select: { id: true },
+          })
+        ).id;
+    }
+    if (seen.has(contactId)) throw new BadRequestError("Each person can only have one share");
+    seen.add(contactId);
+    people.push({ contactId, amount: share.amount });
+  }
+  return people;
 }
 
 /**
@@ -233,16 +275,17 @@ export async function attachShares(
   if (!txn) throw new NotFoundError("Transaction not found");
 
   await assertSharesValid(userId, shares, txn.amount);
+  const people = await resolveShares(prisma, userId, shares);
 
   const existing = await prisma.expenseShare.findMany({
     where: { transactionId },
     select: { id: true, contactId: true },
   });
   const existingIdByContact = new Map(existing.map((s) => [s.contactId, s.id]));
-  const keep = new Set(shares.map((s) => s.contactId));
+  const keep = new Set(people.map((s) => s.contactId));
   const toDelete = existing.filter((s) => !keep.has(s.contactId)).map((s) => s.id);
-  const toUpdate = shares.filter((s) => existingIdByContact.has(s.contactId));
-  const toCreate = shares.filter((s) => !existingIdByContact.has(s.contactId));
+  const toUpdate = people.filter((s) => existingIdByContact.has(s.contactId));
+  const toCreate = people.filter((s) => !existingIdByContact.has(s.contactId));
 
   await prisma.$transaction([
     ...(toDelete.length ? [prisma.expenseShare.deleteMany({ where: { id: { in: toDelete } } })] : []),
