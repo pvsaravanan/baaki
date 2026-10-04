@@ -13,14 +13,18 @@ import { ApiError, apiDelete } from "@/lib/http";
 import type { ContactDTO } from "@/lib/types";
 import { ContactCard } from "./people/contact-card";
 import { ContactForm } from "./people/contact-form";
+import { SomeoneCard } from "./people/someone-card";
+import type { ContactShareRow } from "@/lib/contacts-service";
 
-export function PeopleView({ contacts: initial }: { contacts: ContactDTO[] }) {
+export function PeopleView({ contacts: initial, someone: initialSomeone }: { contacts: ContactDTO[]; someone: ContactShareRow[] }) {
   const { refresh } = useAppData();
   const toast = useToast();
   const confirm = useConfirm();
 
   const [contacts, setContacts] = useState(initial);
   useEffect(() => setContacts(initial), [initial]);
+  const [someone, setSomeone] = useState(initialSomeone);
+  useEffect(() => setSomeone(initialSomeone), [initialSomeone]);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<ContactDTO | null>(null);
   const [busy, setBusy] = useState(false);
@@ -32,7 +36,9 @@ export function PeopleView({ contacts: initial }: { contacts: ContactDTO[] }) {
   // meant to preserve their unsettled debts (see deleteContact), so the
   // summary totals must still include archived contacts or it understates
   // what's actually owed.
-  const totalOwedToYou = contacts.reduce((sum, c) => sum + c.owedToYou, 0);
+  const totalOwedToYou =
+    contacts.reduce((sum, c) => sum + c.owedToYou, 0) +
+    someone.filter((s) => !s.settled).reduce((sum, s) => sum + s.amount, 0);
   const totalYouOwe = contacts.reduce((sum, c) => sum + c.youOwe, 0);
 
   function openAdd() {
@@ -84,7 +90,7 @@ export function PeopleView({ contacts: initial }: { contacts: ContactDTO[] }) {
         </Button>
       </div>
 
-      {contacts.length === 0 ? (
+      {contacts.length === 0 && someone.length === 0 ? (
         <div className="rounded-none border border-border bg-surface">
           <EmptyState
             illustration={<SectionIcon section="people" size={56} />}
@@ -101,6 +107,19 @@ export function PeopleView({ contacts: initial }: { contacts: ContactDTO[] }) {
       ) : (
         <>
           <ul className="space-y-2">
+            {someone.length > 0 && (
+              <SomeoneCard
+                shares={someone}
+                contacts={contacts}
+                onChanged={(next) => {
+                  if (next) {
+                    setContacts(next.contacts);
+                    setSomeone(next.someone);
+                  }
+                  refresh();
+                }}
+              />
+            )}
             {active.map((c) => (
               <ContactCard
                 key={c.id}

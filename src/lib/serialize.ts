@@ -78,7 +78,7 @@ export function serializeContact(c: Contact, owedToYou: number, youOwe: number):
 
 type TxnWithTags = Transaction & {
   tags?: (TransactionTag & { tag: Tag })[];
-  shares?: (ExpenseShare & { contact: Contact })[];
+  shares?: (ExpenseShare & { contact: Contact | null })[];
 };
 
 export function serializeTransaction(t: TxnWithTags): TransactionDTO {
@@ -100,7 +100,7 @@ export function serializeTransaction(t: TxnWithTags): TransactionDTO {
       t.shares?.map((s) => ({
         id: s.id,
         contactId: s.contactId,
-        contactName: s.contact.name,
+        contactName: s.contact?.name ?? "Someone",
         amount: s.amount,
         direction: s.direction as "owed_to_you" | "you_owe",
         settled: s.settled,

@@ -263,4 +263,70 @@ describe("the on-device app", () => {
     const expenseCat = shell.categories.find((c: CategoryDTO) => c.kind === "expense")!;
     expect((await loadPage("category", { id: expenseCat.id })).detail!.kind).toBe("expense");
   });
+
+  it("counts only your share of a split, and takes the repayment in without making it income", async () => {
+    const shell = await loadPage("shell", {});
+    const bank = shell.accounts[0];
+    const food = shell.categories.find((c: CategoryDTO) => c.systemKey === "food")!.id;
+    const today = new Date().toISOString().slice(0, 10);
+    const balance = async () => (await loadPage("shell", {})).accounts.find((a: AccountDTO) => a.id === bank.id)!.balance;
+    await call("POST", "/api/transactions", {
+      type: "income", amount: 1_000_000, description: "Pay", date: today, categoryId: shell.categories.find((c: CategoryDTO) => c.kind === "income")!.id, accountId: bank.id,
+    });
+    const start = await balance();
+    const before = (await loadPage("dashboard", {})).analytics.current;
+    const incomeBefore = before.income;
+    const totalsBefore = (await call<{ totals: { income: number; expense: number } }>("GET", "/api/transactions")).data.totals;
+
+    // Split ₹898.60 with no one named: your share is ₹449.30.
+    const made = await call<{ transaction: { id: string; shares: { id: string; contactName: string }[] } }>(
+      "POST", "/api/transactions",
+      { type: "expense", amount: 89_860, description: "Train tickets", date: today, categoryId: food, accountId: bank.id, shares: [{ amount: 44_930 }] },
+    );
+    expect(made.status).toBe(201);
+    expect(made.data.transaction.shares[0].contactName).toBe("Someone");
+    expect(await balance()).toBe(start - 89_860);
+
+    const dash = async () => (await loadPage("dashboard", {})).analytics.current;
+    expect((await dash()).effectiveExpense).toBe(before.effectiveExpense + 44_930);
+
+    // It waits under "Someone" until paid; naming the person is optional.
+    const waiting = await loadPage("people", {});
+    expect(waiting.someone).toHaveLength(1);
+    const shareId = waiting.someone[0].id;
+
+    const settled = await call("POST", `/api/shares/${shareId}/settle`, { record: true, accountId: bank.id });
+    expect(settled.status).toBe(200);
+    expect(await balance()).toBe(start - 44_930);
+    const after = await dash();
+    expect(after.income).toBe(incomeBefore);
+    expect(after.effectiveExpense).toBe(before.effectiveExpense + 44_930);
+
+    // The repayment is in the list, and can't be edited on its own.
+    const list = await call<{ transactions: { id: string; type: string }[]; totals: { income: number; expense: number } }>("GET", "/api/transactions");
+    const repayment = list.data.transactions.find((t) => t.type === "repayment")!;
+    expect(list.data.totals).toEqual({ income: totalsBefore.income, expense: totalsBefore.expense + 44_930 });
+    expect((await call("DELETE", `/api/transactions/${repayment.id}`)).status).toBe(400);
+  });
+
+  it("lets you name the person behind a share later", async () => {
+    const shell = await loadPage("shell", {});
+    const bank = shell.accounts[0];
+    const food = shell.categories.find((c: CategoryDTO) => c.systemKey === "food")!.id;
+    const today = new Date().toISOString().slice(0, 10);
+    await call("POST", "/api/transactions", {
+      type: "income", amount: 1_000_000, description: "Pay", date: today, categoryId: shell.categories.find((c: CategoryDTO) => c.kind === "income")!.id, accountId: bank.id,
+    });
+    await call("POST", "/api/transactions", {
+      type: "expense", amount: 20_000, description: "Cab", date: today, categoryId: food, accountId: bank.id, shares: [{ amount: 10_000 }],
+    });
+    const { data: people } = await call<{ contacts: { id: string; name: string }[] }>("POST", "/api/contacts", { name: "Mohammed" });
+    const share = (await loadPage("people", {})).someone.find((s: { description: string }) => s.description === "Cab")!;
+    const named = await call<{ someone: unknown[]; contacts: { name: string; owedToYou: number }[] }>(
+      "PATCH", `/api/shares/${share.id}`, { contactId: people.contacts.find((c) => c.name === "Mohammed")!.id },
+    );
+    expect(named.status).toBe(200);
+    expect(named.data.someone.find((s) => (s as { id: string }).id === share.id)).toBeUndefined();
+    expect(named.data.contacts.find((c) => c.name === "Mohammed")?.owedToYou).toBe(10_000);
+  });
 });

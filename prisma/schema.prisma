@@ -329,7 +329,7 @@ model Contact {
 model ExpenseShare {
   id            String    @id @default(cuid())
   transactionId String?   // null for standalone "you owe" entries
-  contactId     String
+  contactId     String?   // null = "Someone": a share nobody has been named for yet
   amount        Int       // paise, this share
   direction     String    @default("owed_to_you") // owed_to_you | you_owe
   description   String?   // used when there is no linked transaction
@@ -339,7 +339,7 @@ model ExpenseShare {
   createdAt     DateTime  @default(now())
 
   transaction Transaction? @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-  contact     Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contact     Contact?     @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
   @@index([transactionId])
   @@index([contactId])

@@ -13,6 +13,7 @@ import {
   type BudgetStatus,
   type CalcTxn,
   type PeriodSummary,
+  ownAmount,
 } from "./calculations";
 import { addMonths, monthName, monthRange, monthKeyOf, endOfDayExclusive, type MonthKey } from "./dates";
 import { generateInsights, type Insight } from "./insights";
@@ -120,10 +121,10 @@ export async function getMonthlyAnalytics(
   let largestExpense: MonthlyAnalytics["largestExpense"] = null;
   const monthExpenses = monthTxns.filter((t) => t.type === "expense");
   if (monthExpenses.length > 0) {
-    const largest = monthExpenses.reduce((max, t) => (t.amount > max.amount ? t : max), monthExpenses[0]);
+    const largest = monthExpenses.reduce((max, t) => (ownAmount(t) > ownAmount(max) ? t : max), monthExpenses[0]);
     largestExpense = {
       description: largest.description ?? "Expense",
-      amount: largest.amount,
+      amount: ownAmount(largest),
       date: largest.date,
       categoryName: largest.categoryId ? categories.get(largest.categoryId)?.name ?? null : null,
     };
@@ -292,7 +293,13 @@ export async function getCategoryDetail(userId: string, categoryId: string): Pro
     // (it's shared/cached for the whole app), so this is a small dedicated query.
     prisma.transaction.findMany({
       where: { userId, categoryId, deletedAt: null, type: { in: ["expense", "income"] } },
-      select: { type: true, merchant: true, description: true, amount: true },
+      select: {
+        type: true,
+        merchant: true,
+        description: true,
+        amount: true,
+        shares: { where: { direction: "owed_to_you" }, select: { amount: true } },
+      },
     }),
   ]);
 
@@ -338,7 +345,7 @@ export async function getCategoryDetail(userId: string, categoryId: string): Pro
     if (r.type !== kind) continue;
     const key = (r.merchant?.trim() || r.description?.trim() || "Other").slice(0, 60);
     const entry = byMerchant.get(key) ?? { total: 0, count: 0 };
-    entry.total += r.amount;
+    entry.total += r.type === "expense" ? Math.max(0, r.amount - r.shares.reduce((sum, s) => sum + s.amount, 0)) : r.amount;
     entry.count += 1;
     byMerchant.set(key, entry);
   }

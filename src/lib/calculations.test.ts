@@ -262,3 +262,26 @@ describe("averageDailySpend", () => {
     expect(averageDailySpend(rs(31410), start, end)).toBe(rs(1047));
   });
 });
+
+describe("an expense shared with other people", () => {
+  const dinner = tx({ type: "expense", amount: 89_860, sharedAmount: 44_930, categoryId: "travel" });
+  const repayment = tx({ type: "repayment", amount: 44_930 });
+
+  it("counts only your share as spending, in totals and categories", () => {
+    expect(summarize([dinner]).effectiveExpense).toBe(44_930);
+    expect(categoryTotals([dinner])[0].expense).toBe(44_930);
+    expect(categoryAmount([dinner], "travel", "expense")).toBe(44_930);
+  });
+
+  it("moves the full amount through the account", () => {
+    expect(accountBalance({ id: "a1", openingBalance: 100_000 }, [dinner])).toBe(100_000 - 89_860);
+  });
+
+  it("takes the repayment into the balance without it being income or spending", () => {
+    const all = [dinner, repayment];
+    expect(accountBalance({ id: "a1", openingBalance: 100_000 }, all)).toBe(100_000 - 44_930);
+    const s = summarize(all);
+    expect(s.income).toBe(0);
+    expect(s.effectiveExpense).toBe(44_930);
+  });
+});

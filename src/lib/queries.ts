@@ -45,9 +45,14 @@ export const loadCalcTxns = cache(async (userId: string): Promise<CalcTxn[]> => 
       accountId: true,
       transferAccountId: true,
       deletedAt: true,
+      shares: { where: { direction: "owed_to_you" }, select: { amount: true } },
     },
   });
-  return rows.map((r) => ({ ...r, type: r.type as CalcTxn["type"] }));
+  return rows.map(({ shares, ...r }) => ({
+    ...r,
+    type: r.type as CalcTxn["type"],
+    sharedAmount: shares.reduce((sum, s) => sum + s.amount, 0),
+  }));
 });
 
 export async function loadAccounts(userId: string): Promise<AccountDTO[]> {
@@ -87,12 +92,19 @@ export async function countTransactions(userId: string): Promise<number> {
 
 /** Income/expense totals across every (undeleted) transaction, not just a loaded page. */
 export async function loadTransactionTotals(userId: string): Promise<{ income: number; expense: number }> {
-  const sums = await prisma.transaction.groupBy({
-    by: ["type"],
-    where: { userId, deletedAt: null },
-    _sum: { amount: true },
-  });
-  return sums.reduce(
+  const [sums, sharedOut] = await Promise.all([
+    prisma.transaction.groupBy({
+      by: ["type"],
+      where: { userId, deletedAt: null },
+      _sum: { amount: true },
+    }),
+    // What others owe back on expenses isn't your spending.
+    prisma.expenseShare.aggregate({
+      where: { direction: "owed_to_you", transaction: { is: { userId, deletedAt: null, type: "expense" } } },
+      _sum: { amount: true },
+    }),
+  ]);
+  const totals = sums.reduce(
     (acc, s) => {
       const amount = s._sum.amount ?? 0;
       if (s.type === "income") acc.income += amount;
@@ -101,6 +113,8 @@ export async function loadTransactionTotals(userId: string): Promise<{ income: n
     },
     { income: 0, expense: 0 },
   );
+  totals.expense = Math.max(0, totals.expense - (sharedOut._sum.amount ?? 0));
+  return totals;
 }
 
 

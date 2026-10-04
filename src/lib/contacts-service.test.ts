@@ -41,7 +41,7 @@ describe("settleShare", () => {
 
   it("records the cash movement once when the settlement is claimed", async () => {
     await settleShare("user", "share", { record: true, accountId: "account" });
-    expect(db.transaction.create).toHaveBeenCalledWith({ data: expect.objectContaining({ userId: "user", accountId: "account", amount: 5000, type: "income" }) });
+    expect(db.transaction.create).toHaveBeenCalledWith({ data: expect.objectContaining({ userId: "user", accountId: "account", amount: 5000, type: "repayment" }) });
     db.expenseShare.updateMany.mockResolvedValue({ count: 0 });
     await settleShare("user", "share", { record: true, accountId: "account" });
     expect(db.transaction.create).toHaveBeenCalledOnce();

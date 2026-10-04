@@ -27,7 +27,9 @@ import * as r_recurring_id from "./api/recurring/[id]/route";
 import * as r_recurring_id_skip from "./api/recurring/[id]/skip/route";
 import * as r_recurring from "./api/recurring/route";
 import * as r_recurring_run_due from "./api/recurring/run-due/route";
+import * as r_shares_id from "./api/shares/[id]/route";
 import * as r_shares_id_settle from "./api/shares/[id]/settle/route";
+import * as r_shares_unassigned from "./api/shares/unassigned/route";
 import * as r_transactions_id_duplicate from "./api/transactions/[id]/duplicate/route";
 import * as r_transactions_id_restore from "./api/transactions/[id]/restore/route";
 import * as r_transactions_id from "./api/transactions/[id]/route";
@@ -75,6 +77,8 @@ const ROUTES: [string, object][] = [
   ["/api/recurring", r_recurring],
   ["/api/recurring/run-due", r_recurring_run_due],
   ["/api/shares/:id/settle", r_shares_id_settle],
+  ["/api/shares/:id", r_shares_id],
+  ["/api/shares/unassigned", r_shares_unassigned],
   ["/api/transactions/:id/duplicate", r_transactions_id_duplicate],
   ["/api/transactions/:id/restore", r_transactions_id_restore],
   ["/api/transactions/:id", r_transactions_id],

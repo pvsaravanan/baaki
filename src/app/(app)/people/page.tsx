@@ -9,7 +9,7 @@ export default function PeoplePage() {
   return (
     <div>
       <PageHeader title="People" description="Track shared expenses and settle up." />
-      <ScreenData data={data} error={error}>{(d) => <PeopleView contacts={d.contacts} />}</ScreenData>
+      <ScreenData data={data} error={error}>{(d) => <PeopleView contacts={d.contacts} someone={d.someone} />}</ScreenData>
     </div>
   );
 }

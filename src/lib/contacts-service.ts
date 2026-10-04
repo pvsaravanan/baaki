@@ -121,9 +121,11 @@ export async function createStandaloneShare(
 }
 
 /**
- * Mark a share settled. Optionally records the matching real transaction so
- * the cash movement shows in your balances too:
- *   - "owed_to_you" → an Income (they paid you back) into `accountId`
+ * Mark a share settled. Optionally records the matching cash movement so your
+ * balances follow:
+ *   - "owed_to_you" → a Repayment into `accountId`: the account balance goes up,
+ *     but it is not income, and the expense it was shared from still counts only
+ *     your own share
  *   - "you_owe"     → an Expense (you paid them back) from `accountId`
  * Settling without recording only clears the ledger, leaving balances untouched.
  */
@@ -137,8 +139,8 @@ export async function settleShare(
     // without it, a direct API call could still settle a "phantom" share the
     // UI never shows (loadContactShares/loadContacts already filter these
     // out), recording a real settlement transaction for a purchase that no
-    // longer exists.
-    where: { id: shareId, contact: { userId }, ...LIVE_SHARE },
+    // longer exists. A share nobody is named for belongs to its transaction.
+    where: { id: shareId, AND: [{ OR: [{ contact: { userId } }, { transaction: { userId } }] }, LIVE_SHARE] },
     include: { transaction: true, contact: true },
   });
   if (!share) throw new NotFoundError("Share not found");
@@ -155,13 +157,14 @@ export async function settleShare(
     accountId = account.id;
   }
 
-  const owed = share.direction !== "you_owe"; // owed_to_you → income
+  const owed = share.direction !== "you_owe";
   // Paying someone back comes out of the chosen account — refuse it (before
   // the share is claimed as settled) if the account can't cover it.
   if (accountId && !owed) {
     await assertSufficientBalance(userId, [], [{ type: "expense", amount: share.amount, accountId }]);
   }
   const label = share.transaction?.description ?? share.description ?? "shared expense";
+  const who = share.contact?.name ?? "Someone";
 
   await prisma.$transaction(async (db) => {
     // Claim the settle first, conditioned on it still being unsettled. This
@@ -177,9 +180,9 @@ export async function settleShare(
       await db.transaction.create({
         data: {
           userId,
-          type: owed ? "income" : "expense",
+          type: owed ? "repayment" : "expense",
           amount: share.amount,
-          description: owed ? `${share.contact.name} settled up` : `Paid ${share.contact.name} back`,
+          description: owed ? `${who} paid back` : `Paid ${who} back`,
           date: new Date(),
           accountId,
           notes: `Settlement for "${label}"`,
@@ -187,4 +190,37 @@ export async function settleShare(
       });
     }
   });
+}
+
+/** Shares nobody has been named for yet ("Someone"), still owed to you, newest first. */
+export async function loadUnassignedShares(userId: string): Promise<ContactShareRow[]> {
+  const rows = await prisma.expenseShare.findMany({
+    where: { contactId: null, transaction: { userId, deletedAt: null } },
+    include: { transaction: { select: { id: true, description: true, date: true } } },
+    orderBy: [{ settled: "asc" }, { createdAt: "desc" }],
+  });
+  return rows.map((s) => ({
+    id: s.id,
+    amount: s.amount,
+    direction: s.direction as ShareDirection,
+    settled: s.settled,
+    settledAt: s.settledAt ? toISODate(s.settledAt) : null,
+    transactionId: s.transaction?.id ?? null,
+    description: s.transaction?.description ?? "Shared expense",
+    date: s.transaction ? toISODate(s.transaction.date) : toISODate(s.date),
+  }));
+}
+
+/** Name the person behind a "Someone" share. */
+export async function assignShare(userId: string, shareId: string, contactId: string): Promise<void> {
+  const share = await prisma.expenseShare.findFirst({
+    where: { id: shareId, contactId: null, transaction: { userId, deletedAt: null } },
+    select: { id: true, transactionId: true },
+  });
+  if (!share) throw new NotFoundError("Share not found");
+  const contact = await prisma.contact.findFirst({ where: { id: contactId, userId }, select: { id: true } });
+  if (!contact) throw new NotFoundError("Contact not found");
+  const clash = await prisma.expenseShare.count({ where: { transactionId: share.transactionId, contactId } });
+  if (clash > 0) throw new BadRequestError("That person already has a share of this expense");
+  await prisma.expenseShare.update({ where: { id: shareId }, data: { contactId } });
 }

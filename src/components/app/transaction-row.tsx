@@ -12,6 +12,8 @@ import { useConfirm } from "@/components/ui/confirm";
 import { apiDelete, apiPost } from "@/lib/http";
 import { fromISODate, formatRelativeDay } from "@/lib/dates";
 import { formatPaymentMethod } from "@/lib/constants";
+import { ownAmountOf } from "@/lib/calculations";
+import { formatINR } from "@/lib/money";
 import type { TransactionDTO } from "@/lib/types";
 import { cn } from "@/lib/cn";
 
@@ -19,6 +21,7 @@ const TONE: Record<string, "income" | "expense" | "muted" | "default"> = {
   income: "income",
   expense: "expense",
   transfer: "muted",
+  repayment: "income",
 };
 
 export function TransactionRow({
@@ -105,11 +108,18 @@ export function TransactionRow({
   // Transfers keep a plain ⇆ symbol (money moving between your own accounts);
   // everything else shows an illustration — its category's, or one for its
   // type when it has no category.
-  const fallbackIcon = txn.type === "income" ? "dollars" : "more";
+  const fallbackIcon = txn.type === "income" || txn.type === "repayment" ? "dollars" : "more";
+
+  // A repayment is created by settling a share and changes only with it, so it
+  // can't be edited, copied or deleted on its own.
+  const isRepayment = txn.type === "repayment";
+  const owedShares = txn.shares.filter((s) => s.direction === "owed_to_you");
+  const stillOwed = owedShares.some((s) => !s.settled);
+  const yours = ownAmountOf(txn);
 
   const openOrToggle = () => {
     if (selectMode) onToggleSelect?.(txn.id);
-    else openEdit(txn);
+    else if (!isRepayment) openEdit(txn);
   };
 
   return (
@@ -148,8 +158,10 @@ export function TransactionRow({
           {txn.recurringId && (
             <span className="shrink-0 rounded bg-brand-soft px-1.5 py-0.5 text-2xs font-medium text-brand-hover">auto</span>
           )}
-          {txn.shares.length > 0 && (
-            <span className="shrink-0 rounded bg-brand-soft px-1.5 py-0.5 text-2xs font-medium text-brand-hover">shared</span>
+          {owedShares.length > 0 && (
+            <span className="shrink-0 rounded bg-brand-soft px-1.5 py-0.5 text-2xs font-medium text-brand-hover">
+              {stillOwed ? "pending" : "settled"}
+            </span>
           )}
         </div>
         <p className="truncate text-xs text-muted">
@@ -160,10 +172,11 @@ export function TransactionRow({
 
       <div className="flex shrink-0 flex-col items-end">
         <Money paise={signed} tone={TONE[txn.type]} sign={txn.type !== "expense" && txn.type !== "transfer"} className="text-sm font-semibold" />
+        {owedShares.length > 0 && <span className="text-2xs text-faint">your share {formatINR(yours, { decimals: "auto" })}</span>}
         {showDate && <span className="text-2xs text-faint">{formatRelativeDay(fromISODate(txn.date) ?? new Date(), new Date())}</span>}
       </div>
 
-      {!selectMode && (
+      {!selectMode && !isRepayment && (
         <div className="relative">
           <button
             onClick={() => setMenuOpen((o) => !o)}

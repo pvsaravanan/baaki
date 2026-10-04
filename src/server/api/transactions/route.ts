@@ -20,7 +20,7 @@ export const GET = withUser(async (user, req: NextRequest) => {
   // Income/expense totals must cover every row matching the filter, not just
   // the page that's loaded — a client-side sum over `rows` would silently
   // understate the real totals once a filter matches more than `take`.
-  const [rows, total, sums] = await Promise.all([
+  const [rows, total, sums, sharedOut] = await Promise.all([
     prisma.transaction.findMany({
       where,
       include: INCLUDE,
@@ -30,6 +30,11 @@ export const GET = withUser(async (user, req: NextRequest) => {
     }),
     prisma.transaction.count({ where }),
     prisma.transaction.groupBy({ by: ["type"], where, _sum: { amount: true } }),
+    // What others owe back on the matching expenses isn't your spending.
+    prisma.expenseShare.aggregate({
+      where: { direction: "owed_to_you", transaction: { is: { ...where, type: "expense" } } },
+      _sum: { amount: true },
+    }),
   ]);
 
   const totals = sums.reduce(
@@ -41,6 +46,7 @@ export const GET = withUser(async (user, req: NextRequest) => {
     },
     { income: 0, expense: 0 },
   );
+  totals.expense = Math.max(0, totals.expense - (sharedOut._sum.amount ?? 0));
 
   return json({ transactions: rows.map(serializeTransaction), total, totals });
 });

@@ -1,6 +1,6 @@
 import type { SessionUser } from "@/lib/auth";
 import { getCategoryDetail, getMonthlyAnalytics } from "@/lib/analytics";
-import { filterRange } from "@/lib/calculations";
+import { filterRange, ownAmount } from "@/lib/calculations";
 import {
   countTransactions,
   loadAccounts,
@@ -12,7 +12,7 @@ import {
   loadTransactionTotals,
   loadTransactions,
 } from "@/lib/queries";
-import { loadContacts } from "@/lib/contacts-service";
+import { loadContacts, loadUnassignedShares } from "@/lib/contacts-service";
 import { loadGoalMoney, loadGoalsOverview } from "@/lib/goals-service";
 import { daysInMonth, monthKeyOf, monthRange, parseMonthKey, toISODate, type MonthKey } from "@/lib/dates";
 import type { PerAccountRow, ReportsAnalytics } from "@/components/app/reports-view";
@@ -90,7 +90,7 @@ export const PAGE_LOADERS = {
   },
 
   async people(user: SessionUser) {
-    return { contacts: await loadContacts(user.id) };
+    return { contacts: await loadContacts(user.id), someone: await loadUnassignedShares(user.id) };
   },
 
   async recurring(user: SessionUser) {
@@ -113,7 +113,7 @@ export const PAGE_LOADERS = {
     for (const t of filterRange(txns, start, end)) {
       const row = rowOf(t.accountId);
       row.count += 1;
-      if (t.type === "expense") row.expense += t.amount;
+      if (t.type === "expense") row.expense += ownAmount(t);
       else if (t.type === "income") row.income += t.amount;
       // A transfer is also activity on the account it arrived in.
       if (t.type === "transfer" && t.transferAccountId) rowOf(t.transferAccountId).count += 1;

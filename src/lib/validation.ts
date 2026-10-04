@@ -55,9 +55,12 @@ export const resetSchema = z.object({
   password: z.string().min(8, "Use at least 8 characters").max(200),
 });
 
-/** A contact's share of a transaction's cost — see ExpenseShare in the schema. */
+/**
+ * Someone's share of a transaction's cost — see ExpenseShare in the schema.
+ * Leave `contactId` out for "Someone": a share nobody has been named for yet.
+ */
 export const shareInputSchema = z.object({
-  contactId: z.string().min(1),
+  contactId: z.string().min(1).nullish().transform((v) => v ?? null),
   amount: positivePaise,
 });
 export type ShareInput = z.infer<typeof shareInputSchema>;

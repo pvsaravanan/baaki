@@ -23,6 +23,7 @@ import {
   TYPE_LABELS,
   formatPaymentMethod,
 } from "@/lib/constants";
+import { ownAmountOf } from "@/lib/calculations";
 import type { TransactionDTO } from "@/lib/types";
 import { cn } from "@/lib/cn";
 
@@ -436,7 +437,7 @@ function groupByDay(txns: TransactionDTO[]): DayGroup[] {
     let g = map.get(t.date);
     if (!g) { g = { date: t.date, items: [], net: 0 }; map.set(t.date, g); }
     g.items.push(t);
-    if (t.type === "expense") g.net += t.amount;
+    if (t.type === "expense") g.net += ownAmountOf(t);
     else if (t.type === "income") g.net -= t.amount;
   }
   return [...map.values()];
