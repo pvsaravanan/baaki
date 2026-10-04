@@ -373,4 +373,54 @@ describe("the on-device app", () => {
     expect(twice.status).toBe(400);
     expect((await loadPage("people", {})).contacts.some((c: { name: string }) => c.name === "Priya")).toBe(false);
   });
+
+  it("settles everything open with one person together, moving only the difference", async () => {
+    const shell = await loadPage("shell", {});
+    const bank = shell.accounts[0];
+    const food = shell.categories.find((c: CategoryDTO) => c.systemKey === "food")!.id;
+    const today = new Date().toISOString().slice(0, 10);
+    await call("POST", "/api/transactions", {
+      type: "income", amount: 1_000_000, description: "Pay", date: today, categoryId: shell.categories.find((c: CategoryDTO) => c.kind === "income")!.id, accountId: bank.id,
+    });
+    const balance = async () => (await loadPage("shell", {})).accounts.find((a: AccountDTO) => a.id === bank.id)!.balance;
+    const spent = async () => (await loadPage("dashboard", {})).analytics.current.effectiveExpense;
+    const income = async () => (await loadPage("dashboard", {})).analytics.current.income;
+
+    // Dinner ₹1,000 split with Ritu (she owes ₹500); she also paid ₹300 for you.
+    await call("POST", "/api/transactions", {
+      type: "expense", amount: 100_000, description: "Dinner", date: today, categoryId: food, accountId: bank.id, shares: [{ name: "Ritu", amount: 50_000 }],
+    });
+    const ritu = (await loadPage("people", {})).contacts.find((c: { name: string }) => c.name === "Ritu")!;
+    await call("POST", `/api/contacts/${ritu.id}/shares`, { amount: 30_000, direction: "you_owe", description: "Cab" });
+    const after = (await loadPage("people", {})).contacts.find((c: { name: string }) => c.name === "Ritu")!;
+    expect(after).toMatchObject({ owedToYou: 50_000, youOwe: 30_000, net: 20_000 });
+
+    const startBalance = await balance();
+    const startSpent = await spent();
+    const startIncome = await income();
+    const done = await call<{ settled: { owedToYou: number; youOwe: number; net: number; entries: number } }>(
+      "POST", `/api/contacts/${ritu.id}/settle`, { record: true, accountId: bank.id },
+    );
+    expect(done.status).toBe(200);
+    expect(done.data.settled).toEqual({ owedToYou: 50_000, youOwe: 30_000, net: 20_000, entries: 2 });
+    expect(await balance()).toBe(startBalance + 20_000); // only the difference moves
+    expect(await spent()).toBe(startSpent + 30_000); // the cab you owed is now your cost
+    expect(await income()).toBe(startIncome); // and nothing counts as income
+    expect((await loadPage("people", {})).contacts.find((c: { name: string }) => c.name === "Ritu")).toMatchObject({ owedToYou: 0, youOwe: 0, net: 0 });
+
+    // Nothing left open, so settling again is refused.
+    expect((await call("POST", `/api/contacts/${ritu.id}/settle`, { record: true, accountId: bank.id })).status).toBe(400);
+  });
+
+  it("settles a person's entries without touching an account when asked not to", async () => {
+    const { data: people } = await call<{ contacts: { id: string; name: string }[] }>("POST", "/api/contacts", { name: "Dev" });
+    const dev = people.contacts.find((c) => c.name === "Dev")!;
+    await call("POST", `/api/contacts/${dev.id}/shares`, { amount: 12_000, direction: "you_owe", description: "Tickets" });
+    await call("POST", `/api/contacts/${dev.id}/shares`, { amount: 5_000, direction: "owed_to_you", description: "Snacks" });
+    const balances = async () => (await loadPage("shell", {})).accounts.map((a: AccountDTO) => a.balance);
+    const before = await balances();
+    expect((await call("POST", `/api/contacts/${dev.id}/settle`, {})).status).toBe(200);
+    expect(await balances()).toEqual(before);
+    expect((await loadPage("people", {})).contacts.find((c: { name: string }) => c.name === "Dev")).toMatchObject({ net: 0 });
+  });
 });

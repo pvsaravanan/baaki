@@ -12,6 +12,7 @@ import * as r_categories_id from "./api/categories/[id]/route";
 import * as r_categories from "./api/categories/route";
 import * as r_categorize from "./api/categorize/route";
 import * as r_contacts_id from "./api/contacts/[id]/route";
+import * as r_contacts_id_settle from "./api/contacts/[id]/settle/route";
 import * as r_contacts_id_shares from "./api/contacts/[id]/shares/route";
 import * as r_contacts from "./api/contacts/route";
 import * as r_export from "./api/export/route";
@@ -61,6 +62,7 @@ const ROUTES: [string, object][] = [
   ["/api/categories", r_categories],
   ["/api/categorize", r_categorize],
   ["/api/contacts/:id", r_contacts_id],
+  ["/api/contacts/:id/settle", r_contacts_id_settle],
   ["/api/contacts/:id/shares", r_contacts_id_shares],
   ["/api/contacts", r_contacts],
   ["/api/export", r_export],

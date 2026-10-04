@@ -193,6 +193,72 @@ export async function settleShare(
   });
 }
 
+/** The open entries with one person, and what settling them all comes to. */
+export interface NetSettlement {
+  owedToYou: number; // paise they owe you
+  youOwe: number; // paise you owe them
+  net: number; // owedToYou - youOwe; positive: they pay you
+  entries: number;
+}
+
+/**
+ * Settle everything open with one person at once. Each entry is settled as it
+ * would be on its own, but the bank movements are recorded together, so the
+ * account changes by the net amount actually handed over:
+ *   - what they owed you → a Repayment (raises the balance; not income)
+ *   - what you owed them → an Expense (the cost of what they paid for you)
+ * Settling without recording only clears the ledger.
+ */
+export async function settleContactNet(
+  userId: string,
+  contactId: string,
+  opts: { record?: boolean; accountId?: string | null },
+): Promise<NetSettlement> {
+  const contact = await prisma.contact.findFirst({ where: { id: contactId, userId }, select: { id: true, name: true } });
+  if (!contact) throw new NotFoundError("Contact not found");
+  const open = await prisma.expenseShare.findMany({
+    where: { contactId, settled: false, ...LIVE_SHARE },
+    select: { id: true, amount: true, direction: true },
+  });
+  if (open.length === 0) throw new BadRequestError("Nothing to settle with this person");
+
+  const owedToYou = open.filter((s) => s.direction !== "you_owe").reduce((sum, s) => sum + s.amount, 0);
+  const youOwe = open.filter((s) => s.direction === "you_owe").reduce((sum, s) => sum + s.amount, 0);
+  const result: NetSettlement = { owedToYou, youOwe, net: owedToYou - youOwe, entries: open.length };
+
+  let accountId: string | null = null;
+  if (opts.record) {
+    if (!opts.accountId?.trim()) throw new BadRequestError("Choose an account to record the settlement");
+    const account = await prisma.account.findFirst({ where: { id: opts.accountId, userId }, select: { id: true } });
+    if (!account) throw new NotFoundError("Account not found");
+    accountId = account.id;
+    // Refuse before anything changes if the account can't cover what you pay out.
+    await assertSufficientBalance(userId, [], [
+      { type: "repayment", amount: owedToYou, accountId },
+      { type: "expense", amount: youOwe, accountId },
+    ]);
+  }
+
+  await prisma.$transaction(async (db) => {
+    // Claim the entries first (see settleShare): a concurrent settle can't
+    // record the same movements twice.
+    const claimed = await db.expenseShare.updateMany({
+      where: { id: { in: open.map((s) => s.id) }, settled: false },
+      data: { settled: true, settledAt: new Date() },
+    });
+    if (claimed.count !== open.length) throw new BadRequestError("These entries changed. Try again.");
+    if (!accountId) return;
+    const base = { userId, date: new Date(), accountId, notes: `Settled up with ${contact.name}` };
+    if (owedToYou > 0) {
+      await db.transaction.create({ data: { ...base, type: "repayment", amount: owedToYou, description: `${contact.name} paid back` } });
+    }
+    if (youOwe > 0) {
+      await db.transaction.create({ data: { ...base, type: "expense", amount: youOwe, description: `Paid ${contact.name} back` } });
+    }
+  });
+  return result;
+}
+
 /** Shares nobody has been named for yet ("Someone"), still owed to you, newest first. */
 export async function loadUnassignedShares(userId: string): Promise<ContactShareRow[]> {
   const rows = await prisma.expenseShare.findMany({

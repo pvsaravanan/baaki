@@ -10,22 +10,33 @@ import type { ContactDTO } from "@/lib/types";
 import type { ContactShareRow } from "@/lib/contacts-service";
 import { SettleModal } from "./settle-modal";
 import { RecordEntryModal } from "./record-entry-modal";
+import { NetSettleModal } from "./net-settle-modal";
 
 export function ContactShares({ contact, onSettled }: { contact: ContactDTO; onSettled: () => void }) {
   const { data, mutate } = useSWR<{ shares: ContactShareRow[] }>(`/api/contacts/${contact.id}/shares`, swrFetcher);
   const [settling, setSettling] = useState<ContactShareRow | null>(null);
   const [recordOpen, setRecordOpen] = useState(false);
+  const [netOpen, setNetOpen] = useState(false);
   const toast = useToast();
 
   const shares = data?.shares ?? [];
+  // Two or more open entries can be settled together; one is just "Settle".
+  const canSettleNet = shares.filter((s) => !s.settled).length >= 2;
 
   return (
     <>
       <div className="mb-2 flex items-center justify-between">
         <span className="text-label-sm uppercase text-faint">Ledger</span>
-        <button type="button" onClick={() => setRecordOpen(true)} className="text-label-sm uppercase text-brand-hover hover:underline">
-          + Record entry
-        </button>
+        <div className="flex items-center gap-4">
+          {canSettleNet && (
+            <button type="button" onClick={() => setNetOpen(true)} className="text-label-sm uppercase text-brand-hover hover:underline">
+              Settle net
+            </button>
+          )}
+          <button type="button" onClick={() => setRecordOpen(true)} className="text-label-sm uppercase text-brand-hover hover:underline">
+            + Record entry
+          </button>
+        </div>
       </div>
 
       {data && shares.length === 0 ? (
@@ -65,6 +76,19 @@ export function ContactShares({ contact, onSettled }: { contact: ContactDTO; onS
           mutate();
           onSettled();
           toast.success("Marked as settled");
+        }}
+      />
+
+      <NetSettleModal
+        contact={contact}
+        shares={shares}
+        open={netOpen}
+        onClose={() => setNetOpen(false)}
+        onSettled={() => {
+          setNetOpen(false);
+          mutate();
+          onSettled();
+          toast.success("Settled up");
         }}
       />
 
