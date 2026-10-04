@@ -69,6 +69,7 @@ export function serializeContact(c: Contact, owedToYou: number, youOwe: number):
     id: c.id,
     name: c.name,
     color: c.color,
+    avatarUrl: c.avatarUrl,
     isArchived: c.isArchived,
     owedToYou,
     youOwe,

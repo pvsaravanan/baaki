@@ -25,12 +25,17 @@ export function ContactCard({
   return (
     <li className={cn("rounded-none border border-border bg-surface", contact.isArchived && "opacity-70")}>
       <button onClick={onToggle} className="flex w-full items-center gap-3 p-4 text-left">
-        <span
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-none text-sm font-semibold"
-          style={{ color: contact.color, borderColor: contact.color }}
-        >
-          {initials}
-        </span>
+        {contact.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={contact.avatarUrl} alt="" className="h-10 w-10 shrink-0 rounded-none object-cover" />
+        ) : (
+          <span
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-none text-sm font-semibold"
+            style={{ color: contact.color, borderColor: contact.color }}
+          >
+            {initials}
+          </span>
+        )}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className="truncate text-sm font-semibold text-fg">{contact.name}</p>

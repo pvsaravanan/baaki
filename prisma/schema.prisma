@@ -301,6 +301,8 @@ model Contact {
   userId     String
   name       String
   color      String   @default("#64748b")
+  // Photo copied from the phone's address book (a small data: URL), if any.
+  avatarUrl  String?
   isArchived Boolean  @default(false)
   createdAt  DateTime @default(now())
 

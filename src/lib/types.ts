@@ -78,6 +78,7 @@ export interface ContactDTO {
   id: string;
   name: string;
   color: string;
+  avatarUrl: string | null;
   isArchived: boolean;
   owedToYou: number; // unsettled amount the contact owes you (paise)
   youOwe: number; // unsettled amount you owe the contact (paise)

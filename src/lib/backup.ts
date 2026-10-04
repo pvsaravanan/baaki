@@ -51,7 +51,7 @@ const SPECS = {
     createdAt: "d", updatedAt: "d",
   },
   goalContributions: { id: "s", goalId: "s", amount: "i", date: "d", note: "s?", createdAt: "d" },
-  contacts: { id: "s", name: "s", color: "s", isArchived: "b", createdAt: "d" },
+  contacts: { id: "s", name: "s", color: "s", avatarUrl: "s?", isArchived: "b", createdAt: "d" },
   expenseShares: {
     id: "s", transactionId: "s?", contactId: "s", amount: "i", direction: "s", description: "s?", date: "d",
     settled: "b", settledAt: "d?", createdAt: "d",

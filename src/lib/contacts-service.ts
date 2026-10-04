@@ -65,16 +65,16 @@ export async function loadContacts(userId: string): Promise<ContactDTO[]> {
   });
 }
 
-export async function createContact(userId: string, input: { name: string; color?: string }) {
+export async function createContact(userId: string, input: { name: string; color?: string; avatarUrl?: string | null }) {
   return prisma.contact.create({
-    data: { userId, name: input.name.trim(), color: input.color ?? "#64748b" },
+    data: { userId, name: input.name.trim(), color: input.color ?? "#64748b", avatarUrl: input.avatarUrl ?? null },
   });
 }
 
 export async function updateContact(
   userId: string,
   id: string,
-  input: Partial<{ name: string; color: string; isArchived: boolean }>,
+  input: Partial<{ name: string; color: string; avatarUrl: string | null; isArchived: boolean }>,
 ): Promise<void> {
   const existing = await prisma.contact.findFirst({ where: { id, userId } });
   if (!existing) throw new NotFoundError("Contact not found");
@@ -83,6 +83,7 @@ export async function updateContact(
     data: {
       ...(input.name !== undefined && { name: input.name.trim() }),
       ...(input.color !== undefined && { color: input.color }),
+      ...(input.avatarUrl !== undefined && { avatarUrl: input.avatarUrl }),
       ...(input.isArchived !== undefined && { isArchived: input.isArchived }),
     },
   });

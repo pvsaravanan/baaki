@@ -329,4 +329,14 @@ describe("the on-device app", () => {
     expect(named.data.someone.find((s) => (s as { id: string }).id === share.id)).toBeUndefined();
     expect(named.data.contacts.find((c) => c.name === "Mohammed")?.owedToYou).toBe(10_000);
   });
+
+  it("keeps a person's photo from the phone's contacts", async () => {
+    const photo = "data:image/jpeg;base64,/9j/4AAQSkZJRg==";
+    const { data } = await call<{ contacts: { name: string; avatarUrl: string | null }[] }>(
+      "POST", "/api/contacts", { name: "Meera", avatarUrl: photo },
+    );
+    expect(data.contacts.find((c) => c.name === "Meera")?.avatarUrl).toBe(photo);
+    const bad = await call("POST", "/api/contacts", { name: "Ravi", avatarUrl: "https://example.com/x.png" });
+    expect(bad.status).toBe(422);
+  });
 });

@@ -108,6 +108,8 @@ export type TransactionInput = z.infer<typeof transactionSchema>;
 export const contactSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(80),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default("#64748b"),
+  // A photo from the address book, already shrunk on the phone.
+  avatarUrl: z.string().regex(/^data:image\/(jpeg|png|webp);base64,/).max(150_000).nullish(),
 });
 
 /** A standalone ledger entry against a contact (not tied to a transaction). */
