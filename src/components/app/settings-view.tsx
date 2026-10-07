@@ -180,6 +180,13 @@ export function SettingsView() {
   }
 
   async function handleRemoveAvatar() {
+    const ok = await confirm({
+      title: "Remove your photo?",
+      message: "Your profile photo will be removed. You can upload a new one any time.",
+      confirmLabel: "Remove",
+      danger: true,
+    });
+    if (!ok) return;
     setUploadingAvatar(true);
     try {
       const res = await localFetch("/api/user/avatar", { method: "DELETE" });
