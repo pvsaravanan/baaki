@@ -18,6 +18,7 @@ import { Modal } from "@/components/ui/modal";
 import { Badge, EmptyState } from "@/components/ui/misc";
 import { useToast } from "@/components/ui/toast";
 import { useConfirm } from "@/components/ui/confirm";
+import { ActionMenu, ActionMenuItem } from "@/components/ui/action-menu";
 import { Money } from "@/components/money";
 import { CategoryIcon } from "@/components/app/category-icon";
 import { SectionIcon } from "@/components/app/section-icon";
@@ -332,57 +333,27 @@ function RecurringRow({
         >
           <MoreVertical className="h-4 w-4" />
         </button>
-        {menuOpen && (
-          <>
-            <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-            <div className="absolute right-0 z-20 mt-1 w-44 rounded-none border border-border bg-surface p-1 shadow-pop animate-scale-in">
-              <MenuItem icon={<Pencil className="h-4 w-4" />} onClick={() => { setMenuOpen(false); onEdit(rule); }}>
-                Edit
-              </MenuItem>
-              <MenuItem icon={<Zap className="h-4 w-4" />} onClick={onPostNow}>
-                Post now
-              </MenuItem>
-              <MenuItem icon={<SkipForward className="h-4 w-4" />} onClick={onSkip}>
-                Skip next
-              </MenuItem>
-              <MenuItem
-                icon={rule.isActive ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                onClick={onToggleActive}
-              >
-                {rule.isActive ? "Pause" : "Resume"}
-              </MenuItem>
-              <MenuItem icon={<Trash2 className="h-4 w-4" />} onClick={onDelete} danger>
-                Delete
-              </MenuItem>
-            </div>
-          </>
-        )}
+        <ActionMenu open={menuOpen} onClose={() => setMenuOpen(false)} width={176} label={`Actions for ${rule.name}`}>
+          <ActionMenuItem icon={<Pencil className="h-4 w-4" />} onClick={() => { setMenuOpen(false); onEdit(rule); }}>
+            Edit
+          </ActionMenuItem>
+          <ActionMenuItem icon={<Zap className="h-4 w-4" />} onClick={onPostNow}>
+            Post now
+          </ActionMenuItem>
+          <ActionMenuItem icon={<SkipForward className="h-4 w-4" />} onClick={onSkip}>
+            Skip next
+          </ActionMenuItem>
+          <ActionMenuItem
+            icon={rule.isActive ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+            onClick={onToggleActive}
+          >
+            {rule.isActive ? "Pause" : "Resume"}
+          </ActionMenuItem>
+          <ActionMenuItem icon={<Trash2 className="h-4 w-4" />} onClick={onDelete} danger>
+            Delete
+          </ActionMenuItem>
+        </ActionMenu>
       </div>
     </div>
-  );
-}
-
-function MenuItem({
-  icon,
-  children,
-  onClick,
-  danger,
-}: {
-  icon: React.ReactNode;
-  children: React.ReactNode;
-  onClick: () => void;
-  danger?: boolean;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "flex w-full items-center gap-2 rounded-none px-2.5 py-1.5 text-sm transition-colors hover:bg-surface-2",
-        danger ? "text-expense" : "text-fg",
-      )}
-    >
-      <span className={danger ? "text-expense" : "text-muted"}>{icon}</span>
-      {children}
-    </button>
   );
 }

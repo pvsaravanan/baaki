@@ -6,6 +6,7 @@ import { SectionIcon } from "./section-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/field";
 import { SelectMenu } from "@/components/ui/select-menu";
+import { AnchoredPopover, isInsidePopover } from "@/components/ui/anchored-popover";
 import { EmptyState, Skeleton } from "@/components/ui/misc";
 import { Money } from "@/components/money";
 import { useConfirm } from "@/components/ui/confirm";
@@ -59,6 +60,7 @@ export function TransactionsView({
   const [debouncedQ, setDebouncedQ] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const filterPanelRef = useRef<HTMLDivElement>(null);
+  const filterWrapperRef = useRef<HTMLDivElement>(null);
   const [take, setTake] = useState(50);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -69,12 +71,16 @@ export function TransactionsView({
     return () => clearTimeout(t);
   }, [filters.q]);
 
-  // Filter panel: anchored dropdown, not a modal — page content stays
-  // visible and interactive around it, closing on outside click or Escape.
+  // Filter panel: a dropdown pinned to the Filters button, not a modal — page
+  // content stays visible and interactive around it, closing on an outside
+  // tap or Escape. Its selects' option lists float separately (see
+  // AnchoredPopover), so a tap in one of those isn't "outside".
   useEffect(() => {
     if (!showFilters) return;
     const onPointerDown = (e: PointerEvent) => {
-      if (filterPanelRef.current && !filterPanelRef.current.contains(e.target as Node)) setShowFilters(false);
+      const target = e.target as Element | null;
+      if (target?.closest?.("[data-popover]")) return;
+      if (!isInsidePopover(target, filterPanelRef.current, filterWrapperRef.current)) setShowFilters(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setShowFilters(false);
@@ -206,7 +212,7 @@ export function TransactionsView({
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
           <Input value={filters.q} onChange={(e) => set({ q: e.target.value })} placeholder="Search description, notes, merchant…" className="pl-9" />
         </div>
-        <div className="relative">
+        <div ref={filterWrapperRef} className="relative">
           <Button
             variant={showFilters || activeChips.length ? "secondary" : "outline"}
             onClick={() => setShowFilters((s) => !s)}
@@ -218,13 +224,16 @@ export function TransactionsView({
             {activeChips.length > 0 && <span className="ml-1 rounded-none bg-brand px-1.5 text-2xs text-brand-fg">{activeChips.length}</span>}
           </Button>
 
-          {showFilters && (
-            <div
-              ref={filterPanelRef}
-              role="dialog"
-              aria-label="Filters"
-              className="absolute right-0 top-full z-30 mt-1.5 w-[min(92vw,34rem)] overflow-hidden rounded-none border-2 border-border bg-surface shadow-stamp-lg animate-scale-in"
-            >
+          {/* 34rem, right-aligned to the button (the full width, less margins, on phones). */}
+          <AnchoredPopover
+            ref={filterPanelRef}
+            open={showFilters}
+            role="dialog"
+            aria-label="Filters"
+            width={544}
+            preferredHeight={560}
+            scroll="content"
+          >
               <div className="flex items-center justify-between border-b border-border bg-brand-soft px-4 py-2.5">
                 <span className="text-sm font-semibold text-fg">Filters</span>
                 <button type="button" onClick={() => setShowFilters(false)} aria-label="Close" className="text-muted hover:text-fg">
@@ -232,7 +241,7 @@ export function TransactionsView({
                 </button>
               </div>
 
-              <div className="max-h-[60vh] overflow-y-auto p-4">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
                 <div className="grid grid-cols-2 gap-3">
                   <FilterField label="Type">
                     <SelectMenu
@@ -304,8 +313,7 @@ export function TransactionsView({
                 <Button variant="ghost" onClick={() => setFilters(EMPTY)}>Clear all</Button>
                 <Button onClick={() => setShowFilters(false)}>Done</Button>
               </div>
-            </div>
-          )}
+          </AnchoredPopover>
         </div>
         <Button variant={selectMode ? "secondary" : "outline"} onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}>
           <CheckSquare className="h-4 w-4" />
