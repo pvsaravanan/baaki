@@ -25,6 +25,9 @@ export function FitToWidth({
     const el = outer.current;
     if (!el) return;
     const measure = () => {
+      // Hidden (display: none) at some screen sizes: nothing to measure, and a
+      // zero width would make the height 0 / 0 = NaN.
+      if (el.clientWidth === 0) return;
       const scale = Math.min(maxScale, el.clientWidth / designWidth);
       setBox({ scale, height: el.clientHeight / scale });
     };
