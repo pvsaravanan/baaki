@@ -36,10 +36,12 @@ export function PeopleView({ contacts: initial, someone: initialSomeone }: { con
   // meant to preserve their unsettled debts (see deleteContact), so the
   // summary totals must still include archived contacts or it understates
   // what's actually owed.
+  // Totals are per person, net — the same figure each row shows — so someone
+  // who both owes you and is owed by you counts once, on the side they land.
   const totalOwedToYou =
-    contacts.reduce((sum, c) => sum + c.owedToYou, 0) +
+    contacts.reduce((sum, c) => sum + Math.max(c.net, 0), 0) +
     someone.filter((s) => !s.settled).reduce((sum, s) => sum + s.amount, 0);
-  const totalYouOwe = contacts.reduce((sum, c) => sum + c.youOwe, 0);
+  const totalYouOwe = contacts.reduce((sum, c) => sum + Math.max(-c.net, 0), 0);
 
   function openAdd() {
     setEditing(null);
