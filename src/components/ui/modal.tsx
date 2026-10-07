@@ -170,7 +170,16 @@ export function Modal({
             </button>
           </div>
         )}
-        <div ref={contentRef} className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">{children}</div>
+        <div
+          ref={contentRef}
+          // Without a footer the content is the panel's bottom edge, so it clears the system navigation bar itself.
+          className={cn(
+            "flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5",
+            !footer && "pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-4",
+          )}
+        >
+          {children}
+        </div>
         {footer && (
           <div className="border-t border-border bg-surface-2/50 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-5 sm:pb-3">
             {footer}
