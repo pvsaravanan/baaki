@@ -3,6 +3,7 @@ import { ArrowLeft } from "lucide-react";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/misc";
 import { CategoryIcon } from "@/components/app/category-icon";
+import { CategoryActions } from "@/components/app/category-actions";
 import { Money } from "@/components/money";
 import { SpendBars, CategoryDonut, BudgetGauge } from "@/components/charts/chart-kit";
 import { formatDelta, formatINR } from "@/lib/money";
@@ -32,15 +33,16 @@ export function CategoryDetailView({ category, detail }: { category: CategoryDTO
           <ArrowLeft className="h-3.5 w-3.5" />
           Categories
         </Link>
-        <div className="mt-2 flex items-center gap-3 border-b border-border pb-md">
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-3 border-b border-border pb-md">
           <CategoryIcon icon={category.icon} size={40} />
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h1 className="text-headline-md text-fg sm:text-headline-lg">{category.name}</h1>
             <p className="mt-1 text-body-sm text-muted">
               {!category.isActive && "Inactive · "}
               How this category&apos;s {income ? "income" : "spend"} has moved over time.
             </p>
           </div>
+          <CategoryActions category={category} />
         </div>
       </div>
 
