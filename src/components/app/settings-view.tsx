@@ -18,6 +18,7 @@ import { AvatarCropModal } from "./avatar-crop-modal";
 import { UserAvatar } from "./user-avatar";
 import { ExportModal } from "./export-modal";
 import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/components/ui/confirm";
 
 interface WidgetItem {
   key: WidgetKey;
@@ -57,6 +58,7 @@ const SECTIONS = [
 export function SettingsView() {
   const { user, accounts, preference, refresh } = useAppData();
   const { success, error } = useToast();
+  const confirm = useConfirm();
   const router = useRouter();
 
   const [signingOut, setSigningOut] = useState(false);
@@ -120,6 +122,13 @@ export function SettingsView() {
   }
 
   async function handleRemoveAvatar() {
+    const ok = await confirm({
+      title: "Remove your photo?",
+      message: "Your profile photo will be removed. You can upload a new one any time.",
+      confirmLabel: "Remove",
+      danger: true,
+    });
+    if (!ok) return;
     setUploadingAvatar(true);
     try {
       const res = await fetch("/api/user/avatar", { method: "DELETE" });
