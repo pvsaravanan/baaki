@@ -63,7 +63,7 @@ export function DeltaBadge({ delta, good = "up" }: { delta: number | null; good?
       )}
     >
       {up ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-      {formatDelta(Math.abs(delta))}
+      {formatDelta(delta)}
       <span className="ml-0.5 text-faint">vs last mo</span>
     </span>
   );
