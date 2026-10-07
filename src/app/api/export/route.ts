@@ -94,7 +94,7 @@ export const GET = withUser(async (user, req: NextRequest) => {
   }
 
   // Full JSON backup.
-  const [transactions, categories, accounts, budgets, goals, recurring, tags] = await Promise.all([
+  const [transactions, categories, accounts, budgets, goals, recurring, tags, contacts, shares] = await Promise.all([
     prisma.transaction.findMany({ where: { userId: user.id, deletedAt: null }, include: { tags: { include: { tag: true } } } }),
     prisma.category.findMany({ where: { userId: user.id } }),
     prisma.account.findMany({ where: { userId: user.id } }),
@@ -102,6 +102,9 @@ export const GET = withUser(async (user, req: NextRequest) => {
     prisma.financialGoal.findMany({ where: { userId: user.id }, include: { contributions: true } }),
     prisma.recurringTransaction.findMany({ where: { userId: user.id } }),
     prisma.tag.findMany({ where: { userId: user.id } }),
+    prisma.contact.findMany({ where: { userId: user.id } }),
+    // Shares belong to a person and/or a transaction ("Someone" shares have only the latter).
+    prisma.expenseShare.findMany({ where: { OR: [{ contact: { userId: user.id } }, { transaction: { userId: user.id } }] } }),
   ]);
 
   const backup = {
@@ -125,6 +128,11 @@ export const GET = withUser(async (user, req: NextRequest) => {
       nextOccurrence: toISODate(r.nextOccurrence),
     })),
     tags,
+    contacts,
+    expenseShares: shares.map((sh) => ({
+      ...sh,
+      date: toISODate(sh.date),
+    })),
   };
 
   return new Response(JSON.stringify(backup, null, 2), {
