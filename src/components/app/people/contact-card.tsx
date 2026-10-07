@@ -27,7 +27,7 @@ export function ContactCard({
       <button onClick={onToggle} className="flex w-full items-center gap-3 p-4 text-left">
         {contact.avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={contact.avatarUrl} alt="" className="h-10 w-10 shrink-0 rounded-none object-cover" />
+          <img src={contact.avatarUrl} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
         ) : (
           <span
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-none text-sm font-semibold"

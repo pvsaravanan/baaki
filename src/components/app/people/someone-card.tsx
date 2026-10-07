@@ -54,8 +54,8 @@ export function SomeoneCard({
   return (
     <li className="rounded-none border border-border bg-surface">
       <button onClick={() => setExpanded((e) => !e)} className="flex w-full items-center gap-3 p-4 text-left">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-none border border-border bg-surface-2 text-muted">
-          <UserRound className="h-5 w-5" />
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center text-muted">
+          <UserRound className="h-6 w-6" />
         </span>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-fg">Someone</p>
