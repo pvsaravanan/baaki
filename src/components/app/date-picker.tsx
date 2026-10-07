@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { daysInMonth, fromISODate, monthKeyOf, monthLabel, nextMonth, prevMonth, type MonthKey } from "@/lib/dates";
 import { cn } from "@/lib/cn";
+import { AnchoredPopover, isInsidePopover } from "@/components/ui/anchored-popover";
 
 const WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
 
@@ -49,6 +50,7 @@ export function DatePicker({
 }) {
   const [viewMonth, setViewMonth] = useState<MonthKey>(() => startMonthFor(value));
   const panelRef = useRef<HTMLDivElement>(null);
+  const markerRef = useRef<HTMLSpanElement>(null);
 
   // Re-open showing the selected date's month (or this month, if nothing's
   // selected yet), not wherever the picker was last left scrolled to.
@@ -59,16 +61,21 @@ export function DatePicker({
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (e: PointerEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) onClose();
+      // A tap on the trigger toggles it (the caller's onClick), rather than closing and reopening.
+      if (!isInsidePopover(e.target, panelRef.current, markerRef.current?.parentElement ?? null)) onClose();
     };
+    // Captured, and stopped here: Escape (or Android's Back) closes just this
+    // popup, not the form or sheet it sits in.
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key !== "Escape") return;
+      e.stopImmediatePropagation();
+      onClose();
     };
     document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKey);
+    document.addEventListener("keydown", onKey, true);
     return () => {
       document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("keydown", onKey, true);
     };
   }, [open, onClose]);
 
@@ -79,16 +86,8 @@ export function DatePicker({
   const count = daysInMonth(viewMonth);
 
   return (
-    <div
-      ref={panelRef}
-      role="dialog"
-      aria-label={title}
-      className={cn(
-        "absolute left-0 right-0 top-full z-30 mt-1.5 w-full overflow-hidden",
-        "rounded-none border-2 border-border bg-surface shadow-stamp-lg animate-scale-in",
-        "sm:left-auto sm:right-0 sm:w-80",
-      )}
-    >
+    // Full trigger width on phones; 20rem, right-aligned, from `sm` up.
+    <AnchoredPopover ref={panelRef} markerRef={markerRef} open role="dialog" aria-label={title} width={{ sm: 320 }} preferredHeight={400}>
       <div className="flex items-center justify-between border-b border-border bg-brand-soft px-4 py-2.5">
         <span className="text-sm font-semibold text-fg">{title}</span>
         <div className="flex items-center gap-3">
@@ -167,6 +166,6 @@ export function DatePicker({
           })}
         </div>
       </div>
-    </div>
+    </AnchoredPopover>
   );
 }
