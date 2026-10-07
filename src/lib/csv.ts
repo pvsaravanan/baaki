@@ -14,7 +14,9 @@ function csvCell(value: string | number | null | undefined): string {
   // interpreted as a live formula by Excel/Sheets when the file is opened
   // there. A leading single quote forces it to be read as plain text (free
   // text fields like description/merchant/notes flow straight into cells).
-  if (/^[=+\-@]/.test(s)) s = `'${s}`;
+  // A plain negative number ("-350.50") can't be a formula and must stay a
+  // number, so running balances and the like aren't turned into text.
+  if (/^[=+\-@]/.test(s) && !/^-\d+(\.\d+)?$/.test(s)) s = `'${s}`;
   if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
   return s;
 }
