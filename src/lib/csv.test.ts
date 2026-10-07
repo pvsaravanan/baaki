@@ -9,13 +9,18 @@ describe("buildCSV", () => {
   });
 
   it("neutralizes a leading formula character to prevent CSV/formula injection", () => {
-    const csv = buildCSV(["a"], [["=cmd|' /C calc'!A1"], ["+1"], ["-1"], ["@SUM(1)"], ["plain"]]);
+    const csv = buildCSV(["a"], [["=cmd|' /C calc'!A1"], ["+1"], ["-1+cmd|' /C calc'!A1"], ["@SUM(1)"], ["plain"]]);
     const lines = csv.split("\r\n");
     expect(lines[1]).toBe("'=cmd|' /C calc'!A1");
     expect(lines[2]).toBe("'+1");
-    expect(lines[3]).toBe("'-1");
+    expect(lines[3]).toBe("'-1+cmd|' /C calc'!A1");
     expect(lines[4]).toBe("'@SUM(1)");
     expect(lines[5]).toBe("plain");
+  });
+
+  it("leaves a plain negative number as a number", () => {
+    const csv = buildCSV(["a"], [["-350.50"], ["-1"], [-20]]);
+    expect(csv.split("\r\n").slice(1)).toEqual(["-350.50", "-1", "-20"]);
   });
 });
 
