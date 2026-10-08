@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { Fingerprint } from "lucide-react";
-import { lockAvailability, unlockWithDevice } from "@/lib/app-lock";
+import { lockAvailability, setPrivacyScreen, unlockWithDevice } from "@/lib/app-lock";
 import { Logo, Wordmark } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 
@@ -26,6 +26,12 @@ export function LockGate({ enabled, children }: { enabled: boolean; children: Re
     setPrompting(false);
     if (ok) setLocked(false);
   }, []);
+
+  // While the lock is on, the recent-apps screen shows a blank card instead of
+  // the app, so balances aren't readable from the app switcher.
+  useEffect(() => {
+    void setPrivacyScreen(active);
+  }, [active]);
 
   // Turning the lock on in Settings shouldn't lock you out on the spot.
   useEffect(() => {

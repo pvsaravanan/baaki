@@ -127,8 +127,12 @@ export function SettingsView() {
   async function handleAppLock(on: boolean) {
     setSavingLock(true);
     try {
-      // Turning it on proves the unlock works before the app starts relying on it.
-      if (on && !(await unlockWithDevice("Turn on the app lock"))) return;
+      // Turning it on proves the unlock works before the app starts relying on it;
+      // turning it off needs the same, so a phone left open can't drop the lock.
+      // (If the phone has lost its screen lock the lock already stands aside, and
+      // there is nothing to unlock with — let it be switched off.)
+      const canAsk = on || (await lockAvailability().catch(() => ({ available: false }))).available;
+      if (canAsk && !(await unlockWithDevice(on ? "Turn on the app lock" : "Turn off the app lock"))) return;
       await apiPatch("/api/preferences", { appLock: on });
       success(on ? "App lock is on" : "App lock is off");
       refresh();

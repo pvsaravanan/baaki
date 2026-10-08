@@ -1,5 +1,5 @@
 "use client";
-import { Capacitor } from "@capacitor/core";
+import { Capacitor, registerPlugin } from "@capacitor/core";
 
 /**
  * The optional app lock: the phone's own fingerprint / face unlock, with its
@@ -24,6 +24,19 @@ export async function lockAvailability(): Promise<{ available: boolean; reason?:
     return { available: false, reason: "Set a screen lock (PIN, pattern or password) on your phone first." };
   }
   return { available: true };
+}
+
+/**
+ * Hides the app from Android's recent-apps screen (on) or shows it again (off).
+ * Meant to follow the app lock setting. Does nothing outside the Android app.
+ */
+export async function setPrivacyScreen(enabled: boolean): Promise<void> {
+  if (!Capacitor.isNativePlatform()) return;
+  try {
+    await registerPlugin<{ setEnabled(options: { enabled: boolean }): Promise<void> }>("PrivacyScreen").setEnabled({ enabled });
+  } catch {
+    // An older install without the plugin: the lock still works, only the preview isn't hidden.
+  }
 }
 
 /** Ask for fingerprint / screen lock. Resolves true when the person unlocked. */
