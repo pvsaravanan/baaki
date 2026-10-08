@@ -42,7 +42,8 @@
 
     <!-- Permissions -->
 
-    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- No INTERNET permission on purpose: baaki runs entirely on the phone, so the
+         system itself stops it from ever opening a network connection. -->
     <!-- Picking a person from the phone's contacts (name and photo). The
          contacts plugin asks for read and write as one group; baaki only reads. -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
