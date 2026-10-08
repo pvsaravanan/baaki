@@ -1,5 +1,15 @@
 apply plugin: 'com.android.application'
 
+// Release signing: read from a properties file kept OUTSIDE the repo (default
+// ~/.baaki-signing/signing.properties, or the path in BAAKI_SIGNING) with
+// storeFile, storePassword, keyAlias and keyPassword. Without it the release
+// build is simply left unsigned, so CI and other machines still build.
+def signingProps = new Properties()
+def signingFile = file(System.getenv("BAAKI_SIGNING") ?: "${System.getProperty('user.home')}/.baaki-signing/signing.properties")
+if (signingFile.exists()) {
+    signingFile.withInputStream { signingProps.load(it) }
+}
+
 android {
     namespace = "app.baaki"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -8,7 +18,7 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
-        versionName "1.0"
+        versionName "1.0.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,8 +26,21 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (signingProps.containsKey("storeFile")) {
+                storeFile file(signingProps["storeFile"])
+                storePassword signingProps["storePassword"]
+                keyAlias signingProps["keyAlias"]
+                keyPassword signingProps["keyPassword"]
+            }
+        }
+    }
     buildTypes {
         release {
+            if (signingProps.containsKey("storeFile")) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
