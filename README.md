@@ -19,6 +19,14 @@ phone; the database is Postgres compiled to WebAssembly (PGlite).
 
 Built with Next.js (static export), TypeScript, Prisma, PGlite, Capacitor and Tailwind CSS.
 
+## Download
+
+**[Download the latest baaki APK](https://github.com/pvsaravanan/baaki/releases/latest)** —
+for Android 7.0 or newer. Open the file on your phone to install it; Android may ask
+you to allow installs from your browser or files app. Your data stays on the phone, so
+take a backup from Settings now and then. Each release lists its checksum, and all
+versions are on the [Releases](https://github.com/pvsaravanan/baaki/releases) page.
+
 ## Run it
 
 ```bash
