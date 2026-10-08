@@ -10,8 +10,8 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
 
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
-      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-none bg-expense/10 text-expense">
-        <AlertTriangle className="h-6 w-6" />
+      <div className="mb-4 flex h-12 w-12 items-center justify-center text-expense">
+        <AlertTriangle className="h-10 w-10" />
       </div>
       <h2 className="text-lg font-semibold text-fg">Something went wrong</h2>
       <p className="mt-1 max-w-sm text-sm text-muted">
