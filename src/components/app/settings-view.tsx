@@ -552,7 +552,7 @@ function ActionRow({
 }) {
   const inner = (
     <>
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center border border-border bg-surface-2 text-fg">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center text-fg">
         {icon}
       </span>
       <span className="min-w-0 flex-1">

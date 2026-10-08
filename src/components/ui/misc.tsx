@@ -84,7 +84,7 @@ export function EmptyState({
       {illustration ? (
         <div className="mb-3">{illustration}</div>
       ) : icon && (
-        <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-none border border-border bg-surface-2 text-muted">
+        <div className="mb-3 flex h-11 w-11 items-center justify-center text-muted [&>svg]:h-7 [&>svg]:w-7">
           {icon}
         </div>
       )}

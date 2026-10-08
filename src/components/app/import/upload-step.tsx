@@ -63,8 +63,8 @@ export function UploadStep({
             dragging ? "border-brand bg-brand-soft" : "border-border bg-surface-2/50 hover:border-border-strong",
           )}
         >
-          <div className="flex h-11 w-11 items-center justify-center rounded-none bg-surface-2 text-muted">
-            <Upload className="h-5 w-5" />
+          <div className="flex h-11 w-11 items-center justify-center text-muted">
+            <Upload className="h-8 w-8" />
           </div>
           <p className="text-sm font-medium text-fg">
             Drag &amp; drop your CSV or Excel file here, or <span className="text-brand-hover">browse</span>

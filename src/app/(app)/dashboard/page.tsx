@@ -199,8 +199,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             ) : (
               upcoming.map(({ r, date }) => (
                 <div key={r.id} className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-none bg-surface-2 text-muted">
-                    <CalendarClock className="h-4 w-4" />
+                  <div className="flex h-8 w-8 items-center justify-center text-muted">
+                    <CalendarClock className="h-5 w-5" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-fg">{r.name}</p>
