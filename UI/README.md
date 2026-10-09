@@ -43,3 +43,4 @@ made by the script.
 | 19 | Onboarding: track expenses | [phone](phone-framed/19-onboarding-expenses.png) | [mobile](mobile/19-onboarding-expenses.png) | [desktop](desktop/19-onboarding-expenses.png) |
 | 20 | Onboarding: understand spending | [phone](phone-framed/20-onboarding-spending.png) | [mobile](mobile/20-onboarding-spending.png) | [desktop](desktop/20-onboarding-spending.png) |
 | 21 | Onboarding: set goals | [phone](phone-framed/21-onboarding-goals.png) | [mobile](mobile/21-onboarding-goals.png) | [desktop](desktop/21-onboarding-goals.png) |
+| 22 | Choose a profile picture | [phone](phone-framed/22-choose-avatar.png) | [mobile](mobile/22-choose-avatar.png) | [desktop](desktop/22-choose-avatar.png) |

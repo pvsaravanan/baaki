@@ -50,6 +50,12 @@ Android Studio. Losing the key means you can't publish updates.
 adaptive) and splash screens from `src/assets/baaki_logo.svg` on the app's parchment
 colour. Re-run it after changing the logo.
 
+### Profile pictures
+
+The pictures offered after onboarding and in Settings are Open Peeps characters (CC0, by
+Pablo Stanley). `npx tsx scripts/make-avatars.ts` draws them into `src/assets/avatars/` from
+the table in that script; the list and labels live in `src/lib/avatars.ts`.
+
 ## How it works offline
 
 Everything that used to run on a server now runs inside the app:

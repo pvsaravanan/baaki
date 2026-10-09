@@ -10,14 +10,14 @@ describe("profile pictures", () => {
     expect(new Set(AVATARS.map((a) => a.label)).size).toBe(AVATARS.length);
     for (const a of AVATARS) {
       expect(a.label.trim(), a.id).not.toBe("");
-      expect(existsSync(join(__dirname, "../assets/avatars", `${a.id}.png`)), `${a.id}.png`).toBe(true);
+      expect(existsSync(join(__dirname, "../assets/avatars", `${a.id}.svg`)), `${a.id}.svg`).toBe(true);
     }
     expect(AVATAR_IDS).toContain(DEFAULT_AVATAR);
   });
 
   it("are stored and read back as a picture", () => {
-    expect(avatarUrlFor("cat")).toBe("avatar:cat");
-    expect(readAvatar("avatar:cat")).toEqual({ kind: "picture", id: "cat" });
+    expect(avatarUrlFor("peep-08")).toBe("avatar:peep-08");
+    expect(readAvatar("avatar:peep-08")).toEqual({ kind: "picture", id: "peep-08" });
   });
 
   it("still show a photo uploaded before pictures replaced uploads", () => {

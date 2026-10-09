@@ -40,3 +40,6 @@ See [docs/SETUP.md](docs/SETUP.md) for the Android build, schema changes and tes
 ## License
 
 MIT — see [LICENSE](./LICENSE).
+
+The profile pictures are [Open Peeps](https://www.openpeeps.com) by Pablo Stanley (CC0),
+drawn with [DiceBear](https://www.dicebear.com).

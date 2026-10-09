@@ -61,10 +61,10 @@ describe("the on-device app", () => {
   });
 
   it("sets the profile picture to one of the listed pictures, or none", async () => {
-    const chosen = await call<{ user: { avatarUrl: string | null } }>("PATCH", "/api/user", { avatar: "cat" });
+    const chosen = await call<{ user: { avatarUrl: string | null } }>("PATCH", "/api/user", { avatar: "peep-08" });
     expect(chosen.status).toBe(200);
-    expect(chosen.data.user.avatarUrl).toBe("avatar:cat");
-    expect((await loadPage("shell", {})).user.avatarUrl).toBe("avatar:cat");
+    expect(chosen.data.user.avatarUrl).toBe("avatar:peep-08");
+    expect((await loadPage("shell", {})).user.avatarUrl).toBe("avatar:peep-08");
 
     for (const avatar of ["unicorn", "data:image/png;base64,AAAA", 7]) {
       expect((await call("PATCH", "/api/user", { avatar })).status).toBe(422);
@@ -73,7 +73,7 @@ describe("the on-device app", () => {
     expect((await call("POST", "/api/user/avatar")).status).toBe(404); // uploads are gone
 
     const renamed = await call<{ user: { name: string; avatarUrl: string | null } }>("PATCH", "/api/user", { name: "Asha" });
-    expect(renamed.data.user).toMatchObject({ name: "Asha", avatarUrl: "avatar:cat" });
+    expect(renamed.data.user).toMatchObject({ name: "Asha", avatarUrl: "avatar:peep-08" });
     const cleared = await call<{ user: { avatarUrl: string | null } }>("PATCH", "/api/user", { avatar: null });
     expect(cleared.data.user.avatarUrl).toBeNull();
   });

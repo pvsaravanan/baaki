@@ -46,6 +46,8 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^8.5.2",
+    "@dicebear/core": "9.4.3",
+    "@dicebear/open-peeps": "9.4.3",
     "@eslint/eslintrc": "^3.3.7",
     "@types/node": "^22.10.5",
     "@types/papaparse": "^5.3.15",

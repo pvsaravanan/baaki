@@ -1,49 +1,60 @@
 /**
- * The profile pictures a person can choose from (there's no uploading). Each
- * one is an image in src/assets/avatars/<id>.png, listed in
- * src/components/app/avatar-assets.ts; the order here is the order of the
- * picker grid.
+ * The profile pictures a person can choose from (there's no uploading): Open
+ * Peeps characters (CC0, by Pablo Stanley), drawn by scripts/make-avatars.ts
+ * into src/assets/avatars/<id>.svg and listed in
+ * src/components/app/avatar-assets.ts. People of every age are spread through
+ * the list, which is the order of the picker grid.
  *
  * The choice is stored in User.avatarUrl as "avatar:<id>", like an account's
  * "bank:<id>" icon. A data: URL there is a photo uploaded before pictures
  * replaced uploads, and still shows until the person picks one.
  */
 export const AVATARS = [
-  { id: "person-01", label: "Curly hair, orange jumper" },
-  { id: "person-02", label: "Long hair, green top" },
-  { id: "person-03", label: "Glasses and collar" },
-  { id: "person-04", label: "Hair bun" },
-  { id: "person-05", label: "Wavy hair, earrings" },
-  { id: "person-06", label: "Green cap" },
-  { id: "person-07", label: "Long hair, cream top" },
-  { id: "person-08", label: "Green hoodie" },
-  { id: "person-09", label: "Striped top" },
-  { id: "person-10", label: "Cream hoodie" },
-  { id: "person-11", label: "Wearing headphones" },
-  { id: "person-12", label: "White cap" },
-  { id: "person-13", label: "Black hoodie" },
-  { id: "person-14", label: "Hijab" },
-  { id: "person-15", label: "Glasses, green jumper" },
-  { id: "cat", label: "Cat" },
-  { id: "dog", label: "Dog" },
-  { id: "rabbit", label: "Rabbit" },
-  { id: "panda", label: "Panda" },
-  { id: "fox", label: "Fox" },
-  { id: "penguin", label: "Penguin" },
-  { id: "bird", label: "Bird" },
-  { id: "turtle", label: "Turtle" },
-  { id: "deer", label: "Deer" },
-  { id: "plant", label: "Potted plant" },
-  { id: "cactus", label: "Cactus" },
-  { id: "flower", label: "Flower" },
-  { id: "mountains", label: "Mountains" },
-  { id: "wave", label: "Wave" },
-  { id: "palm", label: "Palm tree" },
-  { id: "coffee", label: "Coffee" },
-  { id: "boba", label: "Bubble tea" },
-  { id: "gamepad", label: "Game controller" },
-  { id: "headphones", label: "Headphones" },
-  { id: "record", label: "Vinyl record" },
+  { id: "peep-01", label: "Tousled hair, coral top" },
+  { id: "peep-02", label: "Long hair, green top" },
+  { id: "peep-40", label: "Grandma, bun and glasses" },
+  { id: "peep-03", label: "Short hair, glasses" },
+  { id: "peep-36", label: "Toddler with bows" },
+  { id: "peep-04", label: "Hair bun with headband" },
+  { id: "peep-05", label: "Long curly hair" },
+  { id: "peep-42", label: "Older man, grey hair" },
+  { id: "peep-06", label: "Wide-brim hat" },
+  { id: "peep-37", label: "Little one, hair tuft" },
+  { id: "peep-07", label: "Straight hair, cream top" },
+  { id: "peep-08", label: "Afro" },
+  { id: "peep-10", label: "Quiff and moustache" },
+  { id: "peep-09", label: "Bob with fringe" },
+  { id: "peep-44", label: "Older woman, hijab" },
+  { id: "peep-38", label: "Child, curly top" },
+  { id: "peep-11", label: "Beanie" },
+  { id: "peep-12", label: "Hijab" },
+  { id: "peep-41", label: "Older woman, silver hair" },
+  { id: "peep-13", label: "Curly locks" },
+  { id: "peep-14", label: "Medium hair, glasses" },
+  { id: "peep-15", label: "Shaved sides, beard" },
+  { id: "peep-39", label: "Child with puffs" },
+  { id: "peep-16", label: "Turban and beard" },
+  { id: "peep-17", label: "Straight fringe" },
+  { id: "peep-43", label: "Grandpa, bald with glasses" },
+  { id: "peep-18", label: "Big afro" },
+  { id: "peep-19", label: "Side parting, glasses" },
+  { id: "peep-20", label: "Cornrows" },
+  { id: "peep-21", label: "Shoulder-length hair" },
+  { id: "peep-22", label: "Bald, moustache, glasses" },
+  { id: "peep-23", label: "Twists" },
+  { id: "peep-45", label: "Older man, turban" },
+  { id: "peep-24", label: "Long hair with fringe" },
+  { id: "peep-25", label: "Flat top" },
+  { id: "peep-26", label: "Messy bun" },
+  { id: "peep-27", label: "Buzz cut, goatee" },
+  { id: "peep-28", label: "Fringe, shoulder-length" },
+  { id: "peep-29", label: "Sunglasses" },
+  { id: "peep-30", label: "Bantu knots" },
+  { id: "peep-31", label: "Blonde bob" },
+  { id: "peep-32", label: "Short hair, beard" },
+  { id: "peep-33", label: "Two buns" },
+  { id: "peep-34", label: "Wavy hair with fringe" },
+  { id: "peep-35", label: "Locks, glasses" },
 ] as const;
 
 export type AvatarId = (typeof AVATARS)[number]["id"];
