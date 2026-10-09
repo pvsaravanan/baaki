@@ -1,4 +1,5 @@
 "use client";
+import { Suspense } from "react";
 import { cn } from "@/lib/cn";
 import { useActiveSection } from "./settings/layout";
 import { ProfileSection } from "./settings/profile-section";
@@ -44,7 +45,10 @@ export function SettingsView() {
       </nav>
 
       <div className="flex min-w-0 flex-col gap-10">
-        <ProfileSection />
+        {/* Profile reads the address's query (?choose=picture), which needs Suspense. */}
+        <Suspense>
+          <ProfileSection />
+        </Suspense>
         <PreferencesSection />
         <SecuritySection />
         <DashboardSection />

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Pencil } from "lucide-react";
 import { DEFAULT_AVATAR, readAvatar, type AvatarId } from "@/lib/avatars";
 import { apiPatch, ApiError } from "@/lib/http";
@@ -10,6 +11,7 @@ import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { useConfirm } from "@/components/ui/confirm";
 import { AvatarPicker } from "../avatar-picker";
+import { markPictureNudgeSeen } from "../picture-nudge";
 import { UserAvatar } from "../user-avatar";
 import { Row, Section } from "./layout";
 
@@ -67,7 +69,24 @@ export function ProfileSection() {
     }
   }
 
-  const openPicker = () => setChoosing(current.kind === "picture" ? current.id : DEFAULT_AVATAR);
+  function openPicker() {
+    setChoosing(current.kind === "picture" ? current.id : DEFAULT_AVATAR);
+    markPictureNudgeSeen();
+  }
+
+  // The top bar's nudge links here with ?choose=picture: open the picker, and
+  // drop the query so a reload doesn't open it again. (Reading the query needs
+  // a <Suspense> around this section; see settings-view.) The query goes with
+  // history.replaceState, not a router navigation, which would re-render the
+  // page and close the picker it just opened.
+  const choose = useSearchParams().get("choose");
+  useEffect(() => {
+    if (choose !== "picture") return;
+    openPicker();
+    window.history.replaceState(null, "", window.location.pathname);
+    // Only when the query asks for it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [choose]);
 
   return (
     <>
