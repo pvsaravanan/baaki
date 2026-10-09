@@ -44,8 +44,8 @@
 
     <!-- No INTERNET permission on purpose: baaki runs entirely on the phone, so the
          system itself stops it from ever opening a network connection. -->
-    <!-- Picking a person from the phone's contacts (name and photo). The
-         contacts plugin asks for read and write as one group; baaki only reads. -->
+    <!-- Picking a person from the phone's contacts (name and photo) with
+         Android's own picker (ContactPickerPlugin.java). Read only: baaki never
+         changes the address book, so it doesn't ask for WRITE_CONTACTS. -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
-    <uses-permission android:name="android.permission.WRITE_CONTACTS" />
 </manifest>

@@ -1,5 +1,5 @@
 "use client";
-import { Capacitor } from "@capacitor/core";
+import { Capacitor, registerPlugin, type PermissionState } from "@capacitor/core";
 
 /**
  * Picking a person from the phone's address book. Only works in the Android
@@ -14,9 +14,14 @@ export interface PickedContact {
 
 export const canPickDeviceContact = () => Capacitor.isNativePlatform();
 
-// Capacitor plugin objects look "thenable" (see app-lock.ts): import the
-// module and call through it rather than resolving a promise to the plugin.
-const contacts = () => import("@capacitor-community/contacts");
+// Android's own contact picker (android/…/ContactPickerPlugin.java). Read-only
+// contacts access ("contacts") is needed for the person's photo.
+type ContactsPermission = { contacts: PermissionState };
+const ContactPicker = registerPlugin<{
+  checkPermissions(): Promise<ContactsPermission>;
+  requestPermissions(): Promise<ContactsPermission>;
+  pick(): Promise<{ name?: string; photo?: string }>;
+}>("ContactPicker");
 
 const PHOTO_SIZE = 128;
 
@@ -48,17 +53,13 @@ function shrink(base64: string): Promise<string | null> {
  * the contact has no name; throws a readable Error if access is refused.
  */
 export async function pickDeviceContact(): Promise<PickedContact | null> {
-  const { Contacts } = await contacts();
-  let permission = await Contacts.checkPermissions();
-  if (permission.contacts !== "granted") permission = await Contacts.requestPermissions();
+  let permission = await ContactPicker.checkPermissions();
+  if (permission.contacts !== "granted") permission = await ContactPicker.requestPermissions();
   if (permission.contacts !== "granted") {
     throw new Error("Allow contacts access in your phone's settings to pick someone.");
   }
-  const { contact } = await Contacts.pickContact({ projection: { name: true, image: true } });
-  const name =
-    contact.name?.display?.trim() ||
-    [contact.name?.given, contact.name?.family].filter(Boolean).join(" ").trim();
-  if (!name) return null;
-  const image = contact.image?.base64String;
-  return { name: name.slice(0, 80), photo: image ? await shrink(image) : null };
+  const { name, photo } = await ContactPicker.pick();
+  const trimmed = name?.trim();
+  if (!trimmed) return null;
+  return { name: trimmed.slice(0, 80), photo: photo ? await shrink(photo) : null };
 }
