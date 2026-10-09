@@ -2,12 +2,21 @@
 
 Screenshots of every screen of the app, taken from the real app with sample data
 (three months of transactions, a September budget, three goals, two people and five
-recurring items).
+recurring items, from `scripts/sample-data.ts`) on 24 September 2026.
 
 - `showcase-1.png`, `showcase-2.png` — five phone screens side by side
 - `phone-framed/` — one phone screen each, in a phone frame
 - `mobile/` — phone, 390 px wide (at 2×), the full length of each screen
 - `desktop/` — desktop, 1440 px wide, the full length of each screen
+
+To take them again after changing the app (needs Google Chrome):
+
+```bash
+npm run build && npx tsx scripts/capture-screens.ts            # every screen
+npm run build && npx tsx scripts/capture-screens.ts budgets 16  # just some
+```
+
+The showcase images and the walkthrough video aren't made by the script.
 
 | # | Screen | Phone screen | Phone, full length | Desktop |
 | --- | --- | --- | --- | --- |
