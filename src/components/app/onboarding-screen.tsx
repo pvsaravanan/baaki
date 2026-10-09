@@ -132,8 +132,9 @@ const SLIDES: { illustration: React.ReactNode; title: React.ReactNode; body: Rea
  * a line of explanation, progress dots and a button to the next page (the
  * last one opens the app). Sized for a 390 × 780 phone screen.
  */
-export function OnboardingScreen({ onDone }: { onDone: () => void }) {
-  const [index, setIndex] = useState(0);
+/** `fromEnd` opens on the last slide, when coming back from the next step. */
+export function OnboardingScreen({ onDone, fromEnd = false }: { onDone: () => void; fromEnd?: boolean }) {
+  const [index, setIndex] = useState(fromEnd ? SLIDES.length - 1 : 0);
   const slide = SLIDES[index];
   const last = index === SLIDES.length - 1;
 
@@ -155,7 +156,7 @@ export function OnboardingScreen({ onDone }: { onDone: () => void }) {
           ))}
         </div>
         <Button
-          aria-label={last ? "Open baaki" : "Next"}
+          aria-label="Next"
           size="icon"
           // `cn` can't resolve conflicting utilities, so the size and the round shape are set directly.
           style={{ width: 56, height: 56, borderRadius: "50%" }}

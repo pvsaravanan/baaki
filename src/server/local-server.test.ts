@@ -60,6 +60,24 @@ describe("the on-device app", () => {
     expect(bad.data.fields.amount).toBeTruthy();
   });
 
+  it("sets the profile picture to one of the listed pictures, or none", async () => {
+    const chosen = await call<{ user: { avatarUrl: string | null } }>("PATCH", "/api/user", { avatar: "cat" });
+    expect(chosen.status).toBe(200);
+    expect(chosen.data.user.avatarUrl).toBe("avatar:cat");
+    expect((await loadPage("shell", {})).user.avatarUrl).toBe("avatar:cat");
+
+    for (const avatar of ["unicorn", "data:image/png;base64,AAAA", 7]) {
+      expect((await call("PATCH", "/api/user", { avatar })).status).toBe(422);
+    }
+    expect((await call("PATCH", "/api/user", {})).status).toBe(422);
+    expect((await call("POST", "/api/user/avatar")).status).toBe(404); // uploads are gone
+
+    const renamed = await call<{ user: { name: string; avatarUrl: string | null } }>("PATCH", "/api/user", { name: "Asha" });
+    expect(renamed.data.user).toMatchObject({ name: "Asha", avatarUrl: "avatar:cat" });
+    const cleared = await call<{ user: { avatarUrl: string | null } }>("PATCH", "/api/user", { avatar: null });
+    expect(cleared.data.user.avatarUrl).toBeNull();
+  });
+
   it("backs up everything and restores it exactly", async () => {
     const shell = await loadPage("shell", {});
     const bank = shell.accounts[0];

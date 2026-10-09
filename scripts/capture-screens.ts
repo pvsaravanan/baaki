@@ -61,6 +61,7 @@ const SCREENS: Screen[] = [
   { file: "19-onboarding-expenses", wait: "Track every expense easily", firstRun: true },
   { file: "20-onboarding-spending", wait: "Understand your spending", firstRun: true },
   { file: "21-onboarding-goals", wait: "Set goals for a better you", firstRun: true },
+  { file: "22-choose-avatar", wait: "Choose a profile picture", firstRun: true },
 ];
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));

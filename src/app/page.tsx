@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePageData } from "@/lib/local-api";
 import { NativeApp } from "@/components/app/native-app";
+import { ChooseAvatarScreen } from "@/components/app/choose-avatar-screen";
 import { OnboardingScreen } from "@/components/app/onboarding-screen";
 import { WelcomeScreen } from "@/components/app/welcome-screen";
 
@@ -17,9 +18,9 @@ function hasBeenWelcomed() {
 }
 
 /**
- * The app opens here. A new install sees the welcome screen and the
- * onboarding pages once; after that (and in a browser reload) it goes
- * straight to the dashboard.
+ * The app opens here. A new install sees the welcome screen, the onboarding
+ * pages and a profile picture to choose once; after that (and in a browser
+ * reload) it goes straight to the dashboard.
  *
  * The Android app's local server answers every page address with this page
  * (it treats the app as a single-page site), so if the WebView reloads while
@@ -32,7 +33,7 @@ export default function Home() {
   // than after onboarding: the app frame reads this same cached result, so the
   // dashboard appears straight away.
   usePageData("shell");
-  const [stage, setStage] = useState<"loading" | "welcome" | "onboarding">("loading");
+  const [stage, setStage] = useState<"loading" | "welcome" | "onboarding" | "back-to-onboarding" | "avatar">("loading");
   useEffect(() => {
     if (window.location.pathname !== "/") router.refresh();
     else if (hasBeenWelcomed()) router.replace("/dashboard");
@@ -54,7 +55,10 @@ export default function Home() {
     <>
       {stage !== "loading" && <NativeApp />}
       {stage === "welcome" && <WelcomeScreen onStart={() => setStage("onboarding")} />}
-      {stage === "onboarding" && <OnboardingScreen onDone={finish} />}
+      {(stage === "onboarding" || stage === "back-to-onboarding") && (
+        <OnboardingScreen fromEnd={stage === "back-to-onboarding"} onDone={() => setStage("avatar")} />
+      )}
+      {stage === "avatar" && <ChooseAvatarScreen onBack={() => setStage("back-to-onboarding")} onDone={finish} />}
       {stage === "loading" && <div className="h-dvh bg-bg" />}
     </>
   );
