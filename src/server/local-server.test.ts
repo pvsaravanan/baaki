@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
+import { readdirSync } from "node:fs";
+import { join, sep } from "node:path";
 
 vi.mock("@/lib/db", async () => (await import("@/test/memory-db")).memoryDb());
 
@@ -25,6 +27,14 @@ describe("route matching", () => {
   it("reads nested parameters", () => {
     expect(matchRoute("/api/transactions/t1/restore")?.params).toEqual({ id: "t1" });
     expect(matchRoute("/api/contacts/c1/shares")?.params).toEqual({ id: "c1" });
+  });
+
+  it("answers every route file (run `npm run generate` after adding one)", () => {
+    const files = readdirSync(join(__dirname, "api"), { recursive: true, encoding: "utf8" })
+      .filter((f) => f.endsWith("route.ts"))
+      .map((f) => "/api/" + f.split(sep).slice(0, -1).join("/").replace(/\[(\w+)\]/g, "x"));
+    expect(files).not.toHaveLength(0);
+    for (const path of files) expect(matchRoute(path), path).not.toBeNull();
   });
 
   it("finds nothing for unknown paths", () => {

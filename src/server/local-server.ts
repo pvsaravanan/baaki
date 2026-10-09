@@ -4,46 +4,15 @@ import { pglite } from "@/lib/db";
 import { removeStoredData } from "@/lib/db-storage";
 import { localRequest, type NextRequest } from "./request";
 import { PAGE_LOADERS, type PageData, type PageName } from "./pages";
-import * as r_accounts_id from "./api/accounts/[id]/route";
-import * as r_accounts from "./api/accounts/route";
-import * as r_backup_restore from "./api/backup/restore/route";
-import * as r_budgets from "./api/budgets/route";
-import * as r_categories_id from "./api/categories/[id]/route";
-import * as r_categories from "./api/categories/route";
-import * as r_categorize from "./api/categorize/route";
-import * as r_contacts_id from "./api/contacts/[id]/route";
-import * as r_contacts_id_settle from "./api/contacts/[id]/settle/route";
-import * as r_contacts_id_shares from "./api/contacts/[id]/shares/route";
-import * as r_contacts from "./api/contacts/route";
-import * as r_export from "./api/export/route";
-import * as r_goals_id_allocate from "./api/goals/[id]/allocate/route";
-import * as r_goals_id_remove from "./api/goals/[id]/remove/route";
-import * as r_goals_id from "./api/goals/[id]/route";
-import * as r_goals_resolve_shortfall from "./api/goals/resolve-shortfall/route";
-import * as r_goals from "./api/goals/route";
-import * as r_import from "./api/import/route";
-import * as r_preferences from "./api/preferences/route";
-import * as r_recurring_id_post from "./api/recurring/[id]/post/route";
-import * as r_recurring_id from "./api/recurring/[id]/route";
-import * as r_recurring_id_skip from "./api/recurring/[id]/skip/route";
-import * as r_recurring from "./api/recurring/route";
-import * as r_recurring_run_due from "./api/recurring/run-due/route";
-import * as r_shares_id from "./api/shares/[id]/route";
-import * as r_shares_id_settle from "./api/shares/[id]/settle/route";
-import * as r_shares_unassigned from "./api/shares/unassigned/route";
-import * as r_transactions_id_duplicate from "./api/transactions/[id]/duplicate/route";
-import * as r_transactions_id_restore from "./api/transactions/[id]/restore/route";
-import * as r_transactions_id from "./api/transactions/[id]/route";
-import * as r_transactions_bulk_delete from "./api/transactions/bulk-delete/route";
-import * as r_transactions from "./api/transactions/route";
-import * as r_user_avatar from "./api/user/avatar/route";
-import * as r_user from "./api/user/route";
+import { ROUTES } from "@/generated/api-routes";
 
 /**
  * The app's "server", running inside the app itself. Screens and forms still
  * call `/api/...` URLs (through src/lib/http.ts); instead of going over the
  * network, each call is matched here to the same route handler that used to
- * run on the server, which reads and writes the on-device database. Loaded
+ * run on the server, which reads and writes the on-device database. Every
+ * src/server/api/<path>/route.ts is listed automatically by
+ * scripts/api-routes.mjs (`npm run generate`). Loaded
  * lazily (see src/lib/local-api.ts), so the database engine only downloads
  * once the app actually needs data.
  */
@@ -51,44 +20,6 @@ import * as r_user from "./api/user/route";
 type Method = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 type Handler = (req: NextRequest, ctx: { params: Promise<Record<string, string>> }) => Promise<Response>;
 type RouteModule = Partial<Record<Method, Handler>>;
-
-// Each entry: URL pattern → that route file's exported GET/POST/… handlers.
-const ROUTES: [string, object][] = [
-  ["/api/accounts/:id", r_accounts_id],
-  ["/api/accounts", r_accounts],
-  ["/api/backup/restore", r_backup_restore],
-  ["/api/budgets", r_budgets],
-  ["/api/categories/:id", r_categories_id],
-  ["/api/categories", r_categories],
-  ["/api/categorize", r_categorize],
-  ["/api/contacts/:id", r_contacts_id],
-  ["/api/contacts/:id/settle", r_contacts_id_settle],
-  ["/api/contacts/:id/shares", r_contacts_id_shares],
-  ["/api/contacts", r_contacts],
-  ["/api/export", r_export],
-  ["/api/goals/:id/allocate", r_goals_id_allocate],
-  ["/api/goals/:id/remove", r_goals_id_remove],
-  ["/api/goals/:id", r_goals_id],
-  ["/api/goals/resolve-shortfall", r_goals_resolve_shortfall],
-  ["/api/goals", r_goals],
-  ["/api/import", r_import],
-  ["/api/preferences", r_preferences],
-  ["/api/recurring/:id/post", r_recurring_id_post],
-  ["/api/recurring/:id", r_recurring_id],
-  ["/api/recurring/:id/skip", r_recurring_id_skip],
-  ["/api/recurring", r_recurring],
-  ["/api/recurring/run-due", r_recurring_run_due],
-  ["/api/shares/:id/settle", r_shares_id_settle],
-  ["/api/shares/:id", r_shares_id],
-  ["/api/shares/unassigned", r_shares_unassigned],
-  ["/api/transactions/:id/duplicate", r_transactions_id_duplicate],
-  ["/api/transactions/:id/restore", r_transactions_id_restore],
-  ["/api/transactions/:id", r_transactions_id],
-  ["/api/transactions/bulk-delete", r_transactions_bulk_delete],
-  ["/api/transactions", r_transactions],
-  ["/api/user/avatar", r_user_avatar],
-  ["/api/user", r_user],
-];
 
 interface CompiledRoute {
   segments: string[];

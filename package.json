@@ -8,15 +8,16 @@
     "node": ">=22.0.0"
   },
   "scripts": {
-    "dev": "next dev",
-    "build": "npm run db:generate && next build",
+    "dev": "npm run generate && next dev",
+    "build": "npm run generate && next build",
     "build:app": "npm run build && cap sync android",
     "android": "npm run build:app && cap run android",
     "android:open": "cap open android",
     "lint": "next lint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "postinstall": "npm run db:generate",
+    "postinstall": "npm run generate",
+    "generate": "npm run db:generate && node scripts/api-routes.mjs",
     "db:generate": "prisma generate && node scripts/prisma-browser.mjs",
     "db:migrate": "prisma migrate dev --create-only"
   },
