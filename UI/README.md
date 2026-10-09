@@ -14,9 +14,11 @@ To take them again after changing the app (needs Google Chrome):
 ```bash
 npm run build && npx tsx scripts/capture-screens.ts            # every screen
 npm run build && npx tsx scripts/capture-screens.ts budgets 16  # just some
+npx tsx scripts/capture-screens.ts showcase                     # only the showcases
 ```
 
-The showcase images and the walkthrough video aren't made by the script.
+Every run also rebuilds the showcases from the phone screens. The walkthrough video isn't
+made by the script.
 
 | # | Screen | Phone screen | Phone, full length | Desktop |
 | --- | --- | --- | --- | --- |

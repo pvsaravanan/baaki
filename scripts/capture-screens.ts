@@ -5,6 +5,7 @@
  *
  *   npm run build && npx tsx scripts/capture-screens.ts            every screen
  *   npm run build && npx tsx scripts/capture-screens.ts budgets 16  just some
+ *   npx tsx scripts/capture-screens.ts showcase                     only the showcases
  *
  * The app runs from the static build in out/, in headless Google Chrome (set
  * CHROME to its path if it isn't in /Applications), with the sample data in
@@ -294,6 +295,21 @@ async function open(s: Send, url: string, wait: string) {
 
 // ------------------------------------------------------------------ capture
 
+/** UI/showcase-*.png: five framed phones side by side, as in the README. */
+const SHOWCASES: Record<string, string[]> = {
+  "showcase-1": ["01-dashboard", "02-transactions", "04-budgets", "05-goals", "09-reports"],
+  "showcase-2": ["16-add-transaction", "07-people", "08-recurring", "11-insights", "15-settings"],
+};
+
+/** Matched to the showcases made before this script. */
+const SHOWCASE_SHADOW = "0 20px 26px rgba(60,50,30,0.17)";
+
+const showcase = (files: string[]) => `<!doctype html><body style="margin:0;background:#f4f1ea">
+  <div style="display:flex;gap:80px;padding:112px">
+    ${files.map((f) => `<img src="data:image/png;base64,${readFileSync(join(UI, "phone-framed", `${f}.png`)).toString("base64")}"
+      style="width:828px;height:1736px;display:block;filter:drop-shadow(${SHOWCASE_SHADOW})">`).join("")}
+  </div></body>`;
+
 const PHONE = { width: 390, height: 844, scale: 2 };
 const DESKTOP = { width: 1440, height: 900, scale: 1 };
 
@@ -310,10 +326,11 @@ async function main() {
   if (!existsSync(CHROME)) throw new Error(`Chrome not found at ${CHROME}: set CHROME to its path.`);
 
   const only = process.argv.slice(2);
-  const screens = only.length
+  const showcasesOnly = only.length === 1 && only[0] === "showcase";
+  const screens = showcasesOnly ? [] : only.length
     ? SCREENS.filter((sc) => only.some((o) => sc.file.startsWith(o) || sc.file.includes(`-${o}`)))
     : SCREENS;
-  if (!screens.length) throw new Error(`No screen matches ${only.join(", ")}.`);
+  if (!screens.length && !showcasesOnly) throw new Error(`No screen matches ${only.join(", ")}.`);
 
   const app = await serve();
   const chrome = await startChrome();
@@ -371,6 +388,18 @@ async function main() {
       console.log(`  phone-framed/${file}.png`);
     }
     await close();
+
+    // The showcases, from the framed shots on disk (new or not).
+    {
+      const { s, close } = await chrome.newPage(4684, 1960, 1);
+      for (const [name, files] of Object.entries(SHOWCASES)) {
+        await s("Page.navigate", { url: `data:text/html;base64,${Buffer.from(showcase(files)).toString("base64")}` });
+        await sleep(1000);
+        writeFileSync(join(UI, `${name}.png`), await shot(s));
+        console.log(`  ${name}.png`);
+      }
+      await close();
+    }
   } finally {
     await chrome.stop();
     app.close();
