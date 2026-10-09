@@ -6,20 +6,30 @@ import { AvatarPicture } from "./user-avatar";
 /**
  * The chosen picture large, over a grid of every picture to choose from. Used
  * when setting up the app and in Settings.
+ *
+ * Inside a scrolling area the large picture stays pinned at the top while the
+ * grid scrolls under it, so a choice far down still shows. `pinned` styles the
+ * band it's pinned in: the scrolling area's background, and an offset that
+ * covers the area's top padding (e.g. "top-0 bg-bg", "-top-4 pt-4 bg-surface").
  */
 export function AvatarPicker({
   value,
   onChange,
+  pinned,
   className,
 }: {
   value: AvatarId;
   onChange: (id: AvatarId) => void;
+  pinned: string;
   className?: string;
 }) {
   return (
     <div className={cn("flex flex-col items-center", className)}>
-      <AvatarPicture id={value} className="h-[132px] w-[132px]" />
-      <div role="radiogroup" aria-label="Profile picture" className="mt-6 grid w-full grid-cols-5 justify-items-center gap-x-2 gap-y-3">
+      <div className={cn("sticky z-10 flex w-full justify-center pb-6", pinned)}>
+        <AvatarPicture id={value} className="h-[132px] w-[132px]" />
+      </div>
+      {/* Inset a little, so a selected picture's ring stays clear of the pinned band. */}
+      <div role="radiogroup" aria-label="Profile picture" className="grid w-full grid-cols-5 justify-items-center gap-x-2 gap-y-3 p-1">
         {AVATARS.map((a) => {
           const selected = a.id === value;
           return (

@@ -148,7 +148,7 @@ export function ProfileSection() {
           </div>
         }
       >
-        {choosing && <AvatarPicker value={choosing} onChange={setChoosing} />}
+        {choosing && <AvatarPicker value={choosing} onChange={setChoosing} pinned="-top-4 pt-4 bg-surface" />}
       </Modal>
     </>
   );
