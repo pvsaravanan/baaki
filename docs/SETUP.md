@@ -65,14 +65,20 @@ screen ──usePageData / apiGet / apiPost──▶ local API ──▶ route h
 - **Prisma, unchanged.** The services use the same Prisma API as before, through a PGlite
   driver adapter and Prisma's WebAssembly query compiler (`engineType = "client"`).
   `npm run db:generate` runs `prisma generate` and then `scripts/prisma-browser.mjs`, which
-  makes the generated client load in a browser and bundles the migrations.
+  makes the generated client load in a browser and bundles the migrations. `npm run
+  generate` does that and lists the API routes (below); install, `dev` and `build` run it.
 - **Local API.** The route handlers in `src/server/api/**` are the ones the website ran on
   its server. `src/server/local-server.ts` matches each `/api/...` call to its handler, so
-  forms and screens call the same URLs as before, answered on the device. Screen data
+  forms and screens call the same URLs as before, answered on the device. A new
+  `src/server/api/<path>/route.ts` is picked up by `npm run generate`
+  (`scripts/api-routes.mjs`), with `[id]` folders as parameters. Screen data
   (dashboard, reports, …) is loaded by `src/server/pages.ts` through `usePageData`.
 - **One person, no login.** The database holds a single profile, created with starter
   data on first launch (`src/lib/auth.ts`). The optional app lock uses the phone's own
   fingerprint/screen lock (`src/lib/app-lock.ts`, `src/components/app/lock-gate.tsx`).
+- **Contacts, read only.** Adding a person from the phone's contacts opens Android's own
+  contact picker (`ContactPickerPlugin.java`). baaki asks for READ_CONTACTS, needed for the
+  person's photo, and never for WRITE_CONTACTS.
 - **No network.** A content security policy (`src/app/layout.tsx`) lets the app load only
   its own files and blocks connections to anywhere else.
 - **Detail screens** use a query string (`/goals/detail?id=…`), since a static build
@@ -98,6 +104,9 @@ new migrations on their next launch, so:
 3. `npm run db:generate`, then commit the migration folder.
 
 Never edit a migration that has shipped: phones that already ran it won't run it again.
+Fix a mistake with a new migration instead. `src/lib/migrations.test.ts` checks that the
+migrations, run in order on a new phone, build exactly what `schema.prisma` describes, so
+`npm test` fails if a schema change has no migration.
 
 ## Money is never a float
 
@@ -131,3 +140,4 @@ npm run build
 Most service tests mock the database. `src/server/local-server.test.ts` runs the real
 routes against an in-memory PGlite (`src/test/memory-db.ts`), covering routing, first-launch
 setup, a backup → restore round trip, damaged backups, and importing the website's backup.
+Components are tested by rendering them to HTML (`react-dom/server`) in `*.test.tsx`.
