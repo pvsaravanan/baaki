@@ -41,8 +41,11 @@ android {
             if (signingProps.containsKey("storeFile")) {
                 signingConfig signingConfigs.release
             }
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // R8 drops unused Java code and resources. Capacitor and its plugins
+            // ship their own keep rules for the classes the bridge finds by name.
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 }
