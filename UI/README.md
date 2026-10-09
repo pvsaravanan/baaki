@@ -28,3 +28,7 @@ recurring items).
 | 15 | Settings | [phone](phone-framed/15-settings.png) | [mobile](mobile/15-settings.png) | [desktop](desktop/15-settings.png) |
 | 16 | Add transaction (form) | [phone](phone-framed/16-add-transaction.png) | [mobile](mobile/16-add-transaction.png) | — |
 | 17 | More menu | [phone](phone-framed/17-more-menu.png) | [mobile](mobile/17-more-menu.png) | — |
+| 18 | Welcome | [phone](phone-framed/18-welcome.png) | [mobile](mobile/18-welcome.png) | [desktop](desktop/18-welcome.png) |
+| 19 | Onboarding: track expenses | [phone](phone-framed/19-onboarding-expenses.png) | [mobile](mobile/19-onboarding-expenses.png) | [desktop](desktop/19-onboarding-expenses.png) |
+| 20 | Onboarding: understand spending | [phone](phone-framed/20-onboarding-spending.png) | [mobile](mobile/20-onboarding-spending.png) | [desktop](desktop/20-onboarding-spending.png) |
+| 21 | Onboarding: set goals | [phone](phone-framed/21-onboarding-goals.png) | [mobile](mobile/21-onboarding-goals.png) | [desktop](desktop/21-onboarding-goals.png) |
