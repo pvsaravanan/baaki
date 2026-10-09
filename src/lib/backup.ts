@@ -15,6 +15,10 @@ import { LOCAL_EMAIL } from "./auth";
 
 export const BACKUP_VERSION = 2;
 
+// Backup and restore go through every table, which on a slow phone with years
+// of data can take far longer than Prisma's default 5 s for a transaction.
+const WHOLE_DATABASE = { maxWait: 30_000, timeout: 120_000 };
+
 type Row = Record<string, unknown>;
 
 // Field kinds: s = string, s? = nullable string, i = integer (paise, counts),
@@ -63,19 +67,25 @@ type Table = keyof typeof SPECS;
 /** Everything on the device, as one JSON-ready object. */
 export async function buildBackup(userId: string) {
   const where = { userId };
+  // One transaction, so the file is a single moment in time: the on-device
+  // database holds back any write until it ends.
   const [user, preference, accounts, categories, tags, recurring, transactions, budgets, goals, contacts] =
-    await Promise.all([
-      prisma.user.findUniqueOrThrow({ where: { id: userId } }),
-      prisma.userPreference.findUnique({ where }),
-      prisma.account.findMany({ where, orderBy: { sortOrder: "asc" } }),
-      prisma.category.findMany({ where, orderBy: { sortOrder: "asc" } }),
-      prisma.tag.findMany({ where }),
-      prisma.recurringTransaction.findMany({ where }),
-      prisma.transaction.findMany({ where, include: { tags: true }, orderBy: [{ date: "asc" }, { createdAt: "asc" }] }),
-      prisma.budget.findMany({ where, include: { categories: true, accounts: true } }),
-      prisma.financialGoal.findMany({ where, include: { contributions: true } }),
-      prisma.contact.findMany({ where, include: { shares: true } }),
-    ]);
+    await prisma.$transaction(
+      (tx) =>
+        Promise.all([
+          tx.user.findUniqueOrThrow({ where: { id: userId } }),
+          tx.userPreference.findUnique({ where }),
+          tx.account.findMany({ where, orderBy: { sortOrder: "asc" } }),
+          tx.category.findMany({ where, orderBy: { sortOrder: "asc" } }),
+          tx.tag.findMany({ where }),
+          tx.recurringTransaction.findMany({ where }),
+          tx.transaction.findMany({ where, include: { tags: true }, orderBy: [{ date: "asc" }, { createdAt: "asc" }] }),
+          tx.budget.findMany({ where, include: { categories: true, accounts: true } }),
+          tx.financialGoal.findMany({ where, include: { contributions: true } }),
+          tx.contact.findMany({ where, include: { shares: true } }),
+        ]),
+      WHOLE_DATABASE,
+    );
 
   return {
     app: "baaki",
@@ -271,7 +281,7 @@ export async function restoreBackup(userId: string, input: unknown): Promise<Res
         appLock: preference?.appLock === true,
       },
     });
-  });
+  }, WHOLE_DATABASE);
 
   return { accounts: accounts.length, transactions: transactions.filter((t) => t.deletedAt === null).length };
 }
