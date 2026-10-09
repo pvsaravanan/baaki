@@ -32,14 +32,7 @@ model User {
   id           String   @id @default(cuid())
   email        String   @unique
   name         String
-  // Legacy bcrypt hash from the pre-Supabase auth system. Nullable now that
-  // Supabase Auth owns passwords; retained only so the one-off import script
-  // can seed the existing account's hash into Supabase.
-  passwordHash String?
-  // Links this profile row to the Supabase Auth user (auth.users.id, a UUID).
-  // Supabase owns identity; this table stays the FK anchor for all app data.
-  authId       String?  @unique
-  // Public URL of the user's uploaded profile photo (Supabase Storage), or null.
+  // The profile photo as a data: URL (see src/server/api/user/avatar), or null.
   avatarUrl    String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
