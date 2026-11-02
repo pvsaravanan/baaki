@@ -57,7 +57,8 @@ const SPECS = {
   goalContributions: { id: "s", goalId: "s", amount: "i", date: "d", note: "s?", createdAt: "d" },
   contacts: { id: "s", name: "s", color: "s", avatarUrl: "s?", isArchived: "b", createdAt: "d" },
   expenseShares: {
-    id: "s", transactionId: "s?", contactId: "s", amount: "i", direction: "s", description: "s?", date: "d",
+    // No contactId: a share for "Someone" not yet named (see ExpenseShare).
+    id: "s", transactionId: "s?", contactId: "s?", amount: "i", direction: "s", description: "s?", date: "d",
     settled: "b", settledAt: "d?", createdAt: "d",
   },
 } satisfies Record<string, Spec>;
@@ -69,7 +70,7 @@ export async function buildBackup(userId: string) {
   const where = { userId };
   // One transaction, so the file is a single moment in time: the on-device
   // database holds back any write until it ends.
-  const [user, preference, accounts, categories, tags, recurring, transactions, budgets, goals, contacts] =
+  const [user, preference, accounts, categories, tags, recurring, transactions, budgets, goals, contacts, expenseShares] =
     await prisma.$transaction(
       (tx) =>
         Promise.all([
@@ -82,7 +83,10 @@ export async function buildBackup(userId: string) {
           tx.transaction.findMany({ where, include: { tags: true }, orderBy: [{ date: "asc" }, { createdAt: "asc" }] }),
           tx.budget.findMany({ where, include: { categories: true, accounts: true } }),
           tx.financialGoal.findMany({ where, include: { contributions: true } }),
-          tx.contact.findMany({ where, include: { shares: true } }),
+          tx.contact.findMany({ where }),
+          // Every share, named or not: one for "Someone" has no person, only
+          // its transaction, so it can't be found through the people.
+          tx.expenseShare.findMany({ where: { OR: [{ contact: where }, { transaction: where }] } }),
         ]),
       WHOLE_DATABASE,
     );
@@ -112,8 +116,8 @@ export async function buildBackup(userId: string) {
     budgetAccounts: budgets.flatMap((b) => b.accounts),
     goals: goals.map((r) => omit(r, "userId", "contributions")),
     goalContributions: goals.flatMap((g) => g.contributions),
-    contacts: contacts.map((r) => omit(r, "userId", "shares")),
-    expenseShares: contacts.flatMap((c) => c.shares),
+    contacts: contacts.map((r) => omit(r, "userId")),
+    expenseShares,
   };
 }
 

@@ -5,7 +5,8 @@
  * 1. The "workerd" client loads Prisma's query compiler with
  *    `import("./query_compiler_bg.wasm?module")`, which only Cloudflare's
  *    runtime understands. Swap it for the base64 build Prisma also ships and
- *    compile it with the browser's own WebAssembly API.
+ *    compile it with the browser's own WebAssembly API (and instantiate it
+ *    asynchronously: see below).
  * 2. Bundle every prisma/migrations/<name>/migration.sql into
  *    src/generated/migrations.ts, so the app can bring the on-device
  *    database up to date on start-up (src/lib/local-db.ts).
@@ -31,7 +32,18 @@ writeFileSync(
     const binary = atob(wasm)
     const bytes = new Uint8Array(binary.length)
     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-    return await WebAssembly.compile(bytes)
+    const module = await WebAssembly.compile(bytes)
+    // Prisma then does \`new WebAssembly.Instance(module, imports)\`, which older
+    // WebViews refuse on the main thread for anything over 4KB. Instantiate it
+    // here, asynchronously, and let that call hand back this instance.
+    const runtime = await import("@prisma/client/runtime/query_compiler_bg.postgresql.mjs")
+    const instance = await WebAssembly.instantiate(module, { "./query_compiler_bg.js": runtime })
+    const NativeInstance = WebAssembly.Instance
+    WebAssembly.Instance = function (m, imports) {
+      return m === module ? instance : new NativeInstance(m, imports)
+    }
+    WebAssembly.Instance.prototype = NativeInstance.prototype
+    return module
   }
 }`,
   ),

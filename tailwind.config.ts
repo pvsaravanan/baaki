@@ -112,6 +112,11 @@ const config: Config = {
           from: { transform: "translateY(6px)", opacity: "0" },
           to: { transform: "translateY(0)", opacity: "1" },
         },
+        // Onboarding pages: a slow, soft arrival.
+        "slow-enter": {
+          from: { transform: "translateY(14px)", opacity: "0" },
+          to: { transform: "translateY(0)", opacity: "1" },
+        },
       },
       animation: {
         "fade-in": "fade-in 0.15s ease-out",
@@ -119,6 +124,7 @@ const config: Config = {
         "sheet-up": "sheet-up 0.24s cubic-bezier(0.32, 0.72, 0, 1)",
         "scale-in": "scale-in 0.14s ease-out",
         "enter": "enter 0.22s cubic-bezier(0.32, 0.72, 0, 1)",
+        "slow-enter": "slow-enter 0.9s cubic-bezier(0.22, 0.61, 0.36, 1) both",
       },
     },
   },
