@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePageData } from "@/lib/local-api";
 import { NativeApp } from "@/components/app/native-app";
+import { splashGone } from "@/components/app/splash-handoff";
 import { ChooseAvatarScreen } from "@/components/app/choose-avatar-screen";
 import { OnboardingScreen } from "@/components/app/onboarding-screen";
 import { WelcomeScreen } from "@/components/app/welcome-screen";
@@ -27,12 +28,21 @@ function hasBeenWelcomed() {
  * on, say, /settings/, this page is what arrives. In that case, fetch the
  * screen the address actually names instead of redirecting.
  */
+/** Opens the on-device database, by loading what the app frame shows. */
+function OpenDatabase() {
+  usePageData("shell");
+  return null;
+}
+
 export default function Home() {
   const router = useRouter();
-  // Open the on-device database now (it takes a while on a first run) rather
-  // than after onboarding: the app frame reads this same cached result, so the
-  // dashboard appears straight away.
-  usePageData("shell");
+  // Open the on-device database during the welcome screen (it takes a while on
+  // a first run) rather than after onboarding: the app frame reads this same
+  // cached result, so the dashboard appears straight away. Not before the
+  // splash has gone, though: opening it keeps the phone busy for a few seconds,
+  // and the splash's exit would stutter.
+  const [openDatabase, setOpenDatabase] = useState(false);
+  useEffect(() => void splashGone.then(() => setOpenDatabase(true)), []);
   const [stage, setStage] = useState<"loading" | "welcome" | "onboarding" | "back-to-onboarding" | "avatar">("loading");
   useEffect(() => {
     if (window.location.pathname !== "/") router.refresh();
@@ -54,6 +64,7 @@ export default function Home() {
   return (
     <>
       {stage !== "loading" && <NativeApp />}
+      {openDatabase && <OpenDatabase />}
       {stage === "welcome" && <WelcomeScreen onStart={() => setStage("onboarding")} />}
       {(stage === "onboarding" || stage === "back-to-onboarding") && (
         <OnboardingScreen fromEnd={stage === "back-to-onboarding"} onDone={() => setStage("avatar")} />

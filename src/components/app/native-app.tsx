@@ -1,17 +1,31 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Capacitor } from "@capacitor/core";
+import { SplashHandoff, markSplashGone } from "./splash-handoff";
+
+const hideNativeSplash = () => import("@capacitor/splash-screen").then(({ SplashScreen }) => SplashScreen.hide());
+
+// The splash leaves once per launch, through the first NativeApp to mount (the
+// welcome screen's, or the app's); later ones (onboarding into the app) skip it.
+let splashHandedOff = false;
 
 /**
- * Android integration, once the app has started: hide the splash screen, and
- * make the system Back button behave like a native app — close whatever is
- * open on top (a form, sheet, picker or menu), otherwise go back a screen,
- * otherwise leave the app.
+ * Android integration, once the app has started: see the splash screen out
+ * smoothly (SplashHandoff), and make the system Back button behave like a
+ * native app — close whatever is open on top (a form, sheet, picker or menu),
+ * otherwise go back a screen, otherwise leave the app.
  */
 export function NativeApp() {
+  const [handoff] = useState(() => {
+    const first = Capacitor.isNativePlatform() && !splashHandedOff;
+    if (first) splashHandedOff = true;
+    return first;
+  });
+
   useEffect(() => {
+    if (!handoff) markSplashGone();
     if (!Capacitor.isNativePlatform()) return;
-    import("@capacitor/splash-screen").then(({ SplashScreen }) => SplashScreen.hide());
+    if (!handoff) void hideNativeSplash();
 
     let cleanup: (() => void) | undefined;
     let cancelled = false;
@@ -33,7 +47,8 @@ export function NativeApp() {
       cancelled = true;
       cleanup?.();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return null;
+  return handoff ? <SplashHandoff onShown={hideNativeSplash} /> : null;
 }

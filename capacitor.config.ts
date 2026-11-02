@@ -17,7 +17,12 @@ const config: CapacitorConfig = {
     SplashScreen: {
       // Hidden by the app itself once its data is ready (see native-app.tsx).
       launchAutoHide: false,
-      backgroundColor: "#f4f1ea",
+      // No cross-fade into the app: during one, the splash logo hangs
+      // half-transparent over the welcome screen beneath it. 1 ms, not 0: at 0
+      // the plugin leaves the exit to the system, whose own fade does the same.
+      launchFadeOutDuration: 1,
+      // As the Android splash (android/app/src/main/res/values/splash_background.xml).
+      backgroundColor: "#f8f2e9",
       showSpinner: false,
     },
     // Edge-to-edge (Android 15+): the app draws behind the status and

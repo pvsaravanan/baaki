@@ -18,10 +18,12 @@
 
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/splash</item>
-        <!-- Android 12+ system splash: the logo on parchment, like the app. -->
-        <item name="windowSplashScreenBackground">@color/ic_launcher_background</item>
-        <!-- A vector, so the logo stays sharp at the splash's large size. -->
-        <item name="windowSplashScreenAnimatedIcon">@drawable/baaki_mark</item>
+        <!-- Android 12+ system splash: the logo on a deeper parchment than the
+             app's, so its light tile stands out (scripts/make-app-icons.mjs). -->
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <!-- The logo on its tile, as a vector so it stays sharp at the splash's
+             large size (drawn by scripts/make-app-icons.mjs). -->
+        <item name="windowSplashScreenAnimatedIcon">@drawable/baaki_splash</item>
         <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
     </style>
 </resources>
