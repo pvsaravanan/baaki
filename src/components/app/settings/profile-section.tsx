@@ -12,6 +12,7 @@ import { useToast } from "@/components/ui/toast";
 import { useConfirm } from "@/components/ui/confirm";
 import { AvatarPicker } from "../avatar-picker";
 import { markPictureNudgeSeen } from "../picture-nudge";
+import { preloadAvatars } from "../preload-avatars";
 import { UserAvatar } from "../user-avatar";
 import { Row, Section } from "./layout";
 
@@ -25,6 +26,9 @@ export function ProfileSection() {
   // Resync if the saved name changes underneath us (e.g. after a refresh).
   useEffect(() => setName(user.name), [user.name]);
   const nameDirty = name.trim().length > 0 && name.trim() !== user.name;
+
+  // The picker is a tap away: get its pictures ready.
+  useEffect(preloadAvatars, []);
 
   const current = readAvatar(user.avatarUrl);
   const hasAvatar = current.kind !== "none";

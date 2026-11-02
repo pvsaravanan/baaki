@@ -2,14 +2,29 @@ import Image from "next/image";
 import { UserRound } from "lucide-react";
 import { readAvatar, type AvatarId } from "@/lib/avatars";
 import { cn } from "@/lib/cn";
-import { AVATAR_IMAGES } from "./avatar-assets";
+import { AVATAR_IMAGES, AVATAR_THUMBS } from "./avatar-assets";
 
-/** One of the profile pictures, filling its circle. `className` sets the size. */
-export function AvatarPicture({ id, className }: { id: AvatarId; className?: string }) {
+/**
+ * One of the profile pictures, filling its circle. `className` sets the size;
+ * `eager` loads it straight away rather than when it scrolls into view;
+ * `thumb` uses the small raster copy, for showing many at once (up to 56 px).
+ */
+export function AvatarPicture({
+  id,
+  className,
+  eager,
+  thumb,
+}: {
+  id: AvatarId;
+  className?: string;
+  eager?: boolean;
+  thumb?: boolean;
+}) {
   return (
     <Image
-      src={AVATAR_IMAGES[id]}
+      src={(thumb ? AVATAR_THUMBS : AVATAR_IMAGES)[id]}
       alt=""
+      loading={eager ? "eager" : "lazy"}
       draggable={false}
       className={cn("shrink-0 select-none rounded-full object-cover", className)}
     />

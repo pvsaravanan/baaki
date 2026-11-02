@@ -1,8 +1,9 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
+import { preloadAvatars } from "./preload-avatars";
 
 /** Hand-drawn coral wash behind every illustration (245 × 202). */
 const WASH =
@@ -127,6 +128,9 @@ const SLIDES: { illustration: React.ReactNode; title: React.ReactNode; body: Rea
   },
 ];
 
+/** How long a page takes to fade away before the next one arrives. */
+const FADE_OUT_MS = 450;
+
 /**
  * The pages after the welcome screen, one idea each: a picture, a headline,
  * a line of explanation, progress dots and a button to the next page (the
@@ -135,12 +139,33 @@ const SLIDES: { illustration: React.ReactNode; title: React.ReactNode; body: Rea
 /** `fromEnd` opens on the last slide, when coming back from the next step. */
 export function OnboardingScreen({ onDone, fromEnd = false }: { onDone: () => void; fromEnd?: boolean }) {
   const [index, setIndex] = useState(fromEnd ? SLIDES.length - 1 : 0);
+  // The profile picture page comes next: get its pictures ready meanwhile.
+  useEffect(preloadAvatars, []);
   const slide = SLIDES[index];
   const last = index === SLIDES.length - 1;
 
+  // A slow hand-over: the page fades away, then the next one drifts in.
+  const [leaving, setLeaving] = useState(false);
+  const next = () => {
+    if (leaving) return;
+    if (last) return onDone();
+    setLeaving(true);
+    setTimeout(() => {
+      setIndex((i) => i + 1);
+      setLeaving(false);
+    }, FADE_OUT_MS);
+  };
+
   return (
     <main className="flex h-dvh flex-col items-center bg-bg px-10 pb-[max(env(safe-area-inset-bottom),8dvh)] pt-[env(safe-area-inset-top)]">
-      <div key={index} className="flex flex-col items-center animate-enter">
+      <div
+        key={index}
+        className="flex animate-slow-enter flex-col items-center motion-reduce:animate-none"
+        style={{
+          opacity: leaving ? 0 : undefined,
+          transition: `opacity ${FADE_OUT_MS}ms ease-in`,
+        }}
+      >
         <div className="mt-[23dvh] flex h-[202px] w-[261px] shrink-0 justify-center">{slide.illustration}</div>
         <h1 className="mt-[28px] text-center text-[28px] font-bold leading-[42px] text-fg">{slide.title}</h1>
         <p className="mt-3 text-center text-[14px] leading-[27px] text-muted">{slide.body}</p>
@@ -161,7 +186,7 @@ export function OnboardingScreen({ onDone, fromEnd = false }: { onDone: () => vo
           // `cn` can't resolve conflicting utilities, so the size and the round shape are set directly.
           style={{ width: 56, height: 56, borderRadius: "50%" }}
           className="relative"
-          onClick={() => (last ? onDone() : setIndex(index + 1))}
+          onClick={next}
         >
           <ArrowRight aria-hidden className="h-6 w-6 shrink-0" strokeWidth={2.5} />
         </Button>

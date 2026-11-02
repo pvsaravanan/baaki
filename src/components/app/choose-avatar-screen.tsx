@@ -6,7 +6,8 @@ import { ApiError, apiPatch } from "@/lib/http";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
-import { AvatarPicker } from "./avatar-picker";
+import { AvatarGrid } from "./avatar-picker";
+import { AvatarPicture } from "./user-avatar";
 
 /**
  * After the onboarding slides: pick a profile picture. Continue saves it;
@@ -17,15 +18,21 @@ export function ChooseAvatarScreen({ onBack, onDone }: { onBack: () => void; onD
   const [saving, setSaving] = useState(false);
   const { error } = useToast();
 
-  // Whether more pictures sit below the visible part of the list, for the fade
-  // that says so (Android shows no scrollbar until you scroll).
+  // Whether more pictures sit above or below the visible part of the grid, for
+  // the fades that say so (Android shows no scrollbar until you scroll).
+  // Measured from the ResizeObserver, which first reports right after the
+  // browser's own layout; measuring as the page mounts would force a layout of
+  // the whole new page early, a visible stall as it appears.
   const listRef = useRef<HTMLDivElement>(null);
+  const [moreAbove, setMoreAbove] = useState(false);
   const [moreBelow, setMoreBelow] = useState(false);
   useEffect(() => {
     const list = listRef.current;
     if (!list) return;
-    const update = () => setMoreBelow(list.scrollTop + list.clientHeight < list.scrollHeight - 4);
-    update();
+    const update = () => {
+      setMoreAbove(list.scrollTop > 4);
+      setMoreBelow(list.scrollTop + list.clientHeight < list.scrollHeight - 4);
+    };
     list.addEventListener("scroll", update, { passive: true });
     const resized = new ResizeObserver(update);
     resized.observe(list);
@@ -62,26 +69,38 @@ export function ChooseAvatarScreen({ onBack, onDone }: { onBack: () => void; onD
         </button>
       </div>
 
-      {/* Scrolls on short phones; the button below stays put. Phone-width on a desktop. */}
-      <div className="relative mx-auto flex min-h-0 w-full max-w-[440px] flex-1 flex-col">
-        <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto px-6 pb-4 animate-enter">
-          <h1 className="mt-2 text-center text-[28px] font-bold leading-[38px] text-fg">
-            Choose a
-            <br />
-            profile picture
-          </h1>
-          <p className="mx-auto mt-3 max-w-[300px] text-center text-[14px] leading-[24px] text-muted">
-            Add a profile picture to personalize your baaki experience.
-          </p>
-          <AvatarPicker value={avatar} onChange={setAvatar} pinned="top-0 bg-bg" className="mt-6" />
+      {/* The heading and the chosen picture stay put; only the grid scrolls.
+          Phone-width on a desktop. */}
+      <div className="mx-auto flex min-h-0 w-full max-w-[440px] flex-1 flex-col px-6 animate-enter">
+        <h1 className="mt-2 shrink-0 text-center text-[28px] font-bold leading-[38px] text-fg">
+          Choose a
+          <br />
+          profile picture
+        </h1>
+        <p className="mx-auto mt-3 max-w-[300px] shrink-0 text-center text-[14px] leading-[24px] text-muted">
+          Add a profile picture to personalize your baaki experience.
+        </p>
+        <AvatarPicture id={avatar} className="mx-auto mt-5 h-[132px] w-[132px]" eager />
+
+        <div className="relative mt-5 min-h-0 flex-1">
+          <div ref={listRef} className="h-full overflow-y-auto pb-4">
+            <AvatarGrid value={avatar} onChange={setAvatar} />
+          </div>
+          <div
+            aria-hidden
+            className={cn(
+              "pointer-events-none absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-bg to-transparent transition-opacity duration-200",
+              moreAbove ? "opacity-100" : "opacity-0",
+            )}
+          />
+          <div
+            aria-hidden
+            className={cn(
+              "pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-bg to-transparent transition-opacity duration-200",
+              moreBelow ? "opacity-100" : "opacity-0",
+            )}
+          />
         </div>
-        <div
-          aria-hidden
-          className={cn(
-            "pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-bg to-transparent transition-opacity duration-200",
-            moreBelow ? "opacity-100" : "opacity-0",
-          )}
-        />
       </div>
 
       <div className="mx-auto w-full max-w-[440px] shrink-0 px-6 pt-3">

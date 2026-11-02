@@ -26,31 +26,48 @@ export function AvatarPicker({
   return (
     <div className={cn("flex flex-col items-center", className)}>
       <div className={cn("sticky z-10 flex w-full justify-center pb-6", pinned)}>
-        <AvatarPicture id={value} className="h-[132px] w-[132px]" />
+        <AvatarPicture id={value} className="h-[132px] w-[132px]" eager />
       </div>
-      {/* Inset a little, so a selected picture's ring stays clear of the pinned band. */}
-      <div role="radiogroup" aria-label="Profile picture" className="grid w-full grid-cols-5 justify-items-center gap-x-2 gap-y-3 p-1">
-        {AVATARS.map((a) => {
-          const selected = a.id === value;
-          return (
-            <button
-              key={a.id}
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              aria-label={a.label}
-              onClick={() => onChange(a.id)}
-              className={cn(
-                // Focus is an outline, so it shows alongside the selection ring rather than replacing it.
-                "rounded-full p-[3px] transition-shadow focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-                selected ? "ring-[2.5px] ring-brand-hover" : "ring-0",
-              )}
-            >
-              <AvatarPicture id={a.id} className="h-14 w-14" />
-            </button>
-          );
-        })}
-      </div>
+      <AvatarGrid value={value} onChange={onChange} />
+    </div>
+  );
+}
+
+/**
+ * Every picture to choose from, five to a row; the chosen one ringed. Inset a
+ * little, so a chosen picture's ring stays clear of whatever borders the grid.
+ */
+export function AvatarGrid({
+  value,
+  onChange,
+  className,
+}: {
+  value: AvatarId;
+  onChange: (id: AvatarId) => void;
+  className?: string;
+}) {
+  return (
+    <div role="radiogroup" aria-label="Profile picture" className={cn("grid w-full grid-cols-5 justify-items-center gap-x-2 gap-y-3 p-1", className)}>
+      {AVATARS.map((a) => {
+        const selected = a.id === value;
+        return (
+          <button
+            key={a.id}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            aria-label={a.label}
+            onClick={() => onChange(a.id)}
+            className={cn(
+              // Focus is an outline, so it shows alongside the selection ring rather than replacing it.
+              "rounded-full p-[3px] transition-shadow focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+              selected ? "ring-[2.5px] ring-brand-hover" : "ring-0",
+            )}
+          >
+            <AvatarPicture id={a.id} className="h-14 w-14" eager thumb />
+          </button>
+        );
+      })}
     </div>
   );
 }
