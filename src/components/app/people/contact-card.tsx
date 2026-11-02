@@ -12,6 +12,7 @@ export function ContactCard({
   onToggle,
   onEdit,
   onDelete,
+  onRestore,
   onSettled,
 }: {
   contact: ContactDTO;
@@ -19,6 +20,7 @@ export function ContactCard({
   onToggle: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onRestore?: () => void;
   onSettled: () => void;
 }) {
   const initials = contact.name.slice(0, 2).toUpperCase();
@@ -54,6 +56,7 @@ export function ContactCard({
       {expanded && (
         <div className="border-t border-border p-4 pt-3">
           <div className="mb-3 flex justify-end gap-2">
+            {contact.isArchived && onRestore && <Button variant="outline" size="sm" onClick={onRestore}>Restore</Button>}
             <Button variant="outline" size="sm" onClick={onEdit}>Edit</Button>
             <Button variant="outline" size="sm" onClick={onDelete}>
               <Trash2 className="h-3.5 w-3.5 text-expense" />

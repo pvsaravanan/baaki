@@ -5,6 +5,9 @@
 
 import type { CategoryIconKey } from "./category-icons";
 
+/** Largest single amount accepted (paise): ₹1,00,00,000. Money columns are 32-bit ints, so this keeps well inside them. */
+export const MAX_PAISE = 1_000_000_000;
+
 /** The kinds of entry a person can record. */
 export const TRANSACTION_TYPES = ["expense", "income", "transfer"] as const;
 /**

@@ -11,7 +11,12 @@ import type { ShareInput, TransactionInput } from "./validation";
  * `before` is what the change replaces (nothing for a new entry), `after` is
  * what it records. Balances are read fresh from the database.
  */
-export async function assertSufficientBalance(userId: string, before: Movement[], after: Movement[]): Promise<void> {
+export async function assertSufficientBalance(
+  userId: string,
+  before: Movement[],
+  after: Movement[],
+  opts: { removing?: boolean } = {},
+): Promise<void> {
   const ids = accountsLowered(before, after);
   if (ids.length === 0) return;
   const [accounts, txns] = await Promise.all([
@@ -32,7 +37,9 @@ export async function assertSufficientBalance(userId: string, before: Movement[]
   );
   if (shortfalls.length > 0) {
     const { name, available } = shortfalls[0];
-    const message = `Not enough balance in ${name}: only ${formatINR(available)} available.`;
+    const message = opts.removing
+      ? `Can't delete this: ${name} would go below ₹0 (it holds ${formatINR(available)} without it).`
+      : `Not enough balance in ${name}: only ${formatINR(available)} available.`;
     throw new BadRequestError(message, { amount: message });
   }
 }
@@ -49,7 +56,11 @@ function movementOf(input: Pick<TransactionInput, "type" | "amount" | "accountId
 const MOVEMENT_FIELDS = { type: true, amount: true, accountId: true, transferAccountId: true } as const;
 
 /** Ensure the referenced account(s) and category belong to the user. */
-async function assertOwnership(userId: string, input: TransactionInput | Omit<TransactionInput, "tags">) {
+async function assertOwnership(
+  userId: string,
+  input: TransactionInput | Omit<TransactionInput, "tags">,
+  existing?: { type: string; categoryId: string | null },
+) {
   const accountIds = [input.accountId, input.transferAccountId].filter(Boolean) as string[];
   const accounts = await prisma.account.findMany({
     where: { id: { in: accountIds }, userId },
@@ -65,7 +76,11 @@ async function assertOwnership(userId: string, input: TransactionInput | Omit<Tr
     if (!cat) throw new NotFoundError("Category not found");
     // A transfer never actually keeps its categoryId (toData nulls it out),
     // so there's nothing meaningful to kind-check here.
-    if (input.type !== "transfer") assertCategoryKindMatches(cat.kind, input.type);
+    // Nor is an edit that keeps the entry's own type and category: changing a
+    // category's kind later must not lock its old entries against edits (a
+    // new note, say).
+    const unchanged = existing?.type === input.type && existing.categoryId === input.categoryId;
+    if (input.type !== "transfer" && !unchanged) assertCategoryKindMatches(cat.kind, input.type);
   }
 }
 
@@ -158,11 +173,11 @@ export async function createTransaction(userId: string, input: TransactionInput)
 export async function updateTransaction(userId: string, id: string, input: TransactionInput) {
   const existing = await prisma.transaction.findFirst({
     where: { id, userId, deletedAt: null },
-    select: { id: true, ...MOVEMENT_FIELDS },
+    select: { id: true, categoryId: true, ...MOVEMENT_FIELDS },
   });
   if (!existing) throw new NotFoundError("Transaction not found");
   assertNotRepayment(existing);
-  await assertOwnership(userId, input);
+  await assertOwnership(userId, input, existing);
   await assertSufficientBalance(userId, [existing], [movementOf(input)]);
   // A transfer can never carry shares (see createTransaction / validation.ts).
   // Forcing an empty array here also clears any shares left over should an
@@ -177,24 +192,24 @@ export async function updateTransaction(userId: string, id: string, input: Trans
     : shares;
   await assertSharesValid(userId, retainedShares, input.amount);
   const tagIds = await resolveTagIds(userId, input.tags ?? []);
-  await prisma.$transaction([
-    prisma.transactionTag.deleteMany({ where: { transactionId: id } }),
-    prisma.transaction.update({
+  // The edit, its tags and its shares commit together or not at all.
+  return prisma.$transaction(async (db) => {
+    await db.transactionTag.deleteMany({ where: { transactionId: id } });
+    await db.transaction.update({
       where: { id },
       data: {
         ...toData(userId, input),
         tags: { create: tagIds.map((tagId) => ({ tagId })) },
       },
-    }),
-  ]);
-  // `shares` omitted entirely means "leave as-is"; an explicit (possibly
-  // empty) array means "replace with this".
-  if (shares !== undefined) await attachShares(userId, id, shares);
-  // Re-fetch once, fully hydrated, so the returned row reflects the shares
-  // change above rather than the pre-attachShares snapshot.
-  return prisma.transaction.findUniqueOrThrow({
-    where: { id },
-    include: { tags: { include: { tag: true } }, shares: { include: { contact: true } } },
+    });
+    // `shares` omitted entirely means "leave as-is"; an explicit (possibly
+    // empty) array means "replace with this".
+    if (shares !== undefined) await replaceShares(db, userId, id, shares);
+    // Fully hydrated, so the returned row reflects the shares change above.
+    return db.transaction.findUniqueOrThrow({
+      where: { id },
+      include: { tags: { include: { tag: true } }, shares: { include: { contact: true } } },
+    });
   });
 }
 
@@ -237,8 +252,11 @@ async function resolveShares(
     if (!contactId && share.name) {
       const found = await db.contact.findFirst({
         where: { userId, name: { equals: share.name, mode: "insensitive" } },
-        select: { id: true },
+        select: { id: true, isArchived: true },
       });
+      // Naming an archived person in a split brings them back, so the share
+      // doesn't land on someone the People screen is hiding.
+      if (found?.isArchived) await db.contact.update({ where: { id: found.id }, data: { isArchived: false } });
       contactId =
         found?.id ??
         (
@@ -275,9 +293,18 @@ export async function attachShares(
   if (!txn) throw new NotFoundError("Transaction not found");
 
   await assertSharesValid(userId, shares, txn.amount);
-  const people = await resolveShares(prisma, userId, shares);
+  await prisma.$transaction((db) => replaceShares(db, userId, transactionId, shares));
+}
 
-  const existing = await prisma.expenseShare.findMany({
+/** The writes of attachShares, on the client of a database transaction (shares already validated). */
+async function replaceShares(
+  db: Prisma.TransactionClient,
+  userId: string,
+  transactionId: string,
+  shares: ShareInput[],
+): Promise<void> {
+  const people = await resolveShares(db, userId, shares);
+  const existing = await db.expenseShare.findMany({
     where: { transactionId },
     select: { id: true, contactId: true },
   });
@@ -287,22 +314,15 @@ export async function attachShares(
   const toUpdate = people.filter((s) => existingIdByContact.has(s.contactId));
   const toCreate = people.filter((s) => !existingIdByContact.has(s.contactId));
 
-  await prisma.$transaction([
-    ...(toDelete.length ? [prisma.expenseShare.deleteMany({ where: { id: { in: toDelete } } })] : []),
-    ...toUpdate.map((s) =>
-      prisma.expenseShare.update({
-        where: { id: existingIdByContact.get(s.contactId)! },
-        data: { amount: s.amount },
-      }),
-    ),
-    ...(toCreate.length
-      ? [
-          prisma.expenseShare.createMany({
-            data: toCreate.map((s) => ({ transactionId, contactId: s.contactId, amount: s.amount })),
-          }),
-        ]
-      : []),
-  ]);
+  if (toDelete.length) await db.expenseShare.deleteMany({ where: { id: { in: toDelete } } });
+  for (const s of toUpdate) {
+    await db.expenseShare.update({ where: { id: existingIdByContact.get(s.contactId)! }, data: { amount: s.amount } });
+  }
+  if (toCreate.length) {
+    await db.expenseShare.createMany({
+      data: toCreate.map((s) => ({ transactionId, contactId: s.contactId, amount: s.amount })),
+    });
+  }
 }
 
 /** Soft-delete. Returns the id so the caller can offer undo. */
@@ -310,6 +330,8 @@ export async function softDeleteTransaction(userId: string, id: string): Promise
   const existing = await prisma.transaction.findFirst({ where: { id, userId, deletedAt: null } });
   if (!existing) throw new NotFoundError("Transaction not found");
   assertNotRepayment(existing);
+  // Deleting income (or a transfer in) lowers a balance just as spending does.
+  await assertSufficientBalance(userId, [existing], [], { removing: true });
   await prisma.transaction.update({ where: { id }, data: { deletedAt: new Date() } });
 }
 
@@ -317,10 +339,12 @@ export async function softDeleteTransaction(userId: string, id: string): Promise
 export async function bulkSoftDeleteTransactions(userId: string, ids: string[]): Promise<number> {
   const unique = [...new Set(ids)];
   if (unique.length === 0) return 0;
-  const result = await prisma.transaction.updateMany({
-    where: { id: { in: unique }, userId, deletedAt: null, type: { not: "repayment" } },
-    data: { deletedAt: new Date() },
-  });
+  const where = { id: { in: unique }, userId, deletedAt: null, type: { not: "repayment" } };
+  // The whole batch is checked together: removing some income may be fine
+  // when the expenses it paid for go in the same batch.
+  const doomed = await prisma.transaction.findMany({ where, select: { id: true, ...MOVEMENT_FIELDS } });
+  await assertSufficientBalance(userId, doomed, [], { removing: true });
+  const result = await prisma.transaction.updateMany({ where: { id: { in: doomed.map((t) => t.id) } }, data: { deletedAt: new Date() } });
   return result.count;
 }
 

@@ -9,7 +9,7 @@ import { SectionIcon } from "./section-icon";
 import { useToast } from "@/components/ui/toast";
 import { useConfirm } from "@/components/ui/confirm";
 import { useAppData } from "./app-data";
-import { ApiError, apiDelete } from "@/lib/http";
+import { ApiError, apiDelete, apiPatch } from "@/lib/http";
 import type { AccountDTO } from "@/lib/types";
 import { AccountCard } from "./accounts/account-card";
 import { AccountForm } from "./accounts/account-form";
@@ -63,6 +63,17 @@ export function AccountsView({ accounts: initial }: { accounts: AccountDTO[] }) 
     }
   }
 
+  async function onRestore(a: AccountDTO) {
+    try {
+      const res = await apiPatch<{ accounts: AccountDTO[] }>(`/api/accounts/${a.id}`, { isArchived: false });
+      setAccounts(res.accounts);
+      refresh();
+      toast.success(`${a.name} restored`);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not restore this account.");
+    }
+  }
+
   return (
     <div className="space-y-4">
       {/* Total balance summary */}
@@ -107,7 +118,7 @@ export function AccountsView({ accounts: initial }: { accounts: AccountDTO[] }) 
               <h2 className="text-xs font-medium uppercase tracking-wide text-faint">Archived</h2>
               <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {archived.map((a) => (
-                  <AccountCard key={a.id} account={a} onEdit={() => openEdit(a)} onDelete={() => onDelete(a)} />
+                  <AccountCard key={a.id} account={a} onEdit={() => openEdit(a)} onDelete={() => onDelete(a)} onRestore={() => onRestore(a)} />
                 ))}
               </ul>
             </div>

@@ -11,7 +11,18 @@ import { useMonthScope } from "./month-scope";
  * Prev / current / next month navigator that drives the `?m=YYYY-MM` param.
  * Inside a MonthScope, switching is a smooth transition (see month-scope).
  */
-export function MonthNav({ monthKey, isCurrent, className }: { monthKey: MonthKey; isCurrent: boolean; className?: string }) {
+export function MonthNav({
+  monthKey,
+  isCurrent,
+  className,
+  monthsAhead = 0,
+}: {
+  monthKey: MonthKey;
+  isCurrent: boolean;
+  className?: string;
+  /** How many months past this one can be opened (budgets look ahead; everything else stops at today). */
+  monthsAhead?: number;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -21,8 +32,8 @@ export function MonthNav({ monthKey, isCurrent, className }: { monthKey: MonthKe
   // While a switch is in flight, show (and step from) the month being loaded,
   // so the label responds at once and quick repeated taps add up.
   const shown = (scope?.targetKey && parseMonthKey(scope.targetKey)) || monthKey;
-  const latest = monthKeyOf(new Date());
-  const atLatest = scope ? shown.year === latest.year && shown.month === latest.month : isCurrent;
+  const latest = addMonths(monthKeyOf(new Date()), monthsAhead);
+  const atLatest = shown.year === latest.year && shown.month === latest.month;
 
   const go = (key: MonthKey) => {
     const next = new URLSearchParams(params);
@@ -68,7 +79,7 @@ export function MonthNav({ monthKey, isCurrent, className }: { monthKey: MonthKe
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
         value={shown}
-        maxMonth={monthKeyOf(new Date())}
+        maxMonth={latest}
         onSelect={(key) => {
           go(key);
           setPickerOpen(false);

@@ -78,7 +78,13 @@ export async function postOccurrence(
       // Claim the occurrence first. This is the lock.
       const claimed = await db.recurringTransaction.updateMany({
         where: { id: rule.id, nextOccurrence: expected },
-        data: { lastPostedDate: startOfDay(date), nextOccurrence: next },
+        // The last occurrence ends the rule, rather than leaving it "active"
+        // with a next date past its end date.
+        data: {
+          lastPostedDate: startOfDay(date),
+          nextOccurrence: next,
+          ...(rule.endDate && next.getTime() > rule.endDate.getTime() ? { isActive: false } : {}),
+        },
       });
       if (claimed.count === 0) throw new OccurrenceAlreadyPosted();
 

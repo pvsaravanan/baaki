@@ -10,6 +10,9 @@ if (signingFile.exists()) {
     signingFile.withInputStream { signingProps.load(it) }
 }
 
+def baakiVersionCode = Integer.parseInt(System.getenv("BAAKI_VERSION_CODE") ?: "1")
+def baakiVersionName = System.getenv("BAAKI_VERSION_NAME") ?: "1.0.0"
+
 android {
     namespace = "app.baaki"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -17,8 +20,10 @@ android {
         applicationId "app.baaki"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0.0"
+        // Raise both for each release (BAAKI_VERSION_CODE / BAAKI_VERSION_NAME);
+        // Android only installs an APK over another if its versionCode is higher.
+        versionCode baakiVersionCode
+        versionName baakiVersionName
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

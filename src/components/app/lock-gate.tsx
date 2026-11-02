@@ -14,9 +14,27 @@ const RELOCK_AFTER_MS = 60_000;
  * (Settings → Security): on opening, and on returning after a minute or more
  * away. Short trips out — sharing a backup, checking a message — don't lock.
  */
-export function LockGate({ enabled, children }: { enabled: boolean; children: React.ReactNode }) {
+export function LockGate({
+  enabled,
+  fresh = true,
+  children,
+}: {
+  enabled: boolean;
+  /** False while `enabled` is only the saved copy from the last launch, not yet read from the database. */
+  fresh?: boolean;
+  children: React.ReactNode;
+}) {
   const active = enabled && Capacitor.isNativePlatform();
   const [locked, setLocked] = useState(active);
+  // If the saved copy said "no lock" but the database says otherwise, the lock
+  // was on all along: it covers the app now, as it would have from the start.
+  const activeAtMount = useRef(active);
+  const sawFresh = useRef(fresh);
+  useEffect(() => {
+    if (!fresh || sawFresh.current) return;
+    sawFresh.current = true;
+    if (active && !activeAtMount.current) setLocked(true);
+  }, [fresh, active]);
   const [prompting, setPrompting] = useState(false);
   const hiddenAt = useRef<number | null>(null);
 
@@ -45,8 +63,11 @@ export function LockGate({ enabled, children }: { enabled: boolean; children: Re
   useEffect(() => {
     if (!locked || asked.current) return;
     asked.current = true;
+    // Only a phone that reports no screen lock lets the lock stand aside. If
+    // the check itself fails, stay locked and ask: failing open would let
+    // anyone past a lock that is meant to be on.
     lockAvailability()
-      .catch(() => ({ available: false }))
+      .catch(() => ({ available: true }))
       .then(({ available }) => (available ? unlock() : setLocked(false)));
   }, [locked, unlock]);
 
@@ -63,7 +84,7 @@ export function LockGate({ enabled, children }: { enabled: boolean; children: Re
         hiddenAt.current = null;
         if (away >= RELOCK_AFTER_MS) {
           lockAvailability()
-            .catch(() => ({ available: false }))
+            .catch(() => ({ available: true }))
             .then(({ available }) => {
               if (!available) return;
               setLocked(true);

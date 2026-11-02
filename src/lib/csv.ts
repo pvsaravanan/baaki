@@ -4,7 +4,7 @@
  */
 import { fromISODate, toISODate } from "./dates";
 import { toPaise } from "./money";
-import { isTransactionType, type TransactionType } from "./constants";
+import { isTransactionType, MAX_PAISE, type TransactionType } from "./constants";
 
 /** Quote a value for CSV per RFC 4180. */
 function csvCell(value: string | number | null | undefined): string {
@@ -317,6 +317,8 @@ export function validateImportRows(
         direction = "in";
       } else if (!errors.length) errors.push("No amount in Withdrawal or Deposit");
     }
+
+    if (amountPaise > MAX_PAISE) errors.push("Amount is too large (the limit is ₹1,00,00,000)");
 
     // Determine type: an explicit Type column wins, else the amount's direction.
     let type: TransactionType = direction === "out" ? "expense" : "income";

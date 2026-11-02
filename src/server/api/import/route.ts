@@ -45,11 +45,12 @@ export const POST = withUser(async (user, req: NextRequest) => {
   // Resolve category + account names to ids.
   const [categories, accounts] = await Promise.all([
     prisma.category.findMany({ where: { userId: user.id }, select: { id: true, name: true, systemKey: true } }),
-    prisma.account.findMany({ where: { userId: user.id }, select: { id: true, name: true } }),
+    prisma.account.findMany({ where: { userId: user.id }, select: { id: true, name: true, isArchived: true } }),
   ]);
   const catByName = new Map(categories.map((c) => [c.name.toLowerCase(), c.id]));
   const catBySystemKey = new Map(categories.flatMap((c) => (c.systemKey ? [[c.systemKey, c.id] as const] : [])));
-  const acctByName = new Map(accounts.map((a) => [a.name.toLowerCase(), a.id]));
+  // Rows never land in an archived account (it no longer counts toward your balance).
+  const acctByName = new Map(accounts.filter((a) => !a.isArchived).map((a) => [a.name.toLowerCase(), a.id]));
 
   // SECURITY: only accept a default account the user actually owns. Account
   // names are resolved from this user's own accounts, so those are safe; the
@@ -58,7 +59,7 @@ export const POST = withUser(async (user, req: NextRequest) => {
   if (input.defaultAccountId && !ownedAccountIds.has(input.defaultAccountId)) {
     throw new NotFoundError("Account not found");
   }
-  const fallbackAccount = input.defaultAccountId ?? accounts[0]?.id ?? null;
+  const fallbackAccount = input.defaultAccountId ?? accounts.find((a) => !a.isArchived)?.id ?? null;
 
   const resolved: Resolved[] = [];
   const unresolvedAccount: InvalidImportRow[] = [];

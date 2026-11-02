@@ -18,4 +18,6 @@ export interface ShareRow {
   amount: string;
   percent: string;
   weight: string;
+  /** An older share nobody was named for ("Someone"): it may stay unnamed, like one person at most. */
+  someone?: boolean;
 }

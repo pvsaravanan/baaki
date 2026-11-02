@@ -41,6 +41,10 @@ jobs:
       - run: npm run build:app
       - run: ./gradlew assembleDebug
         working-directory: android
+      # The release build shrinks code with R8; build it too so a keep-rule
+      # problem shows up here and not on a phone (unsigned without the key).
+      - run: ./gradlew assembleRelease
+        working-directory: android
       - uses: actions/upload-artifact@v4
         with:
           name: baaki-debug-apk

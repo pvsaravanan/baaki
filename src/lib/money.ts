@@ -21,7 +21,7 @@ export function toPaise(rupees: number | string): number {
     const frac = m[3] ?? "";
     let paise = Number(m[2] || "0") * 100 + Number(frac.slice(0, 2).padEnd(2, "0"));
     if (frac.charCodeAt(2) - 48 >= 5) paise += 1; // round half up on the 3rd decimal
-    return neg ? -paise : paise;
+    return neg && paise !== 0 ? -paise : paise; // never -0
   }
 
   // Fallback for other numeric forms (e.g. exponent notation) — preserves the
@@ -45,8 +45,8 @@ export function formatINR(
   opts: { showSign?: boolean; decimals?: "auto" | "always" | "never"; symbol?: boolean } = {},
 ): string {
   const { showSign = false, decimals = "auto", symbol = true } = opts;
-  const negative = paise < 0;
   const abs = Math.abs(Math.round(paise));
+  const negative = paise < 0 && abs > 0; // a sub-paisa amount shows as ₹0, not −₹0
   const rupees = Math.floor(abs / 100);
   const paisePart = abs % 100;
 

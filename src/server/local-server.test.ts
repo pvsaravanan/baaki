@@ -6,7 +6,7 @@ vi.mock("@/lib/db", async () => (await import("@/test/memory-db")).memoryDb());
 
 import { handle, loadPage, matchRoute } from "./local-server";
 import type { AccountDTO, CategoryDTO } from "@/lib/types";
-import { monthKeyOf } from "@/lib/dates";
+import { addDays, monthKeyOf, toISODate } from "@/lib/dates";
 
 async function call<T>(method: string, url: string, body?: unknown): Promise<{ status: number; data: T }> {
   const res = await handle(url, {
@@ -450,5 +450,199 @@ describe("the on-device app", () => {
     expect((await call("POST", `/api/contacts/${dev.id}/settle`, {})).status).toBe(200);
     expect(await balances()).toEqual(before);
     expect((await loadPage("people", {})).contacts.find((c: { name: string }) => c.name === "Dev")).toMatchObject({ net: 0 });
+  });
+
+  it("backs up and restores shares not yet named for anyone (\"Someone\")", async () => {
+    const shell = await loadPage("shell", {});
+    const today = new Date().toISOString().slice(0, 10);
+    const food = shell.categories.find((c: CategoryDTO) => c.kind === "expense")!.id;
+    const salary = shell.categories.find((c: CategoryDTO) => c.kind === "income")!.id;
+    await call("POST", "/api/transactions", {
+      type: "income", amount: 500_000, description: "Salary", date: today, categoryId: salary, accountId: shell.accounts[0].id,
+    });
+    const people = await call<{ contacts: { id: string }[] }>("POST", "/api/contacts", { name: "Ravi" });
+    const split = await call("POST", "/api/transactions", {
+      type: "expense", amount: 90_000, description: "Pizza night", date: today, categoryId: food, accountId: shell.accounts[0].id,
+      shares: [{ contactId: people.data.contacts[0].id, amount: 30_000 }, { amount: 30_000 }],
+    });
+    expect(split.status, JSON.stringify(split.data)).toBe(201);
+    const spentBefore = (await loadPage("dashboard", {})).analytics.current.effectiveExpense;
+
+    const backup = await (await handle("/api/export?format=json")).json();
+    const pizza = backup.transactions.find((t: { description: string }) => t.description === "Pizza night").id;
+    const unnamed = (b: { expenseShares: { transactionId: string | null; contactId: string | null }[] }) =>
+      b.expenseShares.filter((sh) => sh.transactionId === pizza && sh.contactId === null);
+    expect(unnamed(backup)).toHaveLength(1);
+    expect((await call("POST", "/api/backup/restore", backup)).status).toBe(200);
+
+    const spentAfter = (await loadPage("dashboard", {})).analytics.current.effectiveExpense;
+    expect(spentAfter).toBe(spentBefore); // only your share counts, as before
+    expect(unnamed(await (await handle("/api/export?format=json")).json())).toHaveLength(1);
+  });
+
+  it("reads a long history back past 500 rows, page by page", async () => {
+    const shell = await loadPage("shell", {});
+    const cash = shell.accounts[0].id;
+    await call("PATCH", `/api/accounts/${cash}`, { openingBalance: 100_000_000 });
+    for (let i = 0; i < 3; i++) {
+      const rows = Array.from({ length: 250 }, (_, n) => ({
+        Date: "2026-03-01", Description: `Bulk ${i}-${n}`, Amount: "-1", Type: "expense", Category: "", Account: "",
+      }));
+      await call("POST", "/api/import", {
+        records: rows,
+        mapping: { date: "Date", description: "Description", amount: "Amount", type: "Type" },
+        commit: true, skipDuplicates: false, dateFormat: "YYYY-MM-DD", defaultAccountId: cash,
+      });
+    }
+    const first = await call<{ transactions: { id: string }[]; total: number }>("GET", "/api/transactions?q=Bulk&take=500&skip=0");
+    const rest = await call<{ transactions: { id: string }[] }>("GET", "/api/transactions?q=Bulk&take=500&skip=500");
+    expect(first.data.total).toBe(750);
+    expect(first.data.transactions).toHaveLength(500);
+    expect(rest.data.transactions).toHaveLength(250);
+    expect(new Set([...first.data.transactions, ...rest.data.transactions].map((t) => t.id)).size).toBe(750);
+  });
+
+  it("brings back an archived account and an archived person", async () => {
+    const shell = await loadPage("shell", {});
+    const today = new Date().toISOString().slice(0, 10);
+    const salary = shell.categories.find((c: CategoryDTO) => c.kind === "income")!.id;
+    const created = await call<{ accounts: AccountDTO[] }>("POST", "/api/accounts", { name: "Old wallet", type: "wallet" });
+    const wallet = created.data.accounts.find((a) => a.name === "Old wallet")!;
+    await call("POST", "/api/transactions", {
+      type: "income", amount: 5_000, description: "Gift", date: today, categoryId: salary, accountId: wallet.id,
+    });
+    const archived = await call<{ archived: boolean }>("DELETE", `/api/accounts/${wallet.id}`);
+    expect(archived.data.archived).toBe(true);
+    const back = await call<{ accounts: AccountDTO[] }>("PATCH", `/api/accounts/${wallet.id}`, { isArchived: false });
+    expect(back.data.accounts.find((a) => a.id === wallet.id)?.isArchived).toBe(false);
+
+    const food = shell.categories.find((c: CategoryDTO) => c.kind === "expense")!.id;
+    const people = await call<{ contacts: { id: string; name: string }[] }>("POST", "/api/contacts", { name: "Meena" });
+    const meena = people.data.contacts.find((c) => c.name === "Meena")!;
+    await call("POST", "/api/transactions", {
+      type: "expense", amount: 2_000, description: "Tea", date: today, categoryId: food, accountId: wallet.id,
+      shares: [{ contactId: meena.id, amount: 1_000 }],
+    });
+    await call("DELETE", `/api/contacts/${meena.id}`);
+    const hidden = await call<{ contacts: { id: string; isArchived: boolean }[] }>("GET", "/api/contacts");
+    expect(hidden.data.contacts.find((c) => c.id === meena.id)?.isArchived).toBe(true);
+    const restored = await call<{ contacts: { id: string; isArchived: boolean }[] }>("PATCH", `/api/contacts/${meena.id}`, { isArchived: false });
+    expect(restored.data.contacts.find((c) => c.id === meena.id)?.isArchived).toBe(false);
+  });
+
+  it("keeps a deleted category on the transactions that used it", async () => {
+    const shell = await loadPage("shell", {});
+    const today = new Date().toISOString().slice(0, 10);
+    const made = await call<{ createdId: string }>("POST", "/api/categories", { name: "Hobby", kind: "expense" });
+    await call("POST", "/api/transactions", {
+      type: "expense", amount: 1_000, description: "Paint", date: today, categoryId: made.data.createdId, accountId: shell.accounts[0].id,
+    });
+    const del = await call<{ detached: boolean }>("DELETE", `/api/categories/${made.data.createdId}`);
+    expect(del.data.detached).toBe(true);
+    const list = await call<{ transactions: { description: string; categoryId: string | null }[] }>("GET", "/api/transactions?q=Paint");
+    expect(list.data.transactions[0].categoryId).toBe(made.data.createdId);
+  });
+
+  it("won't let a delete or an opening-balance edit take an account below ₹0", async () => {
+    const shell = await loadPage("shell", {});
+    const today = toISODate(new Date());
+    const salary = shell.categories.find((c: CategoryDTO) => c.kind === "income")!.id;
+    const food = shell.categories.find((c: CategoryDTO) => c.kind === "expense")!.id;
+    const made = await call<{ accounts: AccountDTO[] }>("POST", "/api/accounts", { name: "Guarded", type: "bank", openingBalance: 500_000 });
+    const acct = made.data.accounts.find((a) => a.name === "Guarded")!;
+    const tx = async (type: string, amount: number, categoryId: string) =>
+      (await call<{ transaction: { id: string } }>("POST", "/api/transactions", {
+        type, amount, description: `${type} ${amount}`, date: today, categoryId, accountId: acct.id,
+      })).data.transaction.id;
+    const income = await tx("income", 100_000, salary);
+    const expense = await tx("expense", 550_000, food); // spends the opening balance and the income
+
+    // The income paid for part of that expense: it can't be removed on its own.
+    const one = await call<{ error: string }>("DELETE", `/api/transactions/${income}`);
+    expect(one.status).toBe(400);
+    expect(one.data.error).toMatch(/below ₹0/);
+    const some = await call("POST", "/api/transactions/bulk-delete", { ids: [income] });
+    expect(some.status).toBe(400);
+    // Removing the expense too is fine, in one batch.
+    const both = await call<{ count: number }>("POST", "/api/transactions/bulk-delete", { ids: [income, expense] });
+    expect(both.status).toBe(200);
+    expect(both.data.count).toBe(2);
+
+    // Opening balance: lowering it below what the account has recorded is refused.
+    await tx("expense", 300_000, food);
+    const low = await call<{ fields: Record<string, string> }>("PATCH", `/api/accounts/${acct.id}`, { openingBalance: 100_000 });
+    expect(low.status).toBe(400);
+    expect(low.data.fields.openingBalance).toBeTruthy();
+    expect((await call("PATCH", `/api/accounts/${acct.id}`, { openingBalance: 300_000 })).status).toBe(200);
+  });
+
+  it("ends a recurring rule on its last occurrence, and resuming one skips what was missed", async () => {
+    const shell = await loadPage("shell", {});
+    const today = toISODate(new Date());
+    const salary = shell.categories.find((c: CategoryDTO) => c.kind === "income")!.id;
+    const rule = {
+      name: "One-off", type: "income", amount: 1_000, categoryId: salary, accountId: shell.accounts[0].id,
+      frequency: "daily", interval: 1, startDate: today, endDate: today, autoPost: true, isActive: true,
+    };
+    await call("POST", "/api/recurring", rule);
+    const run = await call<{ posted: number }>("POST", "/api/recurring/run-due");
+    expect(run.data.posted).toBeGreaterThanOrEqual(1);
+    const after = (await loadPage("recurring", {})).recurring.find((r) => r.name === "One-off")!;
+    expect(after.isActive).toBe(false);
+
+    // A rule paused since long ago comes back due from today, not from its old date.
+    const old = toISODate(addDays(new Date(), -60));
+    await call("POST", "/api/recurring", { ...rule, name: "Paused", startDate: old, endDate: null, isActive: false });
+    const paused = (await loadPage("recurring", {})).recurring.find((r) => r.name === "Paused")!;
+    const resumed = await call<{ recurring: { name: string; nextOccurrence: string }[] }>("PATCH", `/api/recurring/${paused.id}`, { ...rule, name: "Paused", startDate: old, endDate: null, isActive: true });
+    expect(resumed.data.recurring.find((r) => r.name === "Paused")!.nextOccurrence >= today).toBe(true);
+  });
+
+  it("rejects an imported amount too big to store instead of failing the whole file", async () => {
+    const shell = await loadPage("shell", {});
+    const res = await call<{ summary: { invalid: number; willImport: number; invalidRows: { errors: string[] }[] } }>("POST", "/api/import", {
+      records: [
+        { Date: "2026-03-02", Description: "Huge", Amount: "-30000000" },
+        { Date: "2026-03-02", Description: "Normal", Amount: "-12" },
+      ],
+      mapping: { date: "Date", description: "Description", amount: "Amount" },
+      commit: true, skipDuplicates: true, dateFormat: "YYYY-MM-DD", defaultAccountId: shell.accounts[0].id,
+    });
+    expect(res.status).toBe(200);
+    expect(res.data.summary.invalid).toBe(1);
+    expect(res.data.summary.invalidRows[0].errors[0]).toMatch(/too large/);
+    expect(res.data.summary.willImport).toBe(1);
+  });
+
+  it("still lets an old entry be edited after its category changes kind, and keeps an unnamed share", async () => {
+    const shell = await loadPage("shell", {});
+    const today = toISODate(new Date());
+    const made = await call<{ createdId: string }>("POST", "/api/categories", { name: "Flexible", kind: "expense" });
+    const base = {
+      type: "expense", amount: 4_000, description: "Chai", date: today, categoryId: made.data.createdId,
+      accountId: shell.accounts[0].id, shares: [{ amount: 1_000 }], // a share nobody is named for
+    };
+    const created = await call<{ transaction: { id: string } }>("POST", "/api/transactions", base);
+    expect(created.status, JSON.stringify(created.data)).toBe(201);
+    await call("PATCH", `/api/categories/${made.data.createdId}`, { kind: "income" });
+
+    const edited = await call<{ transaction: { notes: string; shares: { amount: number; contactName: string }[] } }>(
+      "PATCH", `/api/transactions/${created.data.transaction.id}`, { ...base, notes: "with ginger" },
+    );
+    expect(edited.status, JSON.stringify(edited.data)).toBe(200);
+    expect(edited.data.transaction.notes).toBe("with ginger");
+    expect(edited.data.transaction.shares).toMatchObject([{ amount: 1_000, contactName: "Someone" }]);
+
+    // A new entry in that category is still held to the category's kind.
+    const fresh = await call("POST", "/api/transactions", { ...base, description: "New chai", shares: [] });
+    expect(fresh.status).toBe(400);
+  });
+
+  it("applies the past-date rule to a changed goal target date only", async () => {
+    const made = await call<{ goals: { id: string; name: string }[] }>("POST", "/api/goals", { name: "Trip", targetAmount: 100_000 });
+    const goal = made.data.goals.find((g) => g.name === "Trip")!;
+    const past = await call("PATCH", `/api/goals/${goal.id}`, { targetDate: "2020-01-01" });
+    expect(past.status).toBe(400);
+    expect((await call("PATCH", `/api/goals/${goal.id}`, { name: "Big trip" })).status).toBe(200);
   });
 });

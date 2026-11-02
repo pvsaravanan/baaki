@@ -71,13 +71,15 @@ export const DELETE = withUser(async (user, _req: NextRequest, ctx: Ctx) => {
   const { id } = await ctx.params;
   await owned(user.id, id);
 
-  // Any reference means we deactivate + detach rather than hard-delete, so a
+  // Any reference means we only deactivate rather than hard-delete, so a
   // SET NULL / cascade doesn't silently rewrite data the user still relies on:
   //  - transactions / budget limits (existing history);
   //  - recurring rules (categoryId is SET NULL, so a hard delete would leave
   //    every future auto-posted transaction uncategorized with no warning);
   //  - child categories (parentId is SET NULL, so a hard delete would silently
   //    promote all children to top-level and lose the grouping).
+  // Past transactions keep their category: an inactive category is simply no
+  // longer offered for new entries.
   const [usedByTxn, usedByBudget, usedByRecurring, childCount] = await Promise.all([
     prisma.transaction.count({ where: { userId: user.id, categoryId: id } }),
     prisma.budgetCategory.count({ where: { categoryId: id } }),
@@ -86,11 +88,7 @@ export const DELETE = withUser(async (user, _req: NextRequest, ctx: Ctx) => {
   ]);
   const used = usedByTxn + usedByBudget + usedByRecurring + childCount;
   if (used > 0) {
-    // Keep transactions intact but detach + deactivate the category.
-    await prisma.$transaction([
-      prisma.transaction.updateMany({ where: { userId: user.id, categoryId: id }, data: { categoryId: null } }),
-      prisma.category.update({ where: { id }, data: { isActive: false } }),
-    ]);
+    await prisma.category.update({ where: { id }, data: { isActive: false } });
     return json({ detached: true, categories: await loadCategories(user.id) });
   }
 

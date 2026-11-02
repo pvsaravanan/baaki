@@ -24,6 +24,19 @@ export async function saveFile(filename: string, blob: Blob): Promise<boolean> {
     import("@capacitor/filesystem"),
     import("@capacitor/share"),
   ]);
+  // Earlier exports (a full backup holds every transaction) shouldn't pile up
+  // in the app's cache. They can't be removed right after sharing, as the app
+  // that received one may still be reading it, so the next export clears them.
+  try {
+    const { files } = await Filesystem.readdir({ path: "", directory: Directory.Cache });
+    await Promise.all(
+      files
+        .filter((f) => f.name.startsWith("baaki-") && f.name !== filename)
+        .map((f) => Filesystem.deleteFile({ path: f.name, directory: Directory.Cache }).catch(() => undefined)),
+    );
+  } catch {
+    // Best effort: a failed cleanup must never stop the export.
+  }
   const { uri } = await Filesystem.writeFile({
     path: filename,
     data: await toBase64(blob),

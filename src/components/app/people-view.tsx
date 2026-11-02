@@ -9,7 +9,7 @@ import { Money } from "@/components/money";
 import { useToast } from "@/components/ui/toast";
 import { useConfirm } from "@/components/ui/confirm";
 import { useAppData } from "./app-data";
-import { ApiError, apiDelete } from "@/lib/http";
+import { ApiError, apiDelete, apiPatch } from "@/lib/http";
 import type { ContactDTO } from "@/lib/types";
 import { ContactCard } from "./people/contact-card";
 import { ContactForm } from "./people/contact-form";
@@ -70,6 +70,17 @@ export function PeopleView({ contacts: initial, someone: initialSomeone }: { con
       toast.success(`${c.name} removed`);
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Could not remove this person.");
+    }
+  }
+
+  async function onRestore(c: ContactDTO) {
+    try {
+      const res = await apiPatch<{ contacts: ContactDTO[] }>(`/api/contacts/${c.id}`, { isArchived: false });
+      setContacts(res.contacts);
+      refresh();
+      toast.success(`${c.name} restored`);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not restore this person.");
     }
   }
 
@@ -147,6 +158,7 @@ export function PeopleView({ contacts: initial, someone: initialSomeone }: { con
                     onToggle={() => setExpandedId((cur) => (cur === c.id ? null : c.id))}
                     onEdit={() => openEdit(c)}
                     onDelete={() => onDelete(c)}
+                    onRestore={() => onRestore(c)}
                     onSettled={refresh}
                   />
                 ))}

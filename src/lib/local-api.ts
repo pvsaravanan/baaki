@@ -85,6 +85,8 @@ export function usePageData<K extends PageName>(name: K, params: Params = {}) {
   useEffect(() => setCached(readCached(name, key)), [name, key]);
   return {
     data: (data as PageData<K> | undefined) ?? cached,
+    /** True while what's shown is only the saved copy from the last launch, not yet read from the database. */
+    fromCache: data === undefined && cached !== undefined,
     error: error as Error | undefined,
     isLoading,
     /** Showing the previous key's data while this one loads. */

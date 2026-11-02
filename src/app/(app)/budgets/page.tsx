@@ -24,7 +24,7 @@ function Budgets() {
       <PageHeader
         title="Budgets"
         description="Set monthly limits and track your spending against them."
-        actions={<MonthNav monthKey={monthKey} isCurrent={isCurrent} className="w-full sm:w-auto" />}
+        actions={<MonthNav monthKey={monthKey} isCurrent={isCurrent} monthsAhead={12} className="w-full sm:w-auto" />}
       />
       <MonthContent>
         <ScreenData data={data} error={error}>

@@ -1,4 +1,4 @@
-import { Pencil, Trash2 } from "lucide-react";
+import { ArchiveRestore, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/misc";
 import { Money } from "@/components/money";
@@ -11,10 +11,12 @@ export function AccountCard({
   account,
   onEdit,
   onDelete,
+  onRestore,
 }: {
   account: AccountDTO;
   onEdit: () => void;
   onDelete: () => void;
+  onRestore?: () => void;
 }) {
   return (
     <li className={cn("group relative rounded-none border border-border bg-surface p-4 shadow-card", account.isArchived && "opacity-70")}>
@@ -37,6 +39,11 @@ export function AccountCard({
           <Button variant="ghost" size="icon" onClick={onEdit} aria-label={`Edit ${account.name}`}>
             <Pencil className="h-4 w-4" />
           </Button>
+          {account.isArchived && onRestore && (
+            <Button variant="ghost" size="icon" onClick={onRestore} aria-label={`Restore ${account.name}`}>
+              <ArchiveRestore className="h-4 w-4" />
+            </Button>
+          )}
           <Button variant="ghost" size="icon" onClick={onDelete} aria-label={`Delete ${account.name}`}>
             <Trash2 className="h-4 w-4 text-expense" />
           </Button>

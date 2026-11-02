@@ -21,12 +21,14 @@ import { NativeApp } from "./native-app";
  * a moment on start-up while the database opens — it shows the logo.
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { data, error, mutate } = usePageData("shell");
+  const { data, error, mutate, fromCache } = usePageData("shell");
   return (
     <>
       {data || error ? <NativeApp /> : null}
-      {data ? (
-        <LockGate enabled={data.preference.appLock}>
+      {/* A saved copy from the last launch is only a stand-in: if the database
+          then fails to open, recovery is what's needed, not stale numbers. */}
+      {data && !(error && fromCache) ? (
+        <LockGate enabled={data.preference.appLock} fresh={!fromCache}>
           <AppFrame data={data}>{children}</AppFrame>
         </LockGate>
       ) : error ? (
@@ -48,6 +50,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 function RecoveryScreen({ error, onRetry }: { error: Error; onRetry: () => void }) {
   const confirm = useConfirm();
   const [erasing, setErasing] = useState(false);
+  // baaki's database needs the WebView's private file system (OPFS). A WebView
+  // that's too old lacks it, and erasing data can't fix that: updating can.
+  const unsupported = typeof navigator === "undefined" || typeof navigator.storage?.getDirectory !== "function";
 
   async function startOver() {
     const ok = await confirm({
@@ -71,18 +76,28 @@ function RecoveryScreen({ error, onRetry }: { error: Error; onRetry: () => void 
       <Logo size="h-12 w-9" />
       <div className="max-w-sm space-y-2">
         <p className="text-body-md font-bold text-fg">baaki couldn&apos;t open its data</p>
-        <p className="text-sm text-muted">
-          Try again first. If it keeps failing, the data on this phone is damaged: erase it to start fresh, then restore
-          your latest backup file from Settings.
-        </p>
+        {unsupported ? (
+          <p className="text-sm text-muted">
+            This phone&apos;s web engine is too old to run baaki&apos;s database. Update &quot;Android System WebView&quot; and
+            &quot;Google Chrome&quot; in the Play Store, then open baaki again. Your data hasn&apos;t been touched.
+          </p>
+        ) : (
+          <p className="text-sm text-muted">
+            Try again first. If it keeps failing, and updating &quot;Android System WebView&quot; in the Play Store
+            doesn&apos;t help, the data on this phone may be damaged: erase it to start fresh, then restore your latest
+            backup file from Settings.
+          </p>
+        )}
       </div>
       <div className="flex w-full max-w-xs flex-col gap-2">
         <Button onClick={onRetry} disabled={erasing}>
           Try again
         </Button>
-        <Button variant="outline" onClick={startOver} loading={erasing}>
-          Erase and start fresh
-        </Button>
+        {!unsupported && (
+          <Button variant="outline" onClick={startOver} loading={erasing}>
+            Erase and start fresh
+          </Button>
+        )}
       </div>
       <p className="max-w-sm break-words text-2xs text-faint">Details: {error.message}</p>
     </div>

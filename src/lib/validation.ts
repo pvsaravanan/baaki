@@ -7,6 +7,7 @@ import {
   ACCOUNT_TYPES,
   CATEGORY_KINDS,
   FREQUENCIES,
+  MAX_PAISE,
   PAYMENT_METHODS,
   TRANSACTION_TYPES,
 } from "./constants";
@@ -17,7 +18,6 @@ import { DEFAULT_CATEGORY_ICON, isCategoryIcon } from "./category-icons";
 // below that so an oversized amount fails Zod validation with a clear field
 // error instead of throwing a PrismaClientValidationError that falls through
 // to a generic 500.
-const MAX_PAISE = 1_000_000_000; // ₹1,00,00,000 (1 crore)
 const paise = z
   .number()
   .int("Amount must be a whole number of paise")
@@ -113,6 +113,8 @@ export const contactSchema = z.object({
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default("#64748b"),
   // A photo from the address book, already shrunk on the phone.
   avatarUrl: z.string().regex(/^data:image\/(jpeg|png|webp);base64,/).max(150_000).nullish(),
+  /** Only sent to bring an archived person back (see deleteContact). */
+  isArchived: z.boolean().optional(),
 });
 
 /** A standalone ledger entry against a contact (not tied to a transaction). */
@@ -129,6 +131,8 @@ export const accountSchema = z.object({
   openingBalance: paise.default(0),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default("#0d9488"),
   icon: z.string().max(40).default("wallet"),
+  /** Only sent to bring an archived account back (deleting one that has transactions archives it). */
+  isArchived: z.boolean().optional(),
 });
 
 export const categorySchema = z.object({

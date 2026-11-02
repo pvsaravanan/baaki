@@ -29,3 +29,12 @@ describe("money", () => {
     expect(formatINRCompact(950000)).toBe("₹9.5k");
   });
 });
+
+describe("zero is never negative", () => {
+  it("has no −0 paise and no −₹0", async () => {
+    const { toPaise, formatINR } = await import("./money");
+    expect(Object.is(toPaise("-0.001"), 0)).toBe(true);
+    expect(formatINR(-0.4)).toBe("₹0");
+    expect(formatINR(-150)).toBe("−₹1.50");
+  });
+});

@@ -83,7 +83,7 @@ export function TransactionForm({
   const [shareMode, setShareMode] = useState<ExpenseSplitMethod>(existingShares.length > 0 ? "amounts" : "equal");
   const [yourWeight, setYourWeight] = useState("1");
   const [shareRows, setShareRows] = useState<ShareRow[]>(
-    existingShares.map((s) => ({ name: s.contactId ? s.contactName : "", amount: String(toRupees(s.amount)), percent: "", weight: "1" })),
+    existingShares.map((s) => ({ name: s.contactId ? s.contactName : "", amount: String(toRupees(s.amount)), percent: "", weight: "1", someone: !s.contactId })),
   );
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -202,7 +202,7 @@ export function TransactionForm({
     const localErrors: Record<string, string> = {};
 
     const sharing = type === "expense" && peopleEnabled;
-    if (sharing && shareRows.some((r) => !r.name.trim())) {
+    if (sharing && shareRows.some((r) => !r.name.trim() && !r.someone)) {
       localErrors.shares = "Enter a name for everyone in the split";
     } else if (sharing && new Set(shareRows.map((r) => r.name.trim().toLowerCase())).size !== shareRows.length) {
       localErrors.shares = "Each person can only appear once";
@@ -213,7 +213,7 @@ export function TransactionForm({
     const shares =
       sharing && !localErrors.shares
         ? selectedShareRows
-            .map((r) => ({ name: r.name.trim(), amount: shareAmountPaise(r) }))
+            .map((r) => ({ name: r.name.trim() || null, amount: shareAmountPaise(r) }))
             .filter((s) => s.amount > 0)
         : [];
 

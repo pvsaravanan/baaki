@@ -1,4 +1,3 @@
-import { cache } from "react";
 import { prisma } from "./db";
 import { accountBalance, type CalcTxn } from "./calculations";
 import {
@@ -20,19 +19,47 @@ import type {
 import { DEFAULT_DASHBOARD_WIDGETS, normalizeWidgets } from "./dashboard-widgets";
 
 /**
- * Per-request cached raw loaders. Both the layout loaders AND
- * getMonthlyAnalytics need the accounts/categories/transactions tables; caching
- * them means a single render fetches each once instead of once per caller.
+ * Short-lived cache for the raw loaders. One screen load asks for the
+ * accounts, categories and every transaction from several places (the app
+ * frame, goals, analytics); sharing one read between them keeps a load from
+ * reading the whole history over and over. (React's `cache` doesn't do this
+ * outside server rendering.)
+ *
+ * The cache is emptied whenever the app writes (see local-server.ts) and in
+ * any case after a couple of seconds, so a screen never sees stale data.
  */
-export const getUserAccounts = cache((userId: string) =>
+const CACHE_TTL_MS = 2000;
+const memoized = new Map<string, Promise<unknown>>();
+let expiry: ReturnType<typeof setTimeout> | undefined;
+
+export function clearQueryCache(): void {
+  memoized.clear();
+  clearTimeout(expiry);
+  expiry = undefined;
+}
+
+function memo<T>(name: string, fn: (userId: string) => Promise<T>): (userId: string) => Promise<T> {
+  return (userId) => {
+    const key = `${name}:${userId}`;
+    const hit = memoized.get(key);
+    if (hit) return hit as Promise<T>;
+    const pending = fn(userId);
+    memoized.set(key, pending);
+    pending.catch(() => memoized.delete(key)); // never keep a failure
+    expiry ??= setTimeout(clearQueryCache, CACHE_TTL_MS);
+    return pending;
+  };
+}
+
+export const getUserAccounts = memo("accounts", (userId: string) =>
   prisma.account.findMany({ where: { userId }, orderBy: { sortOrder: "asc" } }),
 );
-export const getUserCategories = cache((userId: string) =>
+export const getUserCategories = memo("categories", (userId: string) =>
   prisma.category.findMany({ where: { userId }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
 );
 
 /** Every non-deleted transaction for a user, as calc-ready rows. */
-export const loadCalcTxns = cache(async (userId: string): Promise<CalcTxn[]> => {
+export const loadCalcTxns = memo("calcTxns", async (userId: string): Promise<CalcTxn[]> => {
   const rows = await prisma.transaction.findMany({
     where: { userId, deletedAt: null },
     select: {
@@ -118,7 +145,7 @@ export async function loadTransactionTotals(userId: string): Promise<{ income: n
 }
 
 
-export const loadPreference = cache(async (userId: string): Promise<PreferenceDTO> => {
+export const loadPreference = memo("preference", async (userId: string): Promise<PreferenceDTO> => {
   // Reuse the cached accounts (already fetched by loadAccounts in the layout)
   // and resolve default-account validity in memory, instead of
   // firing two or three separate `account` queries here.

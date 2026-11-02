@@ -31,7 +31,10 @@ export const PATCH = withUser(async (user, req: NextRequest, ctx: Ctx) => {
     startDate.getTime() !== existing.startDate.getTime() ||
     input.frequency !== existing.frequency ||
     input.interval !== existing.interval;
-  const next = scheduleChanged
+  // Resuming a paused rule starts from today: occurrences that fell due while
+  // it was paused are skipped, not posted all at once.
+  const resumed = input.isActive && !existing.isActive;
+  const next = scheduleChanged || resumed
     ? computeNextOccurrence(startDate, input.frequency as Frequency, input.interval, new Date())
     : existing.nextOccurrence;
 

@@ -151,6 +151,12 @@ export async function updateGoal(
 ) {
   await serializable(async (db) => {
     const goal = await ownedGoal(db, userId, goalId);
+    // As when creating one: a changed target date can't be in the past (an
+    // untouched old one is left alone, so a goal that ran late can still be renamed).
+    const keptDate = goal.targetDate ? toISODate(goal.targetDate) : null;
+    if (input.targetDate && input.targetDate !== keptDate && input.targetDate < toISODate(new Date())) {
+      throw new BadRequestError("Target date can't be in the past", { targetDate: "Target date can't be in the past" });
+    }
     const target = input.targetAmount ?? goal.targetAmount;
 
     let status: string = goal.status;

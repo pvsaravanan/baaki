@@ -32,7 +32,7 @@ export function ImportView() {
   const [records, setRecords] = useState<Record<string, string>[]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
   const [mapping, setMapping] = useState<Record<ImportField, string>>(emptyMapping());
-  const [defaultAccountId, setDefaultAccountId] = useState<string>(accounts[0]?.id ?? "");
+  const [defaultAccountId, setDefaultAccountId] = useState<string>((accounts.find((a) => !a.isArchived) ?? accounts[0])?.id ?? "");
   const [dateFormat, setDateFormat] = useState<DateFormat>("auto");
   const [skipDuplicates, setSkipDuplicates] = useState(true);
   const [dragging, setDragging] = useState(false);
@@ -260,7 +260,7 @@ export function ImportView() {
           setMapping={setMapping}
           dateFormat={dateFormat}
           setDateFormat={setDateFormat}
-          accounts={accounts}
+          accounts={accounts.filter((a) => !a.isArchived)}
           defaultAccountId={defaultAccountId}
           setDefaultAccountId={setDefaultAccountId}
           skipDuplicates={skipDuplicates}

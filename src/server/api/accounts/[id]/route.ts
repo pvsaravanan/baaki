@@ -1,8 +1,11 @@
 import type { NextRequest } from "@/server/request";
 import { prisma } from "@/lib/db";
-import { ConflictError, json, NotFoundError, withUser } from "@/lib/api";
+import { BadRequestError, ConflictError, json, NotFoundError, withUser } from "@/lib/api";
 import { accountSchema } from "@/lib/validation";
-import { loadAccounts } from "@/lib/queries";
+import { loadAccounts, loadCalcTxns } from "@/lib/queries";
+import { accountBalance } from "@/lib/calculations";
+import { BALANCE_EXEMPT_ACCOUNT_TYPES } from "@/lib/constants";
+import { formatINR } from "@/lib/money";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -14,8 +17,19 @@ async function owned(userId: string, id: string) {
 
 export const PATCH = withUser(async (user, req: NextRequest, ctx: Ctx) => {
   const { id } = await ctx.params;
-  await owned(user.id, id);
+  const account = await owned(user.id, id);
   const input = accountSchema.partial().parse(await req.json());
+  // Lowering the opening balance lowers the balance like any spend does, so
+  // the same rule applies: it can't take the account below ₹0.
+  if (input.openingBalance !== undefined && input.openingBalance < account.openingBalance) {
+    const type = input.type ?? account.type;
+    const current = accountBalance(account, await loadCalcTxns(user.id));
+    const after = current + (input.openingBalance - account.openingBalance);
+    if (!BALANCE_EXEMPT_ACCOUNT_TYPES.includes(type) && after < 0) {
+      const message = `That would take ${account.name} below ₹0: its balance would be ${formatINR(after)}.`;
+      throw new BadRequestError(message, { openingBalance: message });
+    }
+  }
   // Same case-insensitive-clash-vs-case-sensitive-unique-constraint race as
   // the POST handler: check + update must run in one Serializable
   // transaction so two concurrent renames onto names that only differ by
@@ -37,6 +51,7 @@ export const PATCH = withUser(async (user, req: NextRequest, ctx: Ctx) => {
           openingBalance: input.openingBalance,
           color: input.color,
           icon: input.icon,
+          isArchived: input.isArchived,
         },
       });
     },

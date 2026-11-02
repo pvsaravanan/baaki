@@ -1,5 +1,6 @@
 import { requireUser } from "@/lib/auth";
 import { ensureDb } from "@/lib/local-db";
+import { clearQueryCache } from "@/lib/queries";
 import { pglite } from "@/lib/db";
 import { removeStoredData } from "@/lib/db-storage";
 import { localRequest, type NextRequest } from "./request";
@@ -60,7 +61,15 @@ export async function handle(url: string, init: RequestInit = {}): Promise<Respo
   const method = (init.method ?? "GET").toUpperCase() as Method;
   const handler = route.module[method];
   if (!handler) return Response.json({ error: "Method not allowed" }, { status: 405 });
-  return handler(localRequest(target, { ...init, method }), { params: Promise.resolve(route.params) });
+  // Reads share one short-lived copy of the tables (see queries.ts); anything
+  // that writes empties it before and after, so no screen reads stale data.
+  const writes = method !== "GET";
+  if (writes) clearQueryCache();
+  try {
+    return await handler(localRequest(target, { ...init, method }), { params: Promise.resolve(route.params) });
+  } finally {
+    if (writes) clearQueryCache();
+  }
 }
 
 /** Load one screen's data (see ./pages). */
@@ -77,6 +86,7 @@ export async function loadPage<K extends PageName>(name: K, params: Record<strin
  * restored from Settings). The caller reloads the app afterwards.
  */
 export async function eraseEverything(): Promise<void> {
+  clearQueryCache();
   await pglite.close().catch(() => undefined);
   await removeStoredData();
 }

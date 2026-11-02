@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import useSWR from "swr";
+import useSWRInfinite from "swr/infinite";
 import { CheckSquare, Filter, Search, Trash2, X } from "lucide-react";
 import { SectionIcon } from "./section-icon";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import { useConfirm } from "@/components/ui/confirm";
 import { useToast } from "@/components/ui/toast";
 import { TransactionRow } from "./transaction-row";
 import { useAppData } from "./app-data";
-import { apiPost, swrFetcher } from "@/lib/http";
+import { ApiError, apiPost, swrFetcher } from "@/lib/http";
 import { toPaise } from "@/lib/money";
 import { fromISODate, formatDate } from "@/lib/dates";
 import {
@@ -40,6 +40,8 @@ interface Filters {
   tag: string;
 }
 
+const PAGE_SIZE = 50;
+
 const EMPTY: Filters = { q: "", type: "", categoryId: "", accountId: "", paymentMethod: "", start: "", end: "", min: "", max: "", tag: "" };
 
 type TransactionsResponse = {
@@ -61,7 +63,6 @@ export function TransactionsView({
   const [showFilters, setShowFilters] = useState(false);
   const filterPanelRef = useRef<HTMLDivElement>(null);
   const filterWrapperRef = useRef<HTMLDivElement>(null);
-  const [take, setTake] = useState(50);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
@@ -93,6 +94,11 @@ export function TransactionsView({
     };
   }, [showFilters]);
 
+  // A selection belongs to the list it was made in: a new search or filter
+  // starts afresh, so "Delete" can never reach rows that are no longer shown.
+  const queryKey = JSON.stringify([debouncedQ, { ...filters, q: "" }]);
+  useEffect(() => setSelectedIds(new Set()), [queryKey]);
+
   const query = useMemo(() => {
     const p = new URLSearchParams();
     if (debouncedQ) p.set("q", debouncedQ);
@@ -109,9 +115,8 @@ export function TransactionsView({
     } catch {
       /* ignore malformed amount */
     }
-    p.set("take", String(take));
     return p.toString();
-  }, [debouncedQ, filters, take]);
+  }, [debouncedQ, filters]);
 
   const isDefaultQuery =
     !debouncedQ &&
@@ -123,30 +128,37 @@ export function TransactionsView({
     !filters.end &&
     !filters.tag &&
     !filters.min &&
-    !filters.max &&
-    take === 50;
+    !filters.max;
 
-  const { data, error, isLoading, mutate } = useSWR<TransactionsResponse>(
-    `/api/transactions?${query}`,
+  // Pages of PAGE_SIZE rows, fetched with skip/take so a long history can be
+  // read all the way back (the API caps one request at 500 rows). Changing
+  // the filters changes the first page's key, which starts over at page one.
+  const getKey = (index: number, previous: TransactionsResponse | null) => {
+    if (previous && previous.transactions.length < PAGE_SIZE) return null; // the last page was short
+    const p = new URLSearchParams(query);
+    p.set("take", String(PAGE_SIZE));
+    p.set("skip", String(index * PAGE_SIZE));
+    return `/api/transactions?${p.toString()}`;
+  };
+  const { data: pages, error, isLoading, isValidating, size, setSize, mutate } = useSWRInfinite<TransactionsResponse>(
+    getKey,
     swrFetcher,
     {
-      fallbackData: isDefaultQuery ? initialData : undefined,
+      fallbackData: isDefaultQuery && initialData ? [initialData] : undefined,
       keepPreviousData: true,
       revalidateOnFocus: true,
     },
   );
+  const data = pages?.[0];
+  const loadingMore = isValidating && !!pages && pages.length < size;
 
-  // Sync SWR data if initialData updates from server refresh
-  useEffect(() => {
-    if (initialData && isDefaultQuery) {
-      mutate(initialData, false);
-    }
-  }, [initialData, isDefaultQuery, mutate]);
-
-  const txns = data?.transactions ?? [];
+  const txns = useMemo(() => {
+    const seen = new Set<string>();
+    return (pages ?? []).flatMap((pg) => pg.transactions).filter((t) => !seen.has(t.id) && !!seen.add(t.id));
+  }, [pages]);
   const total = data?.total ?? 0;
-  // Server-computed over every row matching the filter, not just this page —
-  // see the comment in the API route.
+  // Server-computed over every row matching the filter, not just the loaded
+  // pages — see the comment in the API route.
   const totals = data?.totals ?? { income: 0, expense: 0 };
 
   const grouped = useMemo(() => groupByDay(txns), [txns]);
@@ -193,12 +205,16 @@ export function TransactionsView({
     if (!ok) return;
     setDeleting(true);
     try {
-      await apiPost("/api/transactions/bulk-delete", { ids: [...selectedIds] });
-      toast.success(`${count} transaction${count === 1 ? "" : "s"} deleted`);
+      const res = await apiPost<{ count: number }>("/api/transactions/bulk-delete", { ids: [...selectedIds] });
+      const skipped = count - res.count;
+      toast.success(
+        `${res.count} transaction${res.count === 1 ? "" : "s"} deleted` +
+          (skipped > 0 ? ` (${skipped} repayment${skipped === 1 ? "" : "s"} can't be deleted)` : ""),
+      );
       exitSelectMode();
       mutate();
-    } catch {
-      toast.error("Could not delete the selected transactions");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Could not delete the selected transactions");
     } finally {
       setDeleting(false);
     }
@@ -256,7 +272,7 @@ export function TransactionsView({
                           return { ...f, type, categoryId: stillFits ? f.categoryId : "" };
                         });
                       }}
-                      options={[{ value: "", label: "All types" }, ...TRANSACTION_TYPES.map((t) => ({ value: t, label: TYPE_LABELS[t] }))]}
+                      options={[{ value: "", label: "All types" }, ...TRANSACTION_TYPES.map((t) => ({ value: t, label: TYPE_LABELS[t] })), { value: "repayment", label: TYPE_LABELS.repayment }]}
                     />
                   </FilterField>
                   <FilterField label="Category">
@@ -404,7 +420,7 @@ export function TransactionsView({
           ))}
           {total > txns.length && (
             <div className="flex justify-center">
-              <Button variant="secondary" onClick={() => setTake((t) => t + 50)}>Load more</Button>
+              <Button variant="secondary" loading={loadingMore} onClick={() => setSize(size + 1)}>Load more</Button>
             </div>
           )}
         </div>
@@ -424,7 +440,7 @@ function FilterField({ label, children, className }: { label: string; children: 
 
 /** Whether a category's kind is a sensible filter option for a transaction type. */
 function categoryKindMatches(kind: string, type: string): boolean {
-  if (type === "transfer") return false; // transfers never carry a category
+  if (type === "transfer" || type === "repayment") return false; // these never carry a category
   if (type === "income") return kind === "income" || kind === "both";
   if (type === "expense") return kind === "expense" || kind === "both";
   return true; // "" = all types — no restriction
