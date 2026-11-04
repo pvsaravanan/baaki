@@ -15,7 +15,7 @@ export async function assertSufficientBalance(
   userId: string,
   before: Movement[],
   after: Movement[],
-  opts: { removing?: boolean } = {},
+  opts: { removing?: boolean; undoing?: boolean } = {},
 ): Promise<void> {
   const ids = accountsLowered(before, after);
   if (ids.length === 0) return;
@@ -37,7 +37,9 @@ export async function assertSufficientBalance(
   );
   if (shortfalls.length > 0) {
     const { name, available } = shortfalls[0];
-    const message = opts.removing
+    const message = opts.undoing
+      ? `Can't undo this: ${name} would go below ₹0 (it holds ${formatINR(available)} without the repayment).`
+      : opts.removing
       ? `Can't delete this: ${name} would go below ₹0 (it holds ${formatINR(available)} without it).`
       : `Not enough balance in ${name}: only ${formatINR(available)} available.`;
     throw new BadRequestError(message, { amount: message });

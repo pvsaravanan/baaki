@@ -11,6 +11,7 @@ import type { ContactShareRow } from "@/lib/contacts-service";
 import { SettleModal } from "./settle-modal";
 import { RecordEntryModal } from "./record-entry-modal";
 import { NetSettleModal } from "./net-settle-modal";
+import { useUnsettle } from "./use-unsettle";
 
 export function ContactShares({ contact, onSettled }: { contact: ContactDTO; onSettled: () => void }) {
   const { data, mutate } = useSWR<{ shares: ContactShareRow[] }>(`/api/contacts/${contact.id}/shares`, swrFetcher);
@@ -18,6 +19,7 @@ export function ContactShares({ contact, onSettled }: { contact: ContactDTO; onS
   const [recordOpen, setRecordOpen] = useState(false);
   const [netOpen, setNetOpen] = useState(false);
   const toast = useToast();
+  const unsettle = useUnsettle();
 
   const shares = data?.shares ?? [];
   // Two or more open entries can be settled together; one is just "Settle".
@@ -56,7 +58,21 @@ export function ContactShares({ contact, onSettled }: { contact: ContactDTO; onS
                 <div className="flex shrink-0 items-center gap-2">
                   <Money paise={s.amount} tone={youOwe ? "expense" : "income"} className="text-sm font-medium" />
                   {s.settled ? (
-                    <Badge tone="neutral">Settled</Badge>
+                    <>
+                      <Badge tone="neutral">Settled</Badge>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={async () => {
+                          if (await unsettle(s)) {
+                            mutate();
+                            onSettled();
+                          }
+                        }}
+                      >
+                        Undo
+                      </Button>
+                    </>
                   ) : (
                     <Button size="sm" variant="secondary" onClick={() => setSettling(s)}>Settle</Button>
                   )}

@@ -3,7 +3,7 @@ import { prisma } from "./db";
 import { BadRequestError, NotFoundError } from "./api";
 import { assertSufficientBalance } from "./tx-service";
 import { serializeContact } from "./serialize";
-import { toISODate, fromISODate } from "./dates";
+import { toISODate, fromISODate, startOfDay, endOfDayExclusive } from "./dates";
 import type { ContactDTO, ShareDirection } from "./types";
 
 export interface ContactShareRow {
@@ -178,7 +178,7 @@ export async function settleShare(
     if (claimed.count === 0) return; // a concurrent call already settled it
 
     if (accountId) {
-      await db.transaction.create({
+      const entry = await db.transaction.create({
         data: {
           userId,
           type: owed ? "repayment" : "expense",
@@ -189,7 +189,64 @@ export async function settleShare(
           notes: `Settlement for "${label}"`,
         },
       });
+      // Remember which entry settled this share, so settling can be undone.
+      await db.expenseShare.update({ where: { id: shareId }, data: { settlementTransactionId: entry.id } });
     }
+  });
+}
+
+/**
+ * Undo a settlement: the share is owed again, and the entry recorded when it
+ * was settled (the repayment, or the expense of paying someone back) is taken
+ * back out of the account — all of it when this share was the only one it
+ * covered, otherwise just this share's part. Settling without recording only
+ * cleared the ledger, so only the ledger is restored.
+ *
+ * Settlements made before shares remembered their entry are matched by the
+ * note, day and amount they were written with.
+ */
+export async function unsettleShare(userId: string, shareId: string): Promise<void> {
+  const share = await prisma.expenseShare.findFirst({
+    where: { id: shareId, AND: [{ OR: [{ contact: { userId } }, { transaction: { userId } }] }, LIVE_SHARE] },
+    include: { transaction: true, contact: true },
+  });
+  if (!share) throw new NotFoundError("Share not found");
+  if (!share.settled) return;
+
+  const owed = share.direction !== "you_owe";
+  let entry = share.settlementTransactionId
+    ? await prisma.transaction.findFirst({ where: { id: share.settlementTransactionId, userId, deletedAt: null } })
+    : null;
+  if (!entry && !share.settlementTransactionId && share.settledAt) {
+    const label = share.transaction?.description ?? share.description ?? "shared expense";
+    const candidates = await prisma.transaction.findMany({
+      where: {
+        userId,
+        deletedAt: null,
+        type: owed ? "repayment" : "expense",
+        amount: { gte: share.amount },
+        date: { gte: startOfDay(share.settledAt), lt: endOfDayExclusive(share.settledAt) },
+        notes: { in: [`Settlement for "${label}"`, ...(share.contact ? [`Settled up with ${share.contact.name}`] : [])] },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    entry = candidates.find((t) => t.amount === share.amount) ?? candidates[0] ?? null;
+  }
+
+  // Taking a repayment back lowers the account it went into.
+  if (entry && owed) {
+    await assertSufficientBalance(userId, [{ type: "repayment", amount: share.amount, accountId: entry.accountId }], [], { undoing: true });
+  }
+
+  await prisma.$transaction(async (db) => {
+    const claimed = await db.expenseShare.updateMany({
+      where: { id: shareId, settled: true },
+      data: { settled: false, settledAt: null, settlementTransactionId: null },
+    });
+    if (claimed.count === 0 || !entry) return; // a concurrent call already undid it
+    const left = entry.amount - share.amount;
+    if (left > 0) await db.transaction.update({ where: { id: entry.id }, data: { amount: left } });
+    else await db.transaction.delete({ where: { id: entry.id } });
   });
 }
 
@@ -249,11 +306,20 @@ export async function settleContactNet(
     if (claimed.count !== open.length) throw new BadRequestError("These entries changed. Try again.");
     if (!accountId) return;
     const base = { userId, date: new Date(), accountId, notes: `Settled up with ${contact.name}` };
+    // Each share points at the entry that covers it, so one of them can be
+    // undone later without touching the rest.
+    const link = (direction: (d: string) => boolean, entryId: string) =>
+      db.expenseShare.updateMany({
+        where: { id: { in: open.filter((s) => direction(s.direction)).map((s) => s.id) } },
+        data: { settlementTransactionId: entryId },
+      });
     if (owedToYou > 0) {
-      await db.transaction.create({ data: { ...base, type: "repayment", amount: owedToYou, description: `${contact.name} paid back` } });
+      const entry = await db.transaction.create({ data: { ...base, type: "repayment", amount: owedToYou, description: `${contact.name} paid back` } });
+      await link((d) => d !== "you_owe", entry.id);
     }
     if (youOwe > 0) {
-      await db.transaction.create({ data: { ...base, type: "expense", amount: youOwe, description: `Paid ${contact.name} back` } });
+      const entry = await db.transaction.create({ data: { ...base, type: "expense", amount: youOwe, description: `Paid ${contact.name} back` } });
+      await link((d) => d === "you_owe", entry.id);
     }
   });
   return result;

@@ -645,4 +645,99 @@ describe("the on-device app", () => {
     expect(past.status).toBe(400);
     expect((await call("PATCH", `/api/goals/${goal.id}`, { name: "Big trip" })).status).toBe(200);
   });
+
+  it("undoes a settlement, taking back the money it recorded", async () => {
+    const shell = await loadPage("shell", {});
+    const today = toISODate(new Date());
+    const bank = shell.accounts[0];
+    const food = shell.categories.find((c: CategoryDTO) => c.kind === "expense")!.id;
+    const salary = shell.categories.find((c: CategoryDTO) => c.kind === "income")!.id;
+    await call("POST", "/api/transactions", { type: "income", amount: 1_000_000, description: "Pay", date: today, categoryId: salary, accountId: bank.id });
+    const balance = async () => (await loadPage("shell", {})).accounts.find((a: AccountDTO) => a.id === bank.id)!.balance;
+    const people = await call<{ contacts: { id: string; name: string }[] }>("POST", "/api/contacts", { name: "Undo Friend" });
+    const friend = people.data.contacts.find((c) => c.name === "Undo Friend")!;
+    const base = { type: "expense", description: "Undo dinner", date: today, categoryId: food, accountId: bank.id };
+    const a = await call<{ transaction: { shares: { id: string }[] } }>("POST", "/api/transactions", { ...base, amount: 60_000, shares: [{ contactId: friend.id, amount: 20_000 }] });
+    const b = await call<{ transaction: { shares: { id: string }[] } }>("POST", "/api/transactions", { ...base, amount: 90_000, shares: [{ contactId: friend.id, amount: 30_000 }] });
+    const shareA = a.data.transaction.shares[0].id;
+    const shareB = b.data.transaction.shares[0].id;
+    const start = await balance();
+    const owed = async () => (await loadPage("people", {})).contacts.find((c) => c.id === friend.id)!.owedToYou;
+    expect(await owed()).toBe(50_000);
+
+    // Settled together, recorded as one repayment; undo one share and only its part goes.
+    await call("POST", `/api/contacts/${friend.id}/settle`, { record: true, accountId: bank.id });
+    expect(await balance()).toBe(start + 50_000);
+    expect(await owed()).toBe(0);
+    expect((await call("POST", `/api/shares/${shareA}/unsettle`)).status).toBe(200);
+    expect(await balance()).toBe(start + 30_000);
+    expect(await owed()).toBe(20_000);
+
+    // The last one takes the repayment away entirely.
+    expect((await call("POST", `/api/shares/${shareB}/unsettle`)).status).toBe(200);
+    expect(await balance()).toBe(start);
+    expect(await owed()).toBe(50_000);
+    const repayments = (await call<{ transactions: { type: string }[] }>("GET", "/api/transactions?q=Undo Friend paid back")).data.transactions;
+    expect(repayments.filter((t) => t.type === "repayment")).toHaveLength(0);
+
+    // Settled one by one and recorded, then undone: back to owed, balance restored.
+    await call("POST", `/api/shares/${shareA}/settle`, { record: true, accountId: bank.id });
+    expect(await balance()).toBe(start + 20_000);
+    await call("POST", `/api/shares/${shareA}/unsettle`);
+    expect(await balance()).toBe(start);
+
+    // Settled without recording: only the ledger comes back.
+    await call("POST", `/api/shares/${shareA}/settle`, { record: false });
+    await call("POST", `/api/shares/${shareA}/unsettle`);
+    expect(await balance()).toBe(start);
+    expect(await owed()).toBe(50_000);
+    // Undoing something that isn't settled changes nothing.
+    expect((await call("POST", `/api/shares/${shareA}/unsettle`)).status).toBe(200);
+    expect(await owed()).toBe(50_000);
+  });
+
+  it("won't undo a repayment that the account has since spent", async () => {
+    const shell = await loadPage("shell", {});
+    const today = toISODate(new Date());
+    const food = shell.categories.find((c: CategoryDTO) => c.kind === "expense")!.id;
+    const made = await call<{ accounts: AccountDTO[] }>("POST", "/api/accounts", { name: "Thin", type: "bank", openingBalance: 100_000 });
+    const thin = made.data.accounts.find((a) => a.name === "Thin")!;
+    const people = await call<{ contacts: { id: string; name: string }[] }>("POST", "/api/contacts", { name: "Thin Friend" });
+    const friend = people.data.contacts.find((c) => c.name === "Thin Friend")!;
+    const t = await call<{ transaction: { shares: { id: string }[] } }>("POST", "/api/transactions", {
+      type: "expense", amount: 80_000, description: "Thin dinner", date: today, categoryId: food, accountId: thin.id,
+      shares: [{ contactId: friend.id, amount: 40_000 }],
+    });
+    const shareId = t.data.transaction.shares[0].id;
+    await call("POST", `/api/shares/${shareId}/settle`, { record: true, accountId: thin.id }); // balance 60,000
+    await call("POST", "/api/transactions", { type: "expense", amount: 55_000, description: "Spent it", date: today, categoryId: food, accountId: thin.id });
+    const undo = await call<{ error: string }>("POST", `/api/shares/${shareId}/unsettle`);
+    expect(undo.status).toBe(400);
+    expect(undo.data.error).toMatch(/Can't undo/);
+    const still = (await loadPage("people", {})).contacts.find((c) => c.id === friend.id)!;
+    expect(still.owedToYou).toBe(0); // still settled
+  });
+
+  it("undoes a settlement made before shares remembered their entry", async () => {
+    const { prisma } = await import("@/lib/db");
+    const shell = await loadPage("shell", {});
+    const today = toISODate(new Date());
+    const bank = shell.accounts[0];
+    const food = shell.categories.find((c: CategoryDTO) => c.kind === "expense")!.id;
+    const people = await call<{ contacts: { id: string; name: string }[] }>("POST", "/api/contacts", { name: "Old Friend" });
+    const friend = people.data.contacts.find((c) => c.name === "Old Friend")!;
+    const t = await call<{ transaction: { shares: { id: string }[] } }>("POST", "/api/transactions", {
+      type: "expense", amount: 20_000, description: "Old lunch", date: today, categoryId: food, accountId: bank.id,
+      shares: [{ contactId: friend.id, amount: 10_000 }],
+    });
+    const shareId = t.data.transaction.shares[0].id;
+    const balance = async () => (await loadPage("shell", {})).accounts.find((a: AccountDTO) => a.id === bank.id)!.balance;
+    const start = await balance();
+    await call("POST", `/api/shares/${shareId}/settle`, { record: true, accountId: bank.id });
+    await prisma.expenseShare.update({ where: { id: shareId }, data: { settlementTransactionId: null } }); // as an older version left it
+    expect(await balance()).toBe(start + 10_000);
+    expect((await call("POST", `/api/shares/${shareId}/unsettle`)).status).toBe(200);
+    expect(await balance()).toBe(start);
+    expect((await loadPage("people", {})).contacts.find((c) => c.id === friend.id)!.owedToYou).toBe(10_000);
+  });
 });

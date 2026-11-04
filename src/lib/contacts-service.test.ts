@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const db = vi.hoisted(() => ({
-  expenseShare: { findFirst: vi.fn(), updateMany: vi.fn() },
+  expenseShare: { findFirst: vi.fn(), updateMany: vi.fn(), update: vi.fn() },
   account: { findFirst: vi.fn() },
   transaction: { create: vi.fn() },
   $transaction: vi.fn(),
@@ -18,6 +18,7 @@ beforeEach(() => {
   });
   db.expenseShare.updateMany.mockResolvedValue({ count: 1 });
   db.account.findFirst.mockResolvedValue({ id: "account" });
+  db.transaction.create.mockResolvedValue({ id: "entry" });
   db.$transaction.mockImplementation((fn) => fn(db));
 });
 

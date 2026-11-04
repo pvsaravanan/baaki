@@ -59,7 +59,7 @@ const SPECS = {
   expenseShares: {
     // No contactId: a share for "Someone" not yet named (see ExpenseShare).
     id: "s", transactionId: "s?", contactId: "s?", amount: "i", direction: "s", description: "s?", date: "d",
-    settled: "b", settledAt: "d?", createdAt: "d",
+    settled: "b", settledAt: "d?", createdAt: "d", settlementTransactionId: "s?",
   },
 } satisfies Record<string, Spec>;
 

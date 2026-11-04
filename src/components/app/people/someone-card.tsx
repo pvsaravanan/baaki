@@ -12,6 +12,7 @@ import { formatDate, fromISODate } from "@/lib/dates";
 import type { ContactDTO } from "@/lib/types";
 import type { ContactShareRow } from "@/lib/contacts-service";
 import { SettleModal } from "./settle-modal";
+import { useUnsettle } from "./use-unsettle";
 
 /**
  * Shares of split expenses that nobody has been named for yet. They are
@@ -27,6 +28,7 @@ export function SomeoneCard({
   onChanged: (next: { contacts: ContactDTO[]; someone: ContactShareRow[] } | null) => void;
 }) {
   const toast = useToast();
+  const unsettle = useUnsettle();
   const [expanded, setExpanded] = useState(false);
   const [settling, setSettling] = useState<ContactShareRow | null>(null);
   const [naming, setNaming] = useState<ContactShareRow | null>(null);
@@ -76,7 +78,12 @@ export function SomeoneCard({
               <div className="flex shrink-0 items-center gap-2">
                 <Money paise={s.amount} tone="income" className="text-sm font-medium" />
                 {s.settled ? (
-                  <Badge tone="neutral">Settled</Badge>
+                  <>
+                    <Badge tone="neutral">Settled</Badge>
+                    <Button size="sm" variant="ghost" onClick={async () => { if (await unsettle(s)) onChanged(null); }}>
+                      Undo
+                    </Button>
+                  </>
                 ) : (
                   <>
                     <Button size="sm" variant="outline" onClick={() => setNaming(s)} disabled={people.length === 0}>Name</Button>

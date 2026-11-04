@@ -148,7 +148,10 @@ model Transaction {
   recurring       RecurringTransaction? @relation(fields: [recurringId], references: [id])
   tags            TransactionTag[]
   // People this transaction is shared with — see ExpenseShare.
-  shares          ExpenseShare[]
+  shares          ExpenseShare[] @relation("ShareExpense")
+  // Shares whose settlement was recorded as this entry (a repayment, or the
+  // expense of paying someone back) — see ExpenseShare.settlementTransactionId.
+  settledShares   ExpenseShare[] @relation("ShareSettlement")
 
   @@index([userId, date])
   @@index([userId, deletedAt])
@@ -332,10 +335,15 @@ model ExpenseShare {
   settled       Boolean   @default(false)
   settledAt     DateTime?
   createdAt     DateTime  @default(now())
+  // The entry recorded when this share was settled with "record in an account",
+  // so settling can be undone. Several shares settled together share one.
+  settlementTransactionId String?
 
-  transaction Transaction? @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  transaction Transaction? @relation("ShareExpense", fields: [transactionId], references: [id], onDelete: Cascade)
+  settlementTransaction Transaction? @relation("ShareSettlement", fields: [settlementTransactionId], references: [id], onDelete: SetNull)
   contact     Contact?     @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
   @@index([transactionId])
   @@index([contactId])
+  @@index([settlementTransactionId])
 }
