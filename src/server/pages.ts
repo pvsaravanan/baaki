@@ -1,20 +1,21 @@
 import type { SessionUser } from "@/lib/auth";
-import { getCategoryDetail, getMonthlyAnalytics } from "@/lib/analytics";
-import { filterRange, ownAmount } from "@/lib/calculations";
+import { getCategoryDetail, getMonthlyAnalytics, getPeriodReport } from "@/lib/analytics";
+import { filterRange } from "@/lib/calculations";
+import { parseReportPeriod } from "@/lib/report-period";
 import {
   countTransactions,
   loadAccounts,
   loadCalcTxns,
   loadCategories,
+  loadCategoryTransactionCounts,
+  loadMonthTotals,
   loadPreference,
   loadRecurring,
   loadTags,
   loadTransactionTotals,
   loadTransactions,
 } from "@/lib/queries";
-import { loadContacts, loadUnassignedShares } from "@/lib/contacts-service";
-import { loadGoalMoney, loadGoalsOverview } from "@/lib/goals-service";
-import { daysInMonth, monthKeyOf, monthRange, parseMonthKey, toISODate, type MonthKey } from "@/lib/dates";
+import { monthKeyOf, monthRange, parseMonthKey, toISODate, type MonthKey } from "@/lib/dates";
 import type { PerAccountRow, ReportsAnalytics } from "@/components/app/reports-view";
 
 /**
@@ -34,26 +35,23 @@ function monthOf(params: Params): MonthKey {
 export const PAGE_LOADERS = {
   /** Everything the app shell provides to every screen. */
   async shell(user: SessionUser) {
-    const [accounts, categories, tags, preference, contacts, goalMoney] = await Promise.all([
+    const [accounts, categories, tags, preference] = await Promise.all([
       loadAccounts(user.id),
       loadCategories(user.id),
       loadTags(user.id),
       loadPreference(user.id),
-      loadContacts(user.id),
-      loadGoalMoney(user.id),
     ]);
-    return { user, accounts, categories, tags, preference, contacts, goalMoney };
+    return { user, accounts, categories, tags, preference };
   },
 
   async dashboard(user: SessionUser, params: Params) {
-    const [analytics, preference, recent, recurring, goalsOverview] = await Promise.all([
+    const [analytics, preference, recent, recurring] = await Promise.all([
       getMonthlyAnalytics(user.id, monthOf(params)),
       loadPreference(user.id),
       loadTransactions(user.id, { take: 6 }),
       loadRecurring(user.id),
-      loadGoalsOverview(user.id),
     ]);
-    return { analytics, preference, recent, recurring, goals: goalsOverview.goals, goalMoney: goalsOverview.summary };
+    return { analytics, preference, recent, recurring };
   },
 
   async accounts(user: SessionUser) {
@@ -69,7 +67,11 @@ export const PAGE_LOADERS = {
   },
 
   async categories(user: SessionUser) {
-    return { categories: await loadCategories(user.id) };
+    const [categories, transactionCounts] = await Promise.all([
+      loadCategories(user.id),
+      loadCategoryTransactionCounts(user.id),
+    ]);
+    return { categories, transactionCounts };
   },
 
   async category(user: SessionUser, params: Params) {
@@ -79,22 +81,12 @@ export const PAGE_LOADERS = {
     return { category, detail: await getCategoryDetail(user.id, category.id) };
   },
 
-  async goals(user: SessionUser) {
-    // The whole overview even for one goal: "available" depends on every
-    // goal's allocation.
-    return loadGoalsOverview(user.id);
-  },
-
-  async insights(user: SessionUser) {
-    return { analytics: await getMonthlyAnalytics(user.id, monthKeyOf(new Date())) };
-  },
-
-  async people(user: SessionUser) {
-    return { contacts: await loadContacts(user.id), someone: await loadUnassignedShares(user.id) };
-  },
-
   async recurring(user: SessionUser) {
     return { recurring: await loadRecurring(user.id) };
+  },
+
+  async reportsOverview(user: SessionUser, params: Params) {
+    return { report: await getPeriodReport(user.id, parseReportPeriod(params.period)) };
   },
 
   async reports(user: SessionUser, params: Params) {
@@ -113,7 +105,7 @@ export const PAGE_LOADERS = {
     for (const t of filterRange(txns, start, end)) {
       const row = rowOf(t.accountId);
       row.count += 1;
-      if (t.type === "expense") row.expense += ownAmount(t);
+      if (t.type === "expense") row.expense += t.amount;
       else if (t.type === "income") row.income += t.amount;
       // A transfer is also activity on the account it arrived in.
       if (t.type === "transfer" && t.transferAccountId) rowOf(t.transferAccountId).count += 1;
@@ -129,45 +121,15 @@ export const PAGE_LOADERS = {
   },
 
   async transactions(user: SessionUser) {
-    const [transactions, total, totals] = await Promise.all([
+    const [transactions, total, totals, months] = await Promise.all([
       loadTransactions(user.id, { take: 50 }),
       countTransactions(user.id),
       loadTransactionTotals(user.id),
+      loadMonthTotals({ userId: user.id, deletedAt: null }),
     ]);
-    return { transactions, total, totals };
+    return { transactions, total, totals, months };
   },
 
-  async trends(user: SessionUser, params: Params) {
-    const monthKey = monthOf(params);
-    const a = await getMonthlyAnalytics(user.id, monthKey);
-    const budget = a.budget.overallLimit;
-    const spent = a.budget.overallSpent;
-    const daysInMo = daysInMonth(monthKey);
-
-    let cum = 0;
-    const pace = a.daily.map((d) => {
-      cum += d.expense;
-      const dayNum = Number(d.date.slice(-2));
-      return {
-        label: String(dayNum),
-        cumulative: cum,
-        ideal: budget ? Math.round((budget * dayNum) / daysInMo) : null,
-      };
-    });
-
-    return {
-      netTrend: a.incomeExpenseTrend.map((t) => ({ label: t.label, net: t.income - t.expense })),
-      categoryChange: a.categoryComparison.map((c) => ({ name: c.name, delta: c.delta })),
-      pace,
-      budget,
-      spent,
-      savingsRate: a.current.savingsRate,
-      budgetUsedPct: budget && budget > 0 ? (spent / budget) * 100 : null,
-      topShare:
-        a.current.effectiveExpense > 0 && a.categories[0] ? (a.categories[0].net / a.current.effectiveExpense) * 100 : null,
-      topName: a.categories[0]?.name ?? null,
-    };
-  },
 };
 
 export type PageName = keyof typeof PAGE_LOADERS;

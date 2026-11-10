@@ -1,22 +1,24 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import {
+  ArrowDownRight,
   ArrowLeftRight,
+  ArrowUpDown,
+  ArrowUpRight,
   CalendarClock,
   MoreVertical,
   Pause,
-  Pencil,
   Play,
   Plus,
   SkipForward,
-  Trash2,
   Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Modal } from "@/components/ui/modal";
 import { Badge, EmptyState } from "@/components/ui/misc";
+import { SelectMenu } from "@/components/ui/select-menu";
 import { useToast } from "@/components/ui/toast";
+import { SwipeActions } from "@/components/ui/swipe-actions";
 import { useConfirm } from "@/components/ui/confirm";
 import { ActionMenu, ActionMenuItem } from "@/components/ui/action-menu";
 import { Money } from "@/components/money";
@@ -25,8 +27,10 @@ import { SectionIcon } from "@/components/app/section-icon";
 import { RecurringForm } from "./recurring-form";
 import { useAppData, useLookups } from "./app-data";
 import { apiDelete, apiPatch, apiPost } from "@/lib/http";
-import { fromISODate, formatDate } from "@/lib/dates";
+import { fromISODate, formatDate, toISODate } from "@/lib/dates";
 import { FREQUENCY_LABELS, type Frequency } from "@/lib/constants";
+import { formatINR } from "@/lib/money";
+import { expectedPerMonth, RECURRING_SORTS, sortRules, type RecurringSort } from "@/lib/recurring-summary";
 import type { RecurringDTO } from "@/lib/types";
 import { cn } from "@/lib/cn";
 
@@ -68,15 +72,13 @@ export function RecurringView({ recurring }: { recurring: RecurringDTO[] }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<RecurringDTO | null>(null);
   const [busy, setBusy] = useState(false);
+  const [tab, setTab] = useState<"active" | "paused">("active");
+  const [sort, setSort] = useState<RecurringSort>("next");
 
-  const { active, inactive } = useMemo(() => {
-    const byDate = (a: RecurringDTO, b: RecurringDTO) =>
-      a.nextOccurrence < b.nextOccurrence ? -1 : a.nextOccurrence > b.nextOccurrence ? 1 : 0;
-    return {
-      active: rules.filter((r) => r.isActive).sort(byDate),
-      inactive: rules.filter((r) => !r.isActive).sort(byDate),
-    };
-  }, [rules]);
+  const active = useMemo(() => rules.filter((r) => r.isActive), [rules]);
+  const paused = useMemo(() => rules.filter((r) => !r.isActive), [rules]);
+  const shown = useMemo(() => sortRules(tab === "active" ? active : paused, sort), [tab, active, paused, sort]);
+  const expected = useMemo(() => expectedPerMonth(rules, toISODate(new Date())), [rules]);
 
   function openCreate() {
     setEditing(null);
@@ -88,16 +90,9 @@ export function RecurringView({ recurring }: { recurring: RecurringDTO[] }) {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-end">
-        <Button onClick={openCreate}>
-          <Plus className="h-4 w-4" />
-          New recurring
-        </Button>
-      </div>
-
+    <div className="space-y-3">
       {rules.length === 0 ? (
-        <Card>
+        <div className="rounded-xl border border-border/25">
           <EmptyState
             illustration={<SectionIcon section="recurring" size={56} />}
             title="No recurring rules yet"
@@ -109,34 +104,84 @@ export function RecurringView({ recurring }: { recurring: RecurringDTO[] }) {
               </Button>
             }
           />
-        </Card>
+        </div>
       ) : (
         <>
-          <Section
-            title="Active"
-            subtitle="Sorted by next occurrence"
-            count={active.length}
-            rules={active}
-            onEdit={openEdit}
-            onChange={setRules}
-          />
-          {inactive.length > 0 && (
-            <Section
-              title="Inactive / Paused"
-              count={inactive.length}
-              rules={inactive}
-              onEdit={openEdit}
-              onChange={setRules}
+          <div className="grid grid-cols-2 gap-2">
+            <ExpectedCard
+              label="Expected income"
+              amount={expected.income}
+              tone="text-income"
+              icon={<ArrowUpRight aria-hidden className="h-5 w-5 shrink-0 text-income" />}
             />
+            <ExpectedCard
+              label="Expected expenses"
+              amount={expected.expense}
+              tone="text-expense"
+              icon={<ArrowDownRight aria-hidden className="h-5 w-5 shrink-0 text-expense" />}
+            />
+          </div>
+
+          <div role="tablist" aria-label="Recurring status" className="flex gap-1 rounded-full border border-border/20 bg-surface-2/60 p-1">
+            {(
+              [
+                { value: "active", label: "Active", count: active.length },
+                { value: "paused", label: "Paused", count: paused.length },
+              ] as const
+            ).map(({ value, label, count }) => (
+              <button
+                key={value}
+                type="button"
+                role="tab"
+                aria-selected={tab === value}
+                onClick={() => setTab(value)}
+                className={cn(
+                  "flex h-10 flex-1 items-center justify-center gap-2 rounded-full text-sm font-bold transition-colors",
+                  tab === value ? "bg-brand text-brand-fg" : "text-fg",
+                )}
+              >
+                {label}
+                <span className="tnum flex h-5 min-w-5 items-center justify-center rounded-full bg-surface/50 px-1 text-xs">{count}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <SelectMenu
+              soft
+              // No room for it beside "Next occurrence" on the narrowest phones.
+              icon={<ArrowUpDown aria-hidden className="hidden h-4 w-4 shrink-0 min-[380px]:block" />}
+              ariaLabel="Sort by"
+              value={sort}
+              onChange={(v) => setSort(v as RecurringSort)}
+              options={RECURRING_SORTS}
+              className="min-w-0 flex-1 sm:max-w-[14rem]"
+            />
+            <Button onClick={openCreate} className="ml-auto shrink-0 !rounded-lg !px-3">
+              <Plus className="h-4 w-4" />
+              New recurring
+            </Button>
+          </div>
+
+          {shown.length === 0 ? (
+            <p className="py-6 text-center text-body-sm text-muted">
+              {tab === "active" ? "Nothing is running right now." : "Nothing is paused."}
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {shown.map((rule) => (
+                <RecurringRow key={rule.id} rule={rule} onEdit={openEdit} onChange={setRules} />
+              ))}
+            </ul>
           )}
         </>
       )}
 
       <Modal
         open={modalOpen}
+        fullScreen
         onClose={() => setModalOpen(false)}
         title={editing ? "Edit recurring" : "New recurring"}
-        description={editing ? "Update the schedule or amount." : "Schedule a repeating transaction."}
         busy={busy}
       >
         <RecurringForm
@@ -153,34 +198,17 @@ export function RecurringView({ recurring }: { recurring: RecurringDTO[] }) {
   );
 }
 
-function Section({
-  title,
-  subtitle,
-  count,
-  rules,
-  onEdit,
-  onChange,
-}: {
-  title: string;
-  subtitle?: string;
-  count: number;
-  rules: RecurringDTO[];
-  onEdit: (rule: RecurringDTO) => void;
-  onChange: (list: RecurringDTO[]) => void;
-}) {
+function ExpectedCard({ label, amount, tone, icon }: { label: string; amount: number; tone: string; icon: React.ReactNode }) {
   return (
-    <section className="space-y-2.5">
-      <div className="flex items-baseline gap-2 px-1">
-        <h2 className="text-sm font-semibold text-fg">{title}</h2>
-        <span className="text-xs text-muted">{count}</span>
-        {subtitle && <span className="ml-auto text-xs text-faint">{subtitle}</span>}
+    <div className="min-w-0 rounded-xl border border-border p-3 [container-type:inline-size]">
+      <div className="flex items-start gap-1.5">
+        {icon}
+        <p className="min-w-0 text-xs leading-tight text-muted">{label}</p>
       </div>
-      <Card className="divide-y divide-border">
-        {rules.map((rule) => (
-          <RecurringRow key={rule.id} rule={rule} onEdit={onEdit} onChange={onChange} />
-        ))}
-      </Card>
-    </section>
+      {/* Fluid size, so a large amount fits the card instead of wrapping. */}
+      <p className={cn("tnum mt-1.5 whitespace-nowrap font-bold text-[clamp(0.95rem,11cqi,1.35rem)]", tone)}>{formatINR(amount)}</p>
+      <p className="text-2xs text-muted">per month</p>
+    </div>
   );
 }
 
@@ -204,9 +232,9 @@ function RecurringRow({
   const cat = rule.categoryId ? category(rule.categoryId) : null;
   const nextDate = fromISODate(rule.nextOccurrence);
 
-  const meta = isTransfer
+  const where = isTransfer
     ? `${accountName(rule.accountId)} → ${accountName(rule.transferAccountId)}`
-    : [cat?.name ?? "Uncategorized", accountName(rule.accountId)].join(" · ");
+    : accountName(rule.accountId);
 
   async function run(action: () => Promise<{ recurring: RecurringDTO[] }>, success: string, failure: string) {
     setMenuOpen(false);
@@ -231,7 +259,6 @@ function RecurringRow({
       categoryId: r.categoryId,
       accountId: r.accountId,
       transferAccountId: r.transferAccountId,
-      paymentMethod: r.paymentMethod,
       notes: r.notes,
       frequency: r.frequency,
       interval: r.interval,
@@ -284,59 +311,53 @@ function RecurringRow({
   }
 
   return (
-    <div className={cn("relative flex items-center gap-3 px-4 py-3 transition-opacity", busy && "opacity-50")}>
-      <div
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-none"
-        style={{ color: cat?.color ?? "#94a3b8" }}
-      >
-        {isTransfer ? (
-          <ArrowLeftRight className="h-5 w-5 text-muted" />
-        ) : (
-          <CategoryIcon icon={cat?.icon} size={28} />
-        )}
+    <SwipeActions
+      as="li"
+      name={rule.name}
+      enabled={!busy}
+      onEdit={() => onEdit(rule)}
+      onDelete={onDelete}
+      className="rounded-xl border border-border"
+      contentClassName={cn("flex items-center gap-2.5 py-2.5 pl-3 pr-1 transition-opacity", busy && "opacity-50", !rule.isActive && "opacity-70")}
+    >
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center">
+        {isTransfer ? <ArrowLeftRight className="h-7 w-7 text-muted" /> : <CategoryIcon icon={cat?.icon} size={38} />}
       </div>
 
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <p className="min-w-0 flex-1 truncate text-sm font-medium text-fg">{rule.name}</p>
-          <Badge tone={TYPE_BADGE[rule.type]} className="shrink-0">{TYPE_LABEL[rule.type]}</Badge>
-          {rule.autoPost && (
-            <span className="inline-flex shrink-0 items-center gap-0.5 rounded bg-brand-soft px-1.5 py-0.5 text-2xs font-medium text-brand-hover">
-              <Zap className="h-3 w-3" />
-              Auto
-            </span>
-          )}
-        </div>
+        <p className="truncate text-sm font-bold text-fg">{rule.name}</p>
         <p className="mt-0.5 truncate text-xs text-muted">
-          {meta} · {frequencyLabel(rule.frequency, rule.interval)}
+          {frequencyLabel(rule.frequency, rule.interval)} · {where}
+        </p>
+        <p className="mt-0.5 flex items-center gap-1 text-2xs text-muted">
+          <CalendarClock aria-hidden className="h-3 w-3 shrink-0" />
+          {rule.isActive ? "Next" : "Was due"} {nextDate ? formatDate(nextDate, { withYear: false }) : "—"}
         </p>
       </div>
 
-      <div className="hidden shrink-0 flex-col items-end sm:flex">
-        <Money paise={rule.amount} tone={TYPE_TONE[rule.type]} className="text-sm font-semibold" />
-        <span className="mt-0.5 flex items-center gap-1 text-2xs text-faint">
-          <CalendarClock className="h-3 w-3" />
-          {rule.isActive ? "Next" : "Was due"} {nextDate ? formatDate(nextDate, { withYear: false }) : "—"}
-        </span>
-      </div>
-
-      <div className="flex shrink-0 flex-col items-end sm:hidden">
-        <Money paise={rule.amount} tone={TYPE_TONE[rule.type]} className="text-sm font-semibold" />
+      <div className="flex shrink-0 flex-col items-end gap-1">
+        <Money paise={rule.amount} tone={TYPE_TONE[rule.type]} className="text-sm font-bold" />
+        <div className="flex items-center gap-1">
+          {rule.autoPost && (
+            <span className="inline-flex items-center gap-0.5 rounded bg-brand-soft px-1.5 py-0.5 text-2xs font-medium text-brand-hover">
+              <Zap aria-hidden className="h-3 w-3" />
+              Auto
+            </span>
+          )}
+          <Badge tone={TYPE_BADGE[rule.type]}>{TYPE_LABEL[rule.type]}</Badge>
+        </div>
       </div>
 
       <div className="relative shrink-0">
         <button
           onClick={() => setMenuOpen((o) => !o)}
           disabled={busy}
-          className="flex h-9 w-9 items-center justify-center rounded-none text-faint transition-colors hover:text-fg"
-          aria-label={`Actions for ${rule.name}`}
+          className="flex h-10 w-8 items-center justify-center text-fg"
+          aria-label={`More for ${rule.name}`}
         >
-          <MoreVertical className="h-4 w-4" />
+          <MoreVertical className="h-5 w-5" />
         </button>
         <ActionMenu open={menuOpen} onClose={() => setMenuOpen(false)} width={176} label={`Actions for ${rule.name}`}>
-          <ActionMenuItem icon={<Pencil className="h-4 w-4" />} onClick={() => { setMenuOpen(false); onEdit(rule); }}>
-            Edit
-          </ActionMenuItem>
           <ActionMenuItem icon={<Zap className="h-4 w-4" />} onClick={onPostNow}>
             Post now
           </ActionMenuItem>
@@ -349,11 +370,8 @@ function RecurringRow({
           >
             {rule.isActive ? "Pause" : "Resume"}
           </ActionMenuItem>
-          <ActionMenuItem icon={<Trash2 className="h-4 w-4" />} onClick={onDelete} danger>
-            Delete
-          </ActionMenuItem>
         </ActionMenu>
       </div>
-    </div>
+    </SwipeActions>
   );
 }

@@ -27,8 +27,8 @@ export function StatCard({
   className?: string;
 }) {
   return (
-    <div className={cn("rounded-none border border-border bg-surface p-sm [container-type:inline-size]", className)}>
-      <p className="text-label-sm uppercase text-muted">{label}</p>
+    <div className={cn("rounded-xl border border-border/25 bg-surface p-3.5 [container-type:inline-size]", className)}>
+      <p className="text-xs font-medium text-muted">{label}</p>
       <div className="mt-2">
         {/* Fluid size: fills the card on wide layouts, shrinks to fit on narrow
             ones so long amounts (e.g. −₹22,571.33) never overflow. */}
@@ -40,7 +40,7 @@ export function StatCard({
       </div>
       <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
         {delta !== undefined && <DeltaBadge delta={delta} good={deltaGood} />}
-        {hint && <span className="text-label-sm uppercase text-faint">{hint}</span>}
+        {hint && <span className="text-2xs text-muted">{hint}</span>}
       </div>
     </div>
   );
@@ -48,23 +48,23 @@ export function StatCard({
 
 export function DeltaBadge({ delta, good = "up" }: { delta: number | null; good?: "up" | "down" }) {
   if (delta === null) {
-    return <span className="text-label-sm uppercase text-faint">New</span>;
+    return <span className="text-2xs text-muted">New</span>;
   }
   if (Math.abs(delta) < 0.05) {
-    return <span className="text-label-sm uppercase text-faint">No change</span>;
+    return <span className="text-2xs text-muted">No change</span>;
   }
   const up = delta > 0;
   const positive = good === "up" ? up : !up;
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-0.5 text-label-sm uppercase",
+        "inline-flex flex-wrap items-center gap-x-0.5 text-2xs font-medium",
         positive ? "text-income" : "text-expense",
       )}
     >
       {up ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
       {formatDelta(delta)}
-      <span className="ml-0.5 text-faint">vs last mo</span>
+      <span className="ml-0.5 font-normal text-muted">vs last month</span>
     </span>
   );
 }

@@ -1,16 +1,14 @@
 "use client";
 import { createContext, useCallback, useContext } from "react";
 import { useSWRConfig } from "swr";
-import type { AccountDTO, CategoryDTO, ContactDTO, GoalMoneyDTO, PreferenceDTO, TagDTO } from "@/lib/types";
+import type { AccountDTO, CategoryDTO, PreferenceDTO, TagDTO } from "@/lib/types";
 
 export interface AppData {
   user: { id: string; name: string; email: string; avatarUrl: string | null };
   accounts: AccountDTO[];
   categories: CategoryDTO[];
   tags: TagDTO[];
-  contacts: ContactDTO[];
   preference: PreferenceDTO;
-  goalMoney: GoalMoneyDTO;
   /** Re-read every screen's data from the device after a change. */
   refresh: () => void;
 }

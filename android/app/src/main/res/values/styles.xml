@@ -17,13 +17,19 @@
 
 
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
-        <item name="android:background">@drawable/splash</item>
-        <!-- Android 12+ system splash: the logo on a deeper parchment than the
-             app's, so its light tile stands out (scripts/make-app-icons.mjs). -->
+        <item name="android:background">@color/splash_background</item>
+        <!-- The launch animation's opening: the logo arrives on parchment, and
+             the app (LaunchVideo.java) takes it over in the same place. -->
         <item name="windowSplashScreenBackground">@color/splash_background</item>
-        <!-- The logo on its tile, as a vector so it stays sharp at the splash's
-             large size (drawn by scripts/make-app-icons.mjs). -->
-        <item name="windowSplashScreenAnimatedIcon">@drawable/baaki_splash</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/launch_logo_animated</item>
+        <item name="windowSplashScreenAnimationDuration">850</item>
         <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
+    </style>
+
+    <!-- Launches after the first (Android 13+, set by LaunchVideo.java): the
+         logo at rest, not animating in, as the full animation is for a fresh
+         install only. -->
+    <style name="AppTheme.NoActionBarLaunch.Still">
+        <item name="windowSplashScreenAnimatedIcon">@drawable/launch_logo</item>
     </style>
 </resources>

@@ -5,7 +5,7 @@ import { buildCSV } from "@/lib/csv";
 import { toISODate } from "@/lib/dates";
 import { buildWhere } from "@/lib/query";
 import { buildBackup } from "@/lib/backup";
-import { PAYMENT_METHOD_LABELS, TYPE_LABELS, type PaymentMethod, type TransactionType } from "@/lib/constants";
+import { TYPE_LABELS, type TransactionType } from "@/lib/constants";
 
 export const GET = withUser(async (user, req: NextRequest) => {
   const format = req.nextUrl.searchParams.get("format") ?? "json";
@@ -41,7 +41,7 @@ export const GET = withUser(async (user, req: NextRequest) => {
     const runningBalance = new Map(accounts.map((a) => [a.id, a.openingBalance]));
     const balanceAfter = new Map<string, number>();
     for (const t of allTxns) {
-      if (t.type === "income" || t.type === "repayment") {
+      if (t.type === "income") {
         runningBalance.set(t.accountId, (runningBalance.get(t.accountId) ?? 0) + t.amount);
       } else if (t.type === "expense" || t.type === "transfer") {
         runningBalance.set(t.accountId, (runningBalance.get(t.accountId) ?? 0) - t.amount);
@@ -64,7 +64,6 @@ export const GET = withUser(async (user, req: NextRequest) => {
       "Category",
       "Account",
       "To Account",
-      "Payment Method",
       "Tags",
       "Notes",
       "Balance (₹)",
@@ -80,7 +79,6 @@ export const GET = withUser(async (user, req: NextRequest) => {
       t.categoryId ? catName.get(t.categoryId) ?? "" : "",
       acctName.get(t.accountId) ?? "",
       t.transferAccountId ? acctName.get(t.transferAccountId) ?? "" : "",
-      t.paymentMethod ? PAYMENT_METHOD_LABELS[t.paymentMethod as PaymentMethod] ?? t.paymentMethod : "",
       t.tags.map((tt) => tt.tag.name).join("; "),
       t.notes ?? "",
       ((balanceAfter.get(t.id) ?? 0) / 100).toFixed(2),

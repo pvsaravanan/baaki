@@ -1,4 +1,6 @@
+import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "./db";
+import { toISODate } from "./dates";
 import { accountBalance, type CalcTxn } from "./calculations";
 import {
   serializeAccount,
@@ -11,6 +13,7 @@ import type {
   AccountDTO,
   BudgetDTO,
   CategoryDTO,
+  MonthTotals,
   PreferenceDTO,
   RecurringDTO,
   TagDTO,
@@ -21,7 +24,7 @@ import { DEFAULT_DASHBOARD_WIDGETS, normalizeWidgets } from "./dashboard-widgets
 /**
  * Short-lived cache for the raw loaders. One screen load asks for the
  * accounts, categories and every transaction from several places (the app
- * frame, goals, analytics); sharing one read between them keeps a load from
+ * frame, analytics); sharing one read between them keeps a load from
  * reading the whole history over and over. (React's `cache` doesn't do this
  * outside server rendering.)
  *
@@ -72,19 +75,24 @@ export const loadCalcTxns = memo("calcTxns", async (userId: string): Promise<Cal
       accountId: true,
       transferAccountId: true,
       deletedAt: true,
-      shares: { where: { direction: "owed_to_you" }, select: { amount: true } },
     },
   });
-  return rows.map(({ shares, ...r }) => ({
-    ...r,
-    type: r.type as CalcTxn["type"],
-    sharedAmount: shares.reduce((sum, s) => sum + s.amount, 0),
-  }));
+  return rows.map((r) => ({ ...r, type: r.type as CalcTxn["type"] }));
 });
 
 export async function loadAccounts(userId: string): Promise<AccountDTO[]> {
   const [accounts, txns] = await Promise.all([getUserAccounts(userId), loadCalcTxns(userId)]);
   return accounts.map((a) => serializeAccount(a, accountBalance({ id: a.id, openingBalance: a.openingBalance }, txns)));
+}
+
+/** How many transactions each category has, by id. Categories with none are left out. */
+export async function loadCategoryTransactionCounts(userId: string): Promise<Record<string, number>> {
+  const rows = await prisma.transaction.groupBy({
+    by: ["categoryId"],
+    where: { userId, deletedAt: null, categoryId: { not: null } },
+    _count: { _all: true },
+  });
+  return Object.fromEntries(rows.map((r) => [r.categoryId as string, r._count._all]));
 }
 
 export async function loadCategories(userId: string): Promise<CategoryDTO[]> {
@@ -103,7 +111,7 @@ export async function loadTransactions(
 ): Promise<TransactionDTO[]> {
   const rows = await prisma.transaction.findMany({
     where: { userId, deletedAt: null },
-    include: { tags: { include: { tag: true } }, shares: { include: { contact: true } } },
+    include: { tags: { include: { tag: true } } },
     orderBy: [{ date: "desc" }, { createdAt: "desc" }],
     take: opts.take,
     skip: opts.skip,
@@ -119,19 +127,12 @@ export async function countTransactions(userId: string): Promise<number> {
 
 /** Income/expense totals across every (undeleted) transaction, not just a loaded page. */
 export async function loadTransactionTotals(userId: string): Promise<{ income: number; expense: number }> {
-  const [sums, sharedOut] = await Promise.all([
-    prisma.transaction.groupBy({
-      by: ["type"],
-      where: { userId, deletedAt: null },
-      _sum: { amount: true },
-    }),
-    // What others owe back on expenses isn't your spending.
-    prisma.expenseShare.aggregate({
-      where: { direction: "owed_to_you", transaction: { is: { userId, deletedAt: null, type: "expense" } } },
-      _sum: { amount: true },
-    }),
-  ]);
-  const totals = sums.reduce(
+  const sums = await prisma.transaction.groupBy({
+    by: ["type"],
+    where: { userId, deletedAt: null },
+    _sum: { amount: true },
+  });
+  return sums.reduce(
     (acc, s) => {
       const amount = s._sum.amount ?? 0;
       if (s.type === "income") acc.income += amount;
@@ -140,10 +141,27 @@ export async function loadTransactionTotals(userId: string): Promise<{ income: n
     },
     { income: 0, expense: 0 },
   );
-  totals.expense = Math.max(0, totals.expense - (sharedOut._sum.amount ?? 0));
-  return totals;
 }
 
+
+/**
+ * Income and expense per month ("2026-09") across every transaction matching
+ * `where`, not just a loaded page. The list loads in pages, so a month's totals
+ * can't be added up on the screen: they'd be short until the whole month loads.
+ */
+export async function loadMonthTotals(where: Prisma.TransactionWhereInput): Promise<MonthTotals> {
+  const rows = await prisma.transaction.findMany({
+    where: { AND: [where, { type: { in: ["income", "expense"] } }] },
+    select: { date: true, type: true, amount: true },
+  });
+  const months: MonthTotals = {};
+  for (const r of rows) {
+    const month = (months[toISODate(r.date).slice(0, 7)] ??= { income: 0, expense: 0 });
+    if (r.type === "income") month.income += r.amount;
+    else month.expense += r.amount;
+  }
+  return months;
+}
 
 export const loadPreference = memo("preference", async (userId: string): Promise<PreferenceDTO> => {
   // Reuse the cached accounts (already fetched by loadAccounts in the layout)

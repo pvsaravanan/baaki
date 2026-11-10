@@ -23,7 +23,7 @@ function ExpenseIllustration() {
       />
       <path d="M59 46H171V68H59Z" className="fill-brand-hover stroke-fg" strokeWidth="3" />
       <path d="M76 90H155M76 112H155M76 135H117" className="stroke-fg" strokeWidth="3.5" fill="none" />
-      <text x="145" y="162" textAnchor="middle" fontSize="32" fontWeight="700" className="fill-fg" fontFamily="var(--font-mono)">
+      <text x="145" y="162" textAnchor="middle" fontSize="32" fontWeight="800" className="fill-fg" fontFamily="var(--font-sans)">
         ₹
       </text>
     </svg>
@@ -53,23 +53,75 @@ function SpendingIllustration() {
   );
 }
 
-function GoalIllustration() {
+function BudgetIllustration() {
   return (
-    <svg viewBox="0 0 261 202" aria-hidden className="h-full w-full overflow-visible" strokeLinecap="round" strokeLinejoin="round">
-      <path
-        d="M62 52C95 30 135 34 160 56C185 78 195 92 225 108C260 130 262 175 232 200C205 220 170 222 135 208C110 196 80 210 45 180C12 152 -4 120 14 98C26 80 45 66 62 52Z"
-        className="fill-brand-soft"
-        opacity="0.7"
-      />
+    <svg viewBox="0 0 245 202" aria-hidden className="h-full w-[245px] overflow-visible" strokeLinecap="round" strokeLinejoin="round">
+      <path d={WASH} className="fill-brand-soft" opacity="0.7" />
       {/* sparks */}
-      <path d="M66 13L77 37M37 37L62 51M33 76L55 70" className="stroke-fg" strokeWidth="3" fill="none" />
-      {/* target */}
-      <circle cx="128.5" cy="133" r="67" className="fill-[#f3eee3] stroke-fg" strokeWidth="4" />
-      <circle cx="128.5" cy="133" r="43" className="fill-brand-hover stroke-fg" strokeWidth="4" />
-      {/* arrow */}
-      <path d="M128.5 133L182 80" className="stroke-fg" strokeWidth="4.5" fill="none" />
-      <circle cx="128.5" cy="133" r="6" className="fill-fg" />
-      <path d="M177 68L199 42L201 57L221 59L199 83L180 80Z" className="fill-[#5b7f5b] stroke-fg" strokeWidth="3" />
+      <path d="M190 4L182 27M222 28L199 39M206 62L231 62" className="stroke-fg" strokeWidth="3" fill="none" />
+      {/* jar */}
+      <path d="M84 50H160V64C176 74 182 92 182 112V170C182 182 174 190 162 190H82C70 190 62 182 62 170V112C62 92 68 74 84 64Z" className="fill-bg stroke-fg" strokeWidth="4" />
+      {/* coins, filling up to the limit */}
+      <g className="stroke-fg" strokeWidth="3">
+        <path d="M66 150H178V170C178 180 172 186 162 186H82C72 186 66 180 66 170Z" className="fill-brand" />
+        <path d="M66 128H178V150H66Z" className="fill-[#dccdae]" />
+        <path d="M68 108H176V128H66Z" className="fill-brand-hover" />
+      </g>
+      {/* the limit */}
+      <path d="M48 96H196" className="stroke-fg" strokeWidth="3" strokeDasharray="8 7" fill="none" />
+      <path d="M196 96V72L214 79L196 86" className="fill-[#4a6e4c] stroke-fg" strokeWidth="3" />
+      {/* lid */}
+      <path d="M78 36H166V50H78Z" className="fill-brand-hover stroke-fg" strokeWidth="4" />
+    </svg>
+  );
+}
+
+function BillsIllustration() {
+  return (
+    <svg viewBox="0 0 245 202" aria-hidden className="h-full w-[245px] overflow-visible" strokeLinecap="round" strokeLinejoin="round">
+      <path d={WASH} className="fill-brand-soft" opacity="0.7" />
+      {/* sparks */}
+      <path d="M20 30L36 46M8 66H30M30 4L40 26" className="stroke-fg" strokeWidth="3" fill="none" />
+      {/* calendar */}
+      <path d="M56 40H186V176H56Z" className="fill-bg stroke-fg" strokeWidth="4" />
+      <path d="M58 42H184V70H58Z" className="fill-brand-hover stroke-fg" strokeWidth="3" />
+      <path d="M86 28V52M156 28V52" className="stroke-fg" strokeWidth="5" fill="none" />
+      {/* days */}
+      <g className="fill-fg">
+        <circle cx="82" cy="94" r="4" />
+        <circle cx="108" cy="94" r="4" />
+        <circle cx="134" cy="94" r="4" />
+        <circle cx="160" cy="94" r="4" />
+        <circle cx="82" cy="120" r="4" />
+        <circle cx="134" cy="120" r="4" />
+        <circle cx="160" cy="120" r="4" />
+        <circle cx="82" cy="146" r="4" />
+        <circle cx="108" cy="146" r="4" />
+      </g>
+      {/* the bill's day, ringed */}
+      <circle cx="108" cy="120" r="13" className="fill-brand stroke-fg" strokeWidth="3" />
+      {/* repeats every month */}
+      <circle cx="186" cy="164" r="30" className="fill-[#4a6e4c] stroke-fg" strokeWidth="4" />
+      <path d="M172 158A15 15 0 0 1 199 154M200 170A15 15 0 0 1 173 174" className="stroke-bg" strokeWidth="4" fill="none" />
+      <path d="M200 145L200 155L190 155M172 183L172 173L182 173" className="stroke-bg" strokeWidth="4" fill="none" />
+    </svg>
+  );
+}
+
+function PrivateIllustration() {
+  return (
+    <svg viewBox="0 0 245 202" aria-hidden className="h-full w-[245px] overflow-visible" strokeLinecap="round" strokeLinejoin="round">
+      <path d={WASH} className="fill-brand-soft" opacity="0.7" />
+      {/* sparks */}
+      <path d="M196 20L186 42M226 46L203 54M214 82L238 86" className="stroke-fg" strokeWidth="3" fill="none" />
+      {/* phone */}
+      <path d="M78 10H166C174 10 180 16 180 24V180C180 188 174 194 166 194H78C70 194 64 188 64 180V24C64 16 70 10 78 10Z" className="fill-bg stroke-fg" strokeWidth="4" />
+      <path d="M104 22H140" className="stroke-fg" strokeWidth="4" fill="none" />
+      {/* padlock */}
+      <path d="M100 104V86C100 72 110 64 122 64C134 64 144 72 144 86V104" className="stroke-fg" strokeWidth="6" fill="none" />
+      <path d="M88 102H156V160H88Z" className="fill-brand-hover stroke-fg" strokeWidth="4" />
+      <path d="M122 122V140" className="stroke-fg" strokeWidth="6" fill="none" />
+      <circle cx="122" cy="122" r="7" className="fill-fg" />
     </svg>
   );
 }
@@ -103,26 +155,59 @@ const SLIDES: { illustration: React.ReactNode; title: React.ReactNode; body: Rea
     ),
     body: (
       <>
-        Get clear insights and
+        Get clear reports and
         <br />
         beautiful analytics.
       </>
     ),
   },
   {
-    illustration: <GoalIllustration />,
+    illustration: <BudgetIllustration />,
     title: (
       <>
-        Set goals
+        Set budgets
         <br />
-        for a better you
+        that stick
       </>
     ),
     body: (
       <>
-        Plan, save and achieve
+        Give each month a limit and
         <br />
-        what matters.
+        see what&apos;s left at a glance.
+      </>
+    ),
+  },
+  {
+    illustration: <BillsIllustration />,
+    title: (
+      <>
+        Never miss
+        <br />a bill
+      </>
+    ),
+    body: (
+      <>
+        Rent, salary, subscriptions:
+        <br />
+        set them once, baaki remembers.
+      </>
+    ),
+  },
+  {
+    illustration: <PrivateIllustration />,
+    title: (
+      <>
+        Your money
+        <br />
+        stays private
+      </>
+    ),
+    body: (
+      <>
+        No account, no cloud: it all
+        <br />
+        stays on this phone.
       </>
     ),
   },

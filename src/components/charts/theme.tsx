@@ -51,7 +51,7 @@ export function TooltipBox({
     >
       {label && <p className="mb-1 text-label-sm uppercase">{label}</p>}
       {payload.map((p, i) => (
-        <div key={i} className="flex items-center gap-2 tabular-nums">
+        <div key={i} className="flex items-center gap-2">
           <span className="h-2 w-2" style={{ background: p.color }} />
           <span className="text-muted">{String(p.name ?? "")}</span>
           <span className="ml-auto font-semibold">{formatINR(Number(p.value ?? 0))}</span>

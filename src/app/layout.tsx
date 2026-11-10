@@ -1,23 +1,26 @@
 import type { Metadata, Viewport } from "next";
-import { Roboto_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 
 /**
- * Roboto Mono is the whole system typeface. Self-hosted by next/font at build
- * time — no external request at runtime. Variable weight covers 400–800.
+ * Plus Jakarta Sans is the whole system typeface: the unmodified variable
+ * font (weights 200–800), bundled with the app, so no request at runtime.
+ * SIL Open Font License, see fonts/PlusJakartaSans-OFL.txt. The weight names
+ * are mapped heavier in tailwind.config.ts.
  */
-const robotoMono = Roboto_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
+const plusJakartaSans = localFont({
+  src: "./fonts/PlusJakartaSans.ttf",
+  weight: "200 800",
+  style: "normal",
   display: "swap",
-  variable: "--font-mono",
+  variable: "--font-sans",
 });
 
 export const metadata: Metadata = {
   title: "baaki — Know where your money goes",
   description:
-    "A personal finance and expense tracker: record transactions, track budgets, savings and goals, and understand where your money goes.",
+    "A personal finance and expense tracker: record transactions, track budgets and savings, and understand where your money goes.",
   applicationName: "baaki",
 };
 
@@ -55,13 +58,13 @@ const CONTENT_SECURITY_POLICY = [
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={robotoMono.variable}>
+    <html lang="en" className={plusJakartaSans.variable}>
       <head>
         {process.env.NODE_ENV === "production" && (
           <meta httpEquiv="Content-Security-Policy" content={CONTENT_SECURITY_POLICY} />
         )}
       </head>
-      <body className="min-h-dvh bg-bg font-mono text-fg antialiased">
+      <body className="min-h-dvh bg-bg font-sans text-fg antialiased">
         <Providers>{children}</Providers>
       </body>
     </html>

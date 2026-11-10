@@ -98,7 +98,6 @@ export async function postOccurrence(
           categoryId: rule.categoryId,
           accountId: rule.accountId,
           transferAccountId: rule.transferAccountId,
-          paymentMethod: rule.paymentMethod,
           notes: rule.notes,
           recurringId: rule.id,
         },

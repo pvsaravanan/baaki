@@ -10,23 +10,7 @@ export const MAX_PAISE = 1_000_000_000;
 
 /** The kinds of entry a person can record. */
 export const TRANSACTION_TYPES = ["expense", "income", "transfer"] as const;
-/**
- * Everything that can sit in the transaction list. A "repayment" is money
- * someone paid back for their share of a split: it raises an account's balance
- * but is neither income nor spending, and only settling a share creates one.
- */
-export type TransactionType = (typeof TRANSACTION_TYPES)[number] | "repayment";
-
-export const PAYMENT_METHODS = ["upi", "cash", "card", "net_banking", "other"] as const;
-export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
-
-export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
-  upi: "UPI",
-  cash: "Cash",
-  card: "Card (Debit/Credit)",
-  net_banking: "Net Banking",
-  other: "Other",
-};
+export type TransactionType = (typeof TRANSACTION_TYPES)[number];
 
 export const ACCOUNT_TYPES = [
   "bank",
@@ -57,14 +41,6 @@ export const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
   other: "Other",
 };
 
-export function formatPaymentMethod(method?: string | null): string {
-  if (!method) return "—";
-  if (method in PAYMENT_METHOD_LABELS) {
-    return PAYMENT_METHOD_LABELS[method as PaymentMethod];
-  }
-  return method.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
 export function formatAccountType(type?: string | null): string {
   if (!type) return "Other";
   if (type in ACCOUNT_TYPE_LABELS) {
@@ -87,14 +63,11 @@ export const FREQUENCY_LABELS: Record<Frequency, string> = {
 export const CATEGORY_KINDS = ["expense", "income", "both"] as const;
 export type CategoryKind = (typeof CATEGORY_KINDS)[number];
 
-export const GOAL_STATUSES = ["active", "achieved", "archived"] as const;
-export type GoalStatus = (typeof GOAL_STATUSES)[number];
 
 export const TYPE_LABELS: Record<TransactionType, string> = {
   expense: "Expense",
   income: "Income",
   transfer: "Transfer",
-  repayment: "Repayment",
 };
 
 /** Default category set seeded for every new user. Colors are theme-neutral. */

@@ -1,20 +1,15 @@
 "use client";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Pencil, Plus } from "lucide-react";
+import { Lightbulb, Plus, TrendingUp, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Field, Input } from "@/components/ui/field";
-import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import { Modal } from "@/components/ui/modal";
-import { Badge, EmptyState, Progress } from "@/components/ui/misc";
+import { EmptyState } from "@/components/ui/misc";
 import { Money } from "@/components/money";
 import { CategoryIcon } from "@/components/app/category-icon";
 import { SectionIcon } from "@/components/app/section-icon";
-import { useToast } from "@/components/ui/toast";
 import { useAppData } from "./app-data";
-import { AccountChips, BudgetAccountsField } from "./budget-accounts";
-import { apiPut, ApiError } from "@/lib/http";
-import { toPaise, toRupees, formatPercent } from "@/lib/money";
+import { BudgetEditor } from "./budget-editor";
+import { budgetInsight, type BudgetInsight } from "@/lib/budget-insight";
+import { cn } from "@/lib/cn";
+import { formatPercent } from "@/lib/money";
 import { budgetStatus, type BudgetState, type BudgetStatus } from "@/lib/calculations";
 import type { MonthKey } from "@/lib/dates";
 import type { CategoryDTO } from "@/lib/types";
@@ -29,7 +24,7 @@ interface BudgetLineData {
   status: BudgetStatus;
 }
 
-interface BudgetData {
+export interface BudgetData {
   overallLimit: number | null;
   overallSpent: number;
   status: BudgetStatus | null;
@@ -38,17 +33,25 @@ interface BudgetData {
   accountIds: string[];
 }
 
-const PROGRESS_TONE: Record<BudgetState, "brand" | "warning" | "expense"> = {
-  under: "brand",
-  warning: "warning",
-  over: "expense",
+const PANEL = "rounded-xl border border-border/25";
+
+const BAR_TONE: Record<BudgetState, string> = {
+  under: "bg-brand-hover",
+  warning: "bg-warning",
+  over: "bg-expense",
 };
 
-function StateBadge({ state }: { state: BudgetState }) {
-  if (state === "over") return <Badge tone="expense">Over budget</Badge>;
-  if (state === "warning") return <Badge tone="warning">Near limit</Badge>;
-  return null;
-}
+const RING_TONE: Record<BudgetState, string> = {
+  under: "stroke-brand-hover",
+  warning: "stroke-warning",
+  over: "stroke-expense",
+};
+
+const INSIGHT_TONE: Record<BudgetInsight["tone"], { panel: string; hill: string }> = {
+  good: { panel: "bg-income/10", hill: "text-income" },
+  caution: { panel: "bg-warning/10", hill: "text-warning" },
+  over: { panel: "bg-expense/10", hill: "text-expense" },
+};
 
 function utilizationLabel(status: BudgetStatus): string {
   return Number.isFinite(status.utilization) ? formatPercent(status.utilization, 0) : "—";
@@ -58,120 +61,87 @@ export function BudgetsView({
   budget,
   categories,
   monthKey,
+  editing,
+  onEditingChange,
 }: {
   budget: BudgetData;
   categories: CategoryDTO[];
   monthKey: MonthKey;
+  editing: boolean;
+  onEditingChange: (editing: boolean) => void;
 }) {
-  const [editing, setEditing] = useState(false);
   const { accounts } = useAppData();
+  const edit = () => onEditingChange(true);
 
   const hasBudget = budget.overallLimit != null || budget.lines.length > 0;
   const totalLimit = budget.overallLimit ?? budget.lines.reduce((s, l) => s + l.limit, 0);
-  const overallStatus =
-    totalLimit > 0 ? budgetStatus(budget.overallSpent, totalLimit) : null;
-  const remaining = totalLimit - budget.overallSpent;
+  const overallStatus = totalLimit > 0 ? budgetStatus(budget.overallSpent, totalLimit) : null;
+  const countedAccounts = budget.accountIds
+    .map((id) => accounts.find((a) => a.id === id)?.name)
+    .filter(Boolean)
+    .join(", ");
 
   return (
     <div className="space-y-5">
-      {!hasBudget ? (
-        <Card>
+      {!hasBudget || !overallStatus ? (
+        <div className={PANEL}>
           <EmptyState
             illustration={<SectionIcon section="budgets" size={56} />}
             title="No budget set for this month"
             description="Set an overall monthly limit and per-category budgets to keep your spending on track."
             action={
-              <Button onClick={() => setEditing(true)}>
+              <Button onClick={edit}>
                 <Plus className="h-4 w-4" />
                 Set a budget
               </Button>
             }
           />
-        </Card>
+        </div>
       ) : (
         <>
-          {/* Overall summary */}
-          <Card>
-            <CardHeader
-              title="Monthly budget"
-              subtitle={
-                budget.accountIds.length === 0
-                  ? "Overall spending across all categories and accounts"
-                  : "Overall spending across all categories, in the accounts below"
-              }
-              action={
-                <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
-                  <Pencil className="h-3.5 w-3.5" />
-                  Edit budget
-                </Button>
-              }
-            />
-            <CardBody className="space-y-4">
-              <div className="space-y-1.5">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-muted">Accounts</p>
-                <AccountChips accounts={accounts} selected={budget.accountIds} />
-              </div>
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                <Summary label="Budget">
-                  <Money paise={totalLimit} tone="default" className="text-lg font-semibold" />
-                </Summary>
-                <Summary label="Spent">
-                  <Money paise={budget.overallSpent} tone="expense" className="text-lg font-semibold" />
-                </Summary>
-                <Summary label={remaining >= 0 ? "Remaining" : "Over by"}>
-                  <Money
-                    paise={Math.abs(remaining)}
-                    tone={remaining >= 0 ? "income" : "expense"}
-                    className="text-lg font-semibold"
-                  />
-                </Summary>
-                <Summary label="Utilization">
-                  <span className="text-lg font-semibold tabular-nums text-fg">
-                    {overallStatus ? utilizationLabel(overallStatus) : "—"}
-                  </span>
-                </Summary>
-              </div>
-              <Progress
-                value={overallStatus ? overallStatus.utilization : 0}
-                tone={overallStatus ? PROGRESS_TONE[overallStatus.state] : "brand"}
-              />
-            </CardBody>
-          </Card>
+          <Overview status={overallStatus} countedAccounts={countedAccounts} />
 
-          {/* Per-category budgets */}
-          <Card>
-            <CardHeader
-              title="Category budgets"
-              subtitle={`${budget.lines.length} categor${budget.lines.length === 1 ? "y" : "ies"} with a limit`}
-            />
-            <CardBody className="pt-1">
-              {budget.lines.length === 0 ? (
+          <section>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <h2 className="text-base font-bold text-fg">Category Budgets</h2>
+              <button
+                type="button"
+                onClick={edit}
+                className="-mr-2 min-h-[44px] px-2 text-sm font-semibold text-brand-hover active:opacity-70"
+              >
+                Manage
+              </button>
+            </div>
+            {budget.lines.length === 0 ? (
+              <div className={PANEL}>
                 <EmptyState
+                  className="py-8"
                   title="No category budgets"
                   description="Add per-category limits to track spending in each area."
                   action={
-                    <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
+                    <Button variant="secondary" size="sm" onClick={edit}>
                       <Plus className="h-4 w-4" />
                       Add category budgets
                     </Button>
                   }
                 />
-              ) : (
-                <div className="divide-y divide-border">
-                  {budget.lines.map((line) => (
-                    <CategoryRow key={line.categoryId} line={line} />
-                  ))}
-                </div>
-              )}
-            </CardBody>
-          </Card>
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {budget.lines.map((line) => (
+                  <CategoryRow key={line.categoryId} line={line} />
+                ))}
+              </div>
+            )}
+          </section>
+
+          <InsightBanner insight={budgetInsight(overallStatus, monthKey, new Date())} />
         </>
       )}
 
       {editing && (
-        <EditBudgetModal
-          open={editing}
-          onClose={() => setEditing(false)}
+        <BudgetEditor
+          onClose={() => onEditingChange(false)}
           budget={budget}
           categories={categories}
           monthKey={monthKey}
@@ -181,204 +151,132 @@ export function BudgetsView({
   );
 }
 
-function Summary({ label, children }: { label: string; children: React.ReactNode }) {
+function Overview({ status, countedAccounts }: { status: BudgetStatus; countedAccounts: string }) {
+  const { remaining, state } = status;
   return (
-    <div>
-      <p className="text-xs font-medium text-muted">{label}</p>
-      <div className="mt-1">{children}</div>
+    <section className={cn(PANEL, "flex items-center gap-4 p-4")}>
+      <UsageRing status={status} />
+      <div aria-hidden className="w-px self-stretch bg-border/20" />
+      <div className="min-w-0 flex-1">
+        <p className="flex flex-wrap items-baseline gap-x-1.5 text-fg">
+          <Money paise={status.spent} tone="default" className="text-xl font-bold" />
+          <span className="text-sm text-muted">
+            / <Money paise={status.limit} tone="default" />
+          </span>
+        </p>
+        <p className="mt-0.5 text-body-sm text-muted">Total Budget</p>
+        {/* Worth saying only when it narrows what the numbers above count. */}
+        {countedAccounts && <p className="mt-0.5 text-xs text-muted">Counting {countedAccounts}</p>}
+        <p
+          className={cn(
+            "mt-2.5 inline-flex max-w-full flex-wrap items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold",
+            state === "under" && "bg-income/10 text-income",
+            state === "warning" && "bg-warning/10 text-warning",
+            state === "over" && "bg-expense/10 text-expense",
+          )}
+        >
+          {remaining < 0 ? <TriangleAlert className="h-4 w-4 shrink-0" /> : <TrendingUp className="h-4 w-4 shrink-0" />}
+          <span>
+            <Money paise={Math.abs(remaining)} tone="default" /> {remaining < 0 ? "over" : "left"}
+          </span>
+        </p>
+      </div>
+    </section>
+  );
+}
+
+const RING_RADIUS = 42;
+const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
+
+/** How much of the budget is used, clockwise from the top. Past 100% the ring is simply full. */
+function UsageRing({ status }: { status: BudgetStatus }) {
+  const filled = Math.max(0, Math.min(status.utilization, 100)) / 100;
+  return (
+    <div className="relative h-28 w-28 shrink-0">
+      <svg aria-hidden viewBox="0 0 100 100" className="h-full w-full -rotate-90">
+        <circle cx="50" cy="50" r={RING_RADIUS} fill="none" strokeWidth="10" className="stroke-brand-soft" />
+        {filled > 0 && (
+          <circle
+            cx="50"
+            cy="50"
+            r={RING_RADIUS}
+            fill="none"
+            strokeWidth="10"
+            strokeLinecap="round"
+            strokeDasharray={`${filled * RING_LENGTH} ${RING_LENGTH}`}
+            className={cn("transition-[stroke-dasharray] duration-500 motion-reduce:transition-none", RING_TONE[status.state])}
+          />
+        )}
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="tnum text-xl font-bold leading-tight text-fg">{utilizationLabel(status)}</span>
+        <span className="text-xs text-muted">Used</span>
+      </div>
     </div>
   );
 }
 
 function CategoryRow({ line }: { line: BudgetLineData }) {
-  const { state } = line.status;
-  const remaining = line.status.remaining;
+  const { state, remaining, utilization } = line.status;
   return (
-    <div className="space-y-2 py-3.5 first:pt-1">
-      <div className="flex items-center gap-3">
-        <span
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-none"
-          style={{ color: line.color }}
-        >
-          <CategoryIcon icon={line.icon} size={28} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="truncate text-sm font-medium text-fg">{line.name}</span>
-            <StateBadge state={state} />
-          </div>
-          <p className="mt-0.5 text-xs text-muted">
-            <Money paise={line.spent} tone="default" /> of <Money paise={line.limit} tone="muted" />
-          </p>
+    <div className={cn(PANEL, "flex items-center gap-3 bg-brand-soft/25 px-3 py-3")}>
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center" style={{ color: line.color }}>
+        <CategoryIcon icon={line.icon} size={36} />
+      </span>
+      <div className="min-w-0 flex-1">
+        {/* The amounts drop below the name when both won't fit on one line. */}
+        <div className="flex flex-wrap items-baseline justify-between gap-x-2">
+          <span className="min-w-0 truncate text-sm font-bold text-fg">{line.name}</span>
+          <span className="whitespace-nowrap text-xs text-fg">
+            <Money paise={line.spent} tone="default" /> / <Money paise={line.limit} tone="default" />
+          </span>
         </div>
-        <div className="shrink-0 text-right">
-          <p className="text-sm font-medium tabular-nums text-fg">{utilizationLabel(line.status)}</p>
-          <p className="mt-0.5 text-xs">
-            {remaining >= 0 ? (
-              <span className="text-muted">
-                <Money paise={remaining} tone="income" /> left
-              </span>
+        <div className="mt-2 h-2 overflow-hidden rounded-full bg-brand-soft">
+          <div
+            className={cn("h-full rounded-full transition-[width] duration-500 motion-reduce:transition-none", BAR_TONE[state])}
+            style={{ width: `${Math.max(0, Math.min(utilization, 100))}%` }}
+          />
+        </div>
+        {state === "warning" && (
+          <p className="mt-1.5 text-xs font-medium text-warning">
+            Near limit: <Money paise={remaining} tone="default" /> left
+          </p>
+        )}
+        {state === "over" && (
+          <p className="mt-1.5 text-xs font-medium text-expense">
+            {remaining < 0 ? (
+              <>
+                Over by <Money paise={-remaining} tone="default" />
+              </>
             ) : (
-              <span className="text-expense">
-                Over by <Money paise={-remaining} tone="expense" />
-              </span>
+              "Limit reached"
             )}
           </p>
-        </div>
+        )}
       </div>
-      <Progress value={line.status.utilization} tone={PROGRESS_TONE[state]} />
+      <span className="w-10 shrink-0 text-right text-xs text-fg">{utilizationLabel(line.status)}</span>
     </div>
   );
 }
 
-function EditBudgetModal({
-  open,
-  onClose,
-  budget,
-  categories,
-  monthKey,
-}: {
-  open: boolean;
-  onClose: () => void;
-  budget: BudgetData;
-  categories: CategoryDTO[];
-  monthKey: MonthKey;
-}) {
-  const toast = useToast();
-  const router = useRouter();
-  const { refresh, accounts } = useAppData();
-  const isNew = budget.overallLimit == null && budget.lines.length === 0;
-
-  // Archived accounts aren't offered, unless the budget already covers one.
-  const [accountIds, setAccountIds] = useState<string[]>(budget.accountIds);
-  const pickable = accounts.filter((a) => !a.isArchived || budget.accountIds.includes(a.id));
-
-  const currentLimits = new Map(budget.lines.map((l) => [l.categoryId, l.limit]));
-
-  // Saving replaces the whole category set, so the form must list every
-  // category that already has a limit — including ones now inactive or
-  // income-kind. Omitting them would silently delete their budgets.
-  const budgetable = categories.filter(
-    (c) => (c.kind !== "income" && c.isActive) || currentLimits.has(c.id),
-  );
-
-  const [overall, setOverall] = useState(
-    budget.overallLimit != null ? String(toRupees(budget.overallLimit)) : "",
-  );
-  const [limits, setLimits] = useState<Record<string, string>>(() => {
-    const init: Record<string, string> = {};
-    for (const c of budgetable) {
-      const existing = currentLimits.get(c.id);
-      init[c.id] = existing != null ? String(toRupees(existing)) : "";
-    }
-    return init;
-  });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const sanitize = (v: string) => v.replace(/[^0-9.]/g, "");
-
-  async function handleSave() {
-    setSaving(true);
-    setError(null);
-    try {
-      let overallLimit: number | null = null;
-      if (overall.trim()) {
-        const p = toPaise(overall);
-        overallLimit = p > 0 ? p : null;
-      }
-      const cats: { categoryId: string; limit: number }[] = [];
-      for (const [categoryId, value] of Object.entries(limits)) {
-        if (!value.trim()) continue;
-        const paise = toPaise(value);
-        if (paise > 0) cats.push({ categoryId, limit: paise });
-      }
-      await apiPut("/api/budgets", {
-        year: monthKey.year,
-        month: monthKey.month,
-        overallLimit,
-        categories: cats,
-        accountIds,
-      });
-      toast.success("Budget saved");
-      onClose();
-      refresh();
-    } catch (e) {
-      const msg =
-        e instanceof ApiError
-          ? e.message
-          : e instanceof Error && e.message.startsWith("Invalid amount")
-            ? "Please enter valid rupee amounts."
-            : "Could not save budget. Please try again.";
-      setError(msg);
-      toast.error(msg);
-    } finally {
-      setSaving(false);
-    }
-  }
-
+function InsightBanner({ insight }: { insight: BudgetInsight }) {
+  const tone = INSIGHT_TONE[insight.tone];
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title={isNew ? "Create budget" : "Edit budget"}
-      description="Amounts are in rupees. Leave a field empty to remove that limit."
-      size="lg"
-      busy={saving}
-      footer={
-        <div className="flex items-center justify-end gap-2">
-          <Button variant="ghost" onClick={onClose} disabled={saving}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave} loading={saving}>
-            {isNew ? "Create budget" : "Save budget"}
-          </Button>
-        </div>
-      }
-    >
-      <div className="space-y-5">
-        {error && (
-          <p className="rounded-none border border-expense/30 bg-expense/10 px-3 py-2 text-sm text-expense">
-            {error}
-          </p>
-        )}
-
-        <BudgetAccountsField accounts={pickable} selected={accountIds} onChange={setAccountIds} />
-
-        <Field label="Overall monthly limit (₹)" hint="Total budget across all categories.">
-          <Input
-            inputMode="decimal"
-            value={overall}
-            onChange={(e) => setOverall(sanitize(e.target.value))}
-            placeholder="e.g. 50000"
-          />
-        </Field>
-
-        <div className="space-y-1.5">
-          <p className="text-xs font-medium text-muted">Per-category limits (₹)</p>
-          <div className="divide-y divide-border rounded-none border border-border">
-            {budgetable.map((c) => (
-              <div key={c.id} className="flex items-center gap-3 px-3 py-2.5">
-                <span
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-none"
-                  style={{ color: c.color }}
-                >
-                  <CategoryIcon icon={c.icon} size={24} />
-                </span>
-                <span className="min-w-0 flex-1 truncate text-sm text-fg">{c.name}</span>
-                <Input
-                  inputMode="decimal"
-                  value={limits[c.id] ?? ""}
-                  onChange={(e) => setLimits((prev) => ({ ...prev, [c.id]: sanitize(e.target.value) }))}
-                  placeholder="0"
-                  className="w-32 text-right"
-                  aria-label={`${c.name} budget in rupees`}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
+    <section className={cn("relative flex items-start gap-3 overflow-hidden rounded-xl border border-border/15 p-4", tone.panel)}>
+      {/* Decoration only: this shape isn't plotted from any data. */}
+      <svg
+        aria-hidden
+        viewBox="0 0 200 80"
+        preserveAspectRatio="none"
+        className={cn("pointer-events-none absolute bottom-0 right-0 h-full w-1/2 opacity-20", tone.hill)}
+      >
+        <path d="M0 80 C40 78 60 62 90 52 C115 44 125 56 145 40 C165 22 175 10 200 14 V80 Z" fill="currentColor" />
+      </svg>
+      <Lightbulb className="relative mt-0.5 h-7 w-7 shrink-0 text-fg" strokeWidth={1.75} />
+      <div className="relative min-w-0">
+        <h2 className="text-base font-bold text-fg">{insight.title}</h2>
+        <p className="mt-0.5 text-body-sm text-muted">{insight.message}</p>
       </div>
-    </Modal>
+    </section>
   );
 }

@@ -38,7 +38,6 @@ export type ImportField =
   | "type"
   | "category"
   | "account"
-  | "paymentMethod"
   | "notes";
 
 export type ColumnMapping = Partial<Record<ImportField, string>>;
@@ -175,7 +174,6 @@ export interface ParsedImportRow {
   date: string; // ISO
   categoryName: string | null;
   accountName: string | null;
-  paymentMethod: string | null;
   notes: string | null;
 }
 
@@ -366,7 +364,6 @@ export function validateImportRows(
       date: date!,
       categoryName: get("category") || null,
       accountName: get("account") || null,
-      paymentMethod: normalizePaymentMethod(get("paymentMethod")),
       notes: get("notes") || null,
     });
   });
@@ -424,12 +421,6 @@ export function normalizeDate(input: string, formatHint: DateFormatHint = "auto"
   const parsed = new Date(s);
   if (!Number.isNaN(parsed.getTime())) return toISODate(parsed);
   return null;
-}
-
-function normalizePaymentMethod(input: string): string | null {
-  const s = input.trim().toLowerCase().replace(/\s+/g, "_");
-  const known = ["upi", "cash"];
-  return known.includes(s) ? s : null;
 }
 
 /**

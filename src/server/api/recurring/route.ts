@@ -38,7 +38,6 @@ export const POST = withUser(async (user, req: NextRequest) => {
       categoryId: input.type === "transfer" ? null : input.categoryId ?? null,
       accountId: input.accountId,
       transferAccountId: input.type === "transfer" ? input.transferAccountId ?? null : null,
-      paymentMethod: input.type === "transfer" ? null : input.paymentMethod ?? null,
       notes: input.notes ?? null,
       frequency: input.frequency,
       interval: input.interval,

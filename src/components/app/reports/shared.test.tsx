@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { dailySeries, DistributionTiles, type ReportsAnalytics } from "./shared";
+import { dailySeries, DistributionTiles, lastSixMonths, type ReportsAnalytics } from "./shared";
 
 const days = (dates: string[]) =>
   ({ daily: dates.map((date, i) => ({ date, expense: (i + 1) * 100, income: 0, count: 1 })) }) as unknown as ReportsAnalytics;
@@ -32,5 +32,20 @@ describe("distribution tiles", () => {
     const html = renderToStaticMarkup(<DistributionTiles values={[]} unit="month" />);
     expect(html).toContain("across 0 months");
     expect(html).not.toContain("Infinity");
+  });
+});
+
+describe("distribution tiles", () => {
+  it("spell the plural of their unit", () => {
+    expect(renderToStaticMarkup(<DistributionTiles values={[1, 2]} unit="category" />)).toContain("across 2 categories");
+    expect(renderToStaticMarkup(<DistributionTiles values={[1, 2]} unit="month" />)).toContain("across 2 months");
+    expect(renderToStaticMarkup(<DistributionTiles values={[1]} unit="category" />)).toContain("across 1 category");
+  });
+});
+
+describe("lastSixMonths", () => {
+  it("keeps the newest six, oldest first, ending with the month being viewed", () => {
+    const trend = Array.from({ length: 12 }, (_, i) => ({ label: `m${i + 1}`, month: i + 1, year: 2026, income: 0, expense: 0 }));
+    expect(lastSixMonths({ incomeExpenseTrend: trend }).map((m) => m.label)).toEqual(["m7", "m8", "m9", "m10", "m11", "m12"]);
   });
 });

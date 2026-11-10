@@ -23,8 +23,7 @@ const DEFAULT_MIN_MONTH: MonthKey = { year: 2000, month: 1 };
  * Jump directly to any month — a year stepper above a 12-month grid — instead
  * of stepping one month at a time. Generic over direction: MonthNav uses it
  * to navigate financial periods (bounded to the past/present via `maxMonth`),
- * while a form field picking a future deadline (e.g. a savings goal's target
- * date) leaves `maxMonth` unset and bounds only the past via `minMonth`.
+ * while a picker for future months (the budgets screen) leaves `maxMonth` unset.
  *
  * Renders as a dropdown pinned to the trigger (not a full-screen
  * modal/bottom-sheet): the rest of the page stays visible and interactive
@@ -40,6 +39,7 @@ export function MonthYearPicker({
   minMonth = DEFAULT_MIN_MONTH,
   maxMonth,
   title = "Jump to month",
+  width,
 }: {
   open: boolean;
   onClose: () => void;
@@ -51,6 +51,8 @@ export function MonthYearPicker({
   minMonth?: MonthKey;
   maxMonth?: MonthKey;
   title?: string;
+  /** A fixed width (px) even on a phone, for a trigger narrower than the grid needs (a chip). */
+  width?: number;
 }) {
   const [viewYear, setViewYear] = useState(value?.year ?? monthKeyOf(new Date()).year);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -87,7 +89,7 @@ export function MonthYearPicker({
 
   return (
     // Full trigger width on phones; 20rem, right-aligned, from `sm` up.
-    <AnchoredPopover ref={panelRef} markerRef={markerRef} open role="dialog" aria-label={title} width={{ sm: 320 }} preferredHeight={330}>
+    <AnchoredPopover ref={panelRef} markerRef={markerRef} open role="dialog" aria-label={title} width={width ?? { sm: 320 }} preferredHeight={330}>
       <div className="flex items-center justify-between border-b border-border bg-brand-soft px-4 py-2.5">
         <span className="text-sm font-semibold text-fg">{title}</span>
         <div className="flex items-center gap-3">

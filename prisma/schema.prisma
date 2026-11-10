@@ -42,9 +42,7 @@ model User {
   transactions Transaction[]
   budgets      Budget[]
   recurring    RecurringTransaction[]
-  goals        FinancialGoal[]
   tags         Tag[]
-  contacts     Contact[]
   preference   UserPreference?
 }
 
@@ -80,7 +78,6 @@ model Account {
   transfersIn      Transaction[] @relation("TransferDestination")
   recurring        RecurringTransaction[] @relation("RecurringAccount")
   recurringInbound RecurringTransaction[] @relation("RecurringTransferDestination")
-  goals            FinancialGoal[]
   budgets          BudgetAccount[]
 
   // Backstop for the check-then-create race in the accounts API. Names are
@@ -134,7 +131,6 @@ model Transaction {
   categoryId        String?
   accountId         String
   transferAccountId String?   // destination account for transfers
-  paymentMethod     String?   // upi | cash
   notes             String?
   recurringId       String?   // set when generated from a recurring rule
   createdAt         DateTime  @default(now())
@@ -147,11 +143,6 @@ model Transaction {
   transferAccount Account?        @relation("TransferDestination", fields: [transferAccountId], references: [id])
   recurring       RecurringTransaction? @relation(fields: [recurringId], references: [id])
   tags            TransactionTag[]
-  // People this transaction is shared with — see ExpenseShare.
-  shares          ExpenseShare[] @relation("ShareExpense")
-  // Shares whose settlement was recorded as this entry (a repayment, or the
-  // expense of paying someone back) — see ExpenseShare.settlementTransactionId.
-  settledShares   ExpenseShare[] @relation("ShareSettlement")
 
   @@index([userId, date])
   @@index([userId, deletedAt])
@@ -211,7 +202,6 @@ model RecurringTransaction {
   categoryId        String?
   accountId         String
   transferAccountId String?
-  paymentMethod     String?
   notes             String?
   frequency         String    // daily | weekly | monthly | quarterly | yearly
   interval          Int       @default(1) // every N frequency units
@@ -232,39 +222,6 @@ model RecurringTransaction {
 
   @@index([userId])
   @@index([nextOccurrence])
-}
-
-model FinancialGoal {
-  id                 String    @id @default(cuid())
-  userId             String
-  name               String
-  icon               String    @default("target")
-  color              String    @default("#0d9488")
-  targetAmount       Int       // paise
-  targetDate         DateTime?
-  accountId          String?
-  status             String    @default("active") // active | achieved | archived
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-
-  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  account       Account?           @relation(fields: [accountId], references: [id])
-  contributions GoalContribution[]
-
-  @@index([userId])
-}
-
-model GoalContribution {
-  id        String   @id @default(cuid())
-  goalId    String
-  amount    Int      // paise (can be negative for withdrawals)
-  date      DateTime @default(now())
-  note      String?
-  createdAt DateTime @default(now())
-
-  goal FinancialGoal @relation(fields: [goalId], references: [id], onDelete: Cascade)
-
-  @@index([goalId])
 }
 
 model Tag {
@@ -289,61 +246,4 @@ model TransactionTag {
 
   @@id([transactionId, tagId])
   @@index([tagId])
-}
-
-/** A person you split expenses with. No login of their own — a label + ledger. */
-model Contact {
-  id         String   @id @default(cuid())
-  userId     String
-  name       String
-  color      String   @default("#64748b")
-  // Photo copied from the phone's address book (a small data: URL), if any.
-  avatarUrl  String?
-  isArchived Boolean  @default(false)
-  createdAt  DateTime @default(now())
-
-  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  shares ExpenseShare[]
-
-  @@unique([userId, name])
-  @@index([userId])
-}
-
-/**
- * One line in the shared-expense ledger between you and a contact.
- *
- * `direction`:
- *   - "owed_to_you": you paid; the contact owes you their share. These are
- *     usually attached to a Transaction you recorded (transactionId set), and
- *     recording one never changes that transaction's amount — you still paid
- *     the full amount — it only tracks what's owed back.
- *   - "you_owe": the contact paid; you owe them your share. These are
- *     standalone (transactionId null) with their own description/date, since
- *     no transaction left your accounts.
- *
- * `settled` flips true once the debt is cleared — optionally alongside a real
- * Income (they paid you) or Expense (you paid them) transaction.
- */
-model ExpenseShare {
-  id            String    @id @default(cuid())
-  transactionId String?   // null for standalone "you owe" entries
-  contactId     String?   // null = "Someone": a share nobody has been named for yet
-  amount        Int       // paise, this share
-  direction     String    @default("owed_to_you") // owed_to_you | you_owe
-  description   String?   // used when there is no linked transaction
-  date          DateTime  @default(now())
-  settled       Boolean   @default(false)
-  settledAt     DateTime?
-  createdAt     DateTime  @default(now())
-  // The entry recorded when this share was settled with "record in an account",
-  // so settling can be undone. Several shares settled together share one.
-  settlementTransactionId String?
-
-  transaction Transaction? @relation("ShareExpense", fields: [transactionId], references: [id], onDelete: Cascade)
-  settlementTransaction Transaction? @relation("ShareSettlement", fields: [settlementTransactionId], references: [id], onDelete: SetNull)
-  contact     Contact?     @relation(fields: [contactId], references: [id], onDelete: Cascade)
-
-  @@index([transactionId])
-  @@index([contactId])
-  @@index([settlementTransactionId])
 }

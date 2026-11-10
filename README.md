@@ -6,10 +6,9 @@ A personal finance app for everyday money in India. It runs entirely on your And
 phone: no account, no server, nothing uploaded, and it can't reach the internet.
 
 <p align="center">
-  <img src="UI/phone-framed/01-dashboard.png" width="24%" alt="Dashboard">
-  <img src="UI/phone-framed/02-transactions.png" width="24%" alt="Transactions">
-  <img src="UI/phone-framed/04-budgets.png" width="24%" alt="Budgets">
-  <img src="UI/phone-framed/05-goals.png" width="24%" alt="Goals">
+  <img src="UI/phone-framed/01-dashboard.png" width="32%" alt="Dashboard">
+  <img src="UI/phone-framed/02-transactions.png" width="32%" alt="Transactions">
+  <img src="UI/phone-framed/04-budgets.png" width="32%" alt="Budgets">
 </p>
 
 Every screen, and a [walkthrough video](UI/walkthrough.mp4), are in [UI/](UI/README.md).

@@ -11,7 +11,7 @@ export function CategoryIconPicker({
 }: {
   value: string;
   onChange: (key: string) => void;
-  /** Accessible name for the group (it's also used for goals and accounts). */
+  /** Accessible name for the group (it's also used for accounts). */
   label?: string;
 }) {
   const selected = resolveCategoryIcon(value);

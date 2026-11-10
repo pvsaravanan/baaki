@@ -3,7 +3,7 @@ import { DEFAULT_DASHBOARD_WIDGETS, normalizeWidgets, widgetKind, widgetLabel } 
 
 describe("normalizeWidgets", () => {
   it("expands keys from the old, coarser list in place", () => {
-    expect(normalizeWidgets(["balance", "monthly_spending", "savings", "budget", "insights"])).toEqual([
+    expect(normalizeWidgets(["balance", "monthly_spending", "savings", "budget", "upcoming_recurring"])).toEqual([
       "balance",
       "expenses",
       "net_savings",
@@ -12,15 +12,15 @@ describe("normalizeWidgets", () => {
       "income_vs_expenses",
       "spending_calendar",
       "budget_progress",
-      "insights",
+      "upcoming_recurring",
     ]);
   });
 
   it("puts tiles ahead of cards, keeping each group's order", () => {
-    expect(normalizeWidgets(["insights", "income", "spending_categories", "balance"])).toEqual([
+    expect(normalizeWidgets(["upcoming_recurring", "income", "spending_categories", "balance"])).toEqual([
       "income",
       "balance",
-      "insights",
+      "upcoming_recurring",
       "spending_categories",
     ]);
   });
@@ -41,7 +41,6 @@ describe("normalizeWidgets", () => {
 describe("widget metadata", () => {
   it("names widgets as the dashboard shows them", () => {
     expect(widgetLabel("upcoming_recurring")).toBe("Upcoming payments");
-    expect(widgetLabel("financial_goals")).toBe("Goals");
     expect(widgetKind("budget_left")).toBe("tile");
     expect(widgetKind("budget_progress")).toBe("card");
   });

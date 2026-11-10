@@ -2,7 +2,7 @@
 import { PolarAngleAxis, RadialBar, RadialBarChart, ResponsiveContainer } from "recharts";
 import { useChartColors } from "./theme";
 
-/** Shared semicircular-gauge rendering — see SavingsGauge/BudgetGauge below. */
+/** Shared semicircular-gauge rendering — see BudgetGauge below. */
 function GaugeBase({
   value, height, color, gridColor, valueLabel, subtitle,
 }: {
@@ -29,15 +29,6 @@ function GaugeBase({
         <span className="text-label-sm uppercase text-muted">{subtitle}</span>
       </div>
     </div>
-  );
-}
-
-/** Semicircular gauge for a percentage (e.g. savings rate). */
-export function SavingsGauge({ value, height = 168 }: { value: number; height?: number }) {
-  const colors = useChartColors();
-  const color = value >= 20 ? colors.income : value >= 0 ? colors.brand : colors.expense;
-  return (
-    <GaugeBase value={value} height={height} color={color} gridColor={colors.grid} valueLabel={`${value.toFixed(0)}%`} subtitle="of income saved" />
   );
 }
 

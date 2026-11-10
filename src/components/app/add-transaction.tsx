@@ -1,8 +1,7 @@
 "use client";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { useSWRConfig } from "swr";
-import { Modal } from "@/components/ui/modal";
-import { TransactionForm } from "./transaction-form";
+import { AddTransactionFlow } from "./transaction-form/add-transaction-flow";
 import { useAppData } from "./app-data";
 import { useToast } from "@/components/ui/toast";
 import type { TransactionDTO } from "@/lib/types";
@@ -28,7 +27,6 @@ export function TransactionModalProvider({ children }: { children: React.ReactNo
   const { mutate } = useSWRConfig();
   const toast = useToast();
   const [state, setState] = useState<ModalState>(null);
-  const [busy, setBusy] = useState(false);
 
   const openAdd = useCallback((prefill?: { date?: string }) => setState({ mode: "add", prefillDate: prefill?.date }), []);
   const openEdit = useCallback((txn: TransactionDTO) => setState({ mode: "edit", txn }), []);
@@ -100,30 +98,18 @@ export function TransactionModalProvider({ children }: { children: React.ReactNo
     // `refresh()` below then reconciles everything else (ordering, filtered
     // views, totals, dashboard tiles) with a real fetch in the background.
     refresh();
-    toast.success(mode === "add" ? "Transaction added" : "Changes saved");
+    toast.success(mode === "edit" ? "Changes saved" : saved.recurringId ? "Transaction added and set to repeat" : "Transaction added");
   };
 
   return (
     <Ctx.Provider value={{ openAdd, openEdit }}>
       {children}
-      <Modal
-        open={state !== null}
-        onClose={close}
-        title={state?.mode === "edit" ? "Edit transaction" : "Add transaction"}
-        description={state?.mode === "edit" ? undefined : "Record an expense, income or a transfer."}
-        busy={busy}
-      >
-        {state && (
-          <TransactionForm
-            key={state.mode === "edit" ? state.txn.id : "add"}
-            initial={state.mode === "edit" ? state.txn : undefined}
-            prefillDate={state.mode === "add" ? state.prefillDate : undefined}
-            onSaved={(txn) => onSaved(txn, state.mode)}
-            onCancel={close}
-            onBusyChange={setBusy}
-          />
-        )}
-      </Modal>
+      {state?.mode === "add" && (
+        <AddTransactionFlow prefillDate={state.prefillDate} onSaved={(txn) => onSaved(txn, "add")} onClose={close} />
+      )}
+      {state?.mode === "edit" && (
+        <AddTransactionFlow key={state.txn.id} initial={state.txn} onSaved={(txn) => onSaved(txn, "edit")} onClose={close} />
+      )}
     </Ctx.Provider>
   );
 }

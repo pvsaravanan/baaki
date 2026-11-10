@@ -1,5 +1,5 @@
 "use client";
-import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { Card, CardBody, CardHeader } from "./report-card";
 import { EmptyState } from "@/components/ui/misc";
 import { Money } from "@/components/money";
 import { StatCard } from "@/components/app/stat-card";
@@ -25,7 +25,7 @@ export function ExpenseReport({ a }: { a: ReportsAnalytics }) {
       </div>
 
       <Card>
-        <CardHeader title="Daily spending" subtitle="This month" />
+        <CardHeader title="Daily Spending" subtitle="This month" />
         <CardBody className="pt-2">
           {a.transactionCount === 0 ? (
             <EmptyState illustration={<SectionIcon section="reports" size={56} />} title="No spending this period" description="Charts appear once you record expenses." />
@@ -35,7 +35,7 @@ export function ExpenseReport({ a }: { a: ReportsAnalytics }) {
         </CardBody>
       </Card>
 
-      <CategoryReport a={a} title="Expenses by category" />
+      <CategoryReport a={a} title="Expenses by Category" />
     </div>
   );
 }

@@ -13,13 +13,12 @@ import {
   type BudgetStatus,
   type CalcTxn,
   type PeriodSummary,
-  ownAmount,
 } from "./calculations";
 import { addMonths, monthName, monthRange, monthKeyOf, endOfDayExclusive, type MonthKey } from "./dates";
-import { generateInsights, type Insight } from "./insights";
 import type { CategoryDTO } from "./types";
 import { serializeCategory } from "./serialize";
 import { DEFAULT_CATEGORY_ICON } from "./category-icons";
+import { periodRanges, spendingInsight, spendingTrend, type ReportPeriod, type TrendPoint } from "./report-period";
 
 export interface CategorySpendRow {
   categoryId: string | null;
@@ -52,8 +51,6 @@ export interface MonthlyAnalytics {
     savings: number | null;
   };
   categories: CategorySpendRow[];
-  /** Per-category net this month vs last, biggest absolute change first. */
-  categoryComparison: { categoryId: string | null; name: string; color: string; current: number; previous: number; delta: number }[];
   daily: { date: string; expense: number; income: number; count: number }[];
   largestExpense: { description: string; amount: number; date: Date; categoryName: string | null } | null;
   topCategory: { name: string; net: number } | null;
@@ -70,7 +67,6 @@ export interface MonthlyAnalytics {
     accountIds: string[];
   };
   incomeExpenseTrend: { label: string; month: number; year: number; income: number; expense: number }[];
-  insights: Insight[];
 }
 
 function toRows(txns: CalcTxn[], categories: Map<string, CategoryDTO>): CategorySpendRow[] {
@@ -86,6 +82,42 @@ function toRows(txns: CalcTxn[], categories: Map<string, CategoryDTO>): Category
       count: c.count,
     };
   });
+}
+
+export interface PeriodReport {
+  spent: number;
+  income: number;
+  transfers: number;
+  /** Percent change in spending, or null when it can't be expressed (see percentChange). */
+  spentChange: number | null;
+  comparedWith: string;
+  trend: TrendPoint[];
+  /** The last month the trend shows, for opening the monthly reports there. */
+  lastMonth: MonthKey;
+  categories: CategorySpendRow[];
+  insight: { categoryId: string | null; message: string } | null;
+}
+
+/** The Reports page: one of its periods, as of now. */
+export async function getPeriodReport(userId: string, period: ReportPeriod): Promise<PeriodReport> {
+  const [txns, categoriesRaw] = await Promise.all([loadCalcTxns(userId), getUserCategories(userId)]);
+  const categories = new Map(categoriesRaw.map((c) => [c.id, serializeCategory(c)]));
+  const ranges = periodRanges(period, new Date());
+  const inPeriod = filterRange(txns, ranges.start, ranges.end);
+  const before = filterRange(txns, ranges.previousStart, ranges.previousEnd);
+  const current = summarize(inPeriod);
+  const rows = toRows(inPeriod, categories);
+  return {
+    spent: current.effectiveExpense,
+    income: current.income,
+    transfers: current.transfersOut,
+    spentChange: percentChange(current.effectiveExpense, summarize(before).effectiveExpense),
+    comparedWith: ranges.comparedWith,
+    trend: spendingTrend(txns, ranges.months),
+    lastMonth: ranges.months[ranges.months.length - 1],
+    categories: rows,
+    insight: spendingInsight(rows[0], current.effectiveExpense, before, ranges.comparedWith),
+  };
 }
 
 /** Everything the dashboard, insights and monthly views need for a month. */
@@ -115,43 +147,21 @@ export async function getMonthlyAnalytics(
   const previous = summarize(prevTxns);
 
   const categoryRows = toRows(monthTxns, categories).filter((c) => c.expense > 0);
-  const prevCategoryTotals = categoryTotals(prevTxns);
 
   // Largest single expense this month computed in-memory (0 extra DB queries).
   let largestExpense: MonthlyAnalytics["largestExpense"] = null;
   const monthExpenses = monthTxns.filter((t) => t.type === "expense");
   if (monthExpenses.length > 0) {
-    const largest = monthExpenses.reduce((max, t) => (ownAmount(t) > ownAmount(max) ? t : max), monthExpenses[0]);
+    const largest = monthExpenses.reduce((max, t) => (t.amount > max.amount ? t : max), monthExpenses[0]);
     largestExpense = {
       description: largest.description ?? "Expense",
-      amount: ownAmount(largest),
+      amount: largest.amount,
       date: largest.date,
       categoryName: largest.categoryId ? categories.get(largest.categoryId)?.name ?? null : null,
     };
   }
 
   const topCategory = categoryRows[0] ? { name: categoryRows[0].name, net: categoryRows[0].net } : null;
-
-  // This-month vs last-month net per category, biggest absolute swing first.
-  const currNet = new Map(categoryTotals(monthTxns).map((c) => [c.categoryId, c.net]));
-  const prevNet = new Map(prevCategoryTotals.map((c) => [c.categoryId, c.net]));
-  const categoryComparison = [...new Set([...currNet.keys(), ...prevNet.keys()])]
-    .map((id) => {
-      const meta = id ? categories.get(id) : null;
-      const current = currNet.get(id) ?? 0;
-      const previous = prevNet.get(id) ?? 0;
-      return {
-        categoryId: id,
-        name: meta?.name ?? "Uncategorized",
-        color: meta?.color ?? "#94a3b8",
-        current,
-        previous,
-        delta: current - previous,
-      };
-    })
-    .filter((c) => c.current !== 0 || c.previous !== 0)
-    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
-    .slice(0, 8);
 
   // Budget spending counts only the accounts the budget covers (all of them
   // when none are chosen), added together. Everything else on the dashboard
@@ -187,26 +197,10 @@ export async function getMonthlyAnalytics(
     const s = summarize(filterRange(txns, r.start, r.end));
     incomeExpenseTrend.push({ label: monthName(key.month, true), month: key.month, year: key.year, income: s.income, expense: s.effectiveExpense });
   }
-  // Rising-spend streak insight uses the trailing 6 months of the same trend.
-  const monthlyExpenseTrend = incomeExpenseTrend.slice(-6).map((m) => m.expense);
-
   const subscriptionSpend = subscriptionCategoryId
     ? categoryTotals(monthTxns).find((c) => c.categoryId === subscriptionCategoryId)?.net ?? 0
     : 0;
   const avgDaily = averageDailySpend(current.effectiveExpense, range.start, cappedEnd(range.start, range.end));
-
-  const insights = generateInsights({
-    current,
-    previous,
-    currentCategories: categoryTotals(monthTxns),
-    previousCategories: prevCategoryTotals,
-    categoryNames: new Map([...categories.entries()].map(([id, c]) => [id, c.name])),
-    monthlyExpenseTrend,
-    overallBudgetLimit: budget.overallLimit,
-    overallBudgetSpent: overallSpent,
-    avgDailySpend: avgDaily,
-    subscriptionSpend,
-  });
 
   return {
     monthKey,
@@ -225,7 +219,6 @@ export async function getMonthlyAnalytics(
           : null,
     },
     categories: categoryRows,
-    categoryComparison,
     daily: dailySeries(monthTxns, range.start, range.end),
     largestExpense,
     topCategory,
@@ -237,7 +230,6 @@ export async function getMonthlyAnalytics(
     subscriptionSpend,
     budget: { overallLimit: budget.overallLimit, overallSpent, status: overallStatus, lines, accountIds: budget.accountIds },
     incomeExpenseTrend,
-    insights,
   };
 }
 
@@ -298,7 +290,6 @@ export async function getCategoryDetail(userId: string, categoryId: string): Pro
         merchant: true,
         description: true,
         amount: true,
-        shares: { where: { direction: "owed_to_you" }, select: { amount: true } },
       },
     }),
   ]);
@@ -345,7 +336,7 @@ export async function getCategoryDetail(userId: string, categoryId: string): Pro
     if (r.type !== kind) continue;
     const key = (r.merchant?.trim() || r.description?.trim() || "Other").slice(0, 60);
     const entry = byMerchant.get(key) ?? { total: 0, count: 0 };
-    entry.total += r.type === "expense" ? Math.max(0, r.amount - r.shares.reduce((sum, s) => sum + s.amount, 0)) : r.amount;
+    entry.total += r.amount;
     entry.count += 1;
     byMerchant.set(key, entry);
   }

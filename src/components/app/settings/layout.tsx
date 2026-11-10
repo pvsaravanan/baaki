@@ -1,9 +1,8 @@
 "use client";
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 
-/** A titled group of settings: heading above, rows inside one outlined card. */
+/** The rows of one settings panel, in an outlined card. The panel's header carries the visible title. */
 export function Section({
   id, title, description, aside, children,
 }: {
@@ -14,15 +13,14 @@ export function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section id={id} aria-labelledby={`${id}-title`} className="scroll-mt-4">
-      <div className="mb-3 flex items-end justify-between gap-3">
-        <div className="min-w-0">
-          <h2 id={`${id}-title`} className="text-label-lg uppercase tracking-[0.06em] text-fg">{title}</h2>
-          {description && <p className="mt-1 text-body-sm text-muted">{description}</p>}
+    <section id={id} aria-label={title}>
+      {(description || aside) && (
+        <div className="mb-3 flex items-end justify-between gap-3">
+          {description && <p className="min-w-0 text-body-sm text-muted">{description}</p>}
+          {aside && <div className="shrink-0">{aside}</div>}
         </div>
-        {aside && <div className="shrink-0">{aside}</div>}
-      </div>
-      <div className="divide-y divide-border rounded-md border border-border bg-surface shadow-card">{children}</div>
+      )}
+      <div className="divide-y divide-border/15 overflow-hidden rounded-xl border border-border/25">{children}</div>
     </section>
   );
 }
@@ -41,7 +39,7 @@ export function Row({
   return (
     <div
       className={cn(
-        "flex flex-col gap-3 p-5",
+        "flex flex-col gap-3 p-4",
         !stacked && "sm:flex-row sm:items-center sm:justify-between sm:gap-6",
       )}
     >
@@ -79,44 +77,10 @@ export function ActionRow({
     </>
   );
   const cls =
-    "group flex w-full items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-surface-2 focus:outline-none focus-visible:bg-surface-2 disabled:cursor-wait disabled:opacity-60";
+    "group flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-surface-2 focus:outline-none focus-visible:bg-surface-2 disabled:cursor-wait disabled:opacity-60";
   return href ? (
     <Link href={href} className={cls}>{inner}</Link>
   ) : (
     <button type="button" onClick={onClick} disabled={busy} className={cls}>{inner}</button>
   );
-}
-
-/**
- * The section being read, for the index: the last one whose top has passed
- * the upper third of the scroll area — or the last section once scrolled to
- * the bottom, since a short final section may never reach that line.
- */
-export function useActiveSection(ids: readonly string[]) {
-  const [active, setActive] = useState<string>(ids[0]);
-  const key = ids.join(",");
-  useEffect(() => {
-    const first = document.getElementById(ids[0]);
-    const scroller = first?.closest("main");
-    if (!scroller) return;
-    const update = () => {
-      const top = scroller.getBoundingClientRect().top;
-      const line = top + scroller.clientHeight / 3;
-      let current = ids[0];
-      for (const id of ids) {
-        const el = document.getElementById(id);
-        if (el && el.getBoundingClientRect().top <= line) current = id;
-      }
-      const scrollable = scroller.scrollHeight > scroller.clientHeight + 4;
-      if (scrollable && scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 4) {
-        current = ids[ids.length - 1];
-      }
-      setActive(current);
-    };
-    update();
-    scroller.addEventListener("scroll", update, { passive: true });
-    return () => scroller.removeEventListener("scroll", update);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
-  return active;
 }

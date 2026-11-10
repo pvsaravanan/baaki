@@ -65,7 +65,7 @@ export function DashboardSection() {
       title="Dashboard"
       description="Pick what your dashboard shows and in what order, top to bottom."
       aside={
-        <span className="text-label-md uppercase text-muted">
+        <span className="text-xs font-medium text-muted">
           {enabledOrder.length} of {widgets.length} shown
         </span>
       }
@@ -75,16 +75,16 @@ export function DashboardSection() {
         const enabledInGroup = members.filter(({ w }) => w.enabled).map(({ w }) => w.key);
         return (
           <div key={group.kind}>
-            <div className="flex items-baseline justify-between gap-3 border-b border-border bg-surface-2 px-3 py-2 sm:px-5">
-              <span className="text-label-md uppercase text-fg">{group.title}</span>
+            <div className="flex items-baseline justify-between gap-3 border-b border-border/15 bg-surface-2/60 px-3 py-2 sm:px-5">
+              <span className="text-sm font-bold text-fg">{group.title}</span>
               <span className="text-xs text-muted">{group.hint}</span>
             </div>
-            <ul className="divide-y divide-border">
+            <ul className="divide-y divide-border/15">
               {members.map(({ w, i }, pos) => (
                 <li key={w.key} className="flex items-center gap-3 px-3 py-2.5 sm:px-5">
                   <span
                     className={cn(
-                      "w-6 shrink-0 text-center text-label-md tabular-nums",
+                      "w-6 shrink-0 text-center text-label-md",
                       w.enabled ? "text-fg" : "text-faint",
                     )}
                   >
@@ -122,7 +122,7 @@ export function DashboardSection() {
       })}
       {/* Save bar — only when the layout differs from what's saved. */}
       {layoutDirty && (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-brand-soft px-5 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/15 bg-brand-soft px-4 py-3">
           <span className="text-body-sm text-fg">You have unsaved changes.</span>
           <div className="flex gap-2">
             <Button

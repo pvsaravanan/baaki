@@ -30,5 +30,5 @@ export function Money({
   else if (tone === "muted") color = "text-muted";
   else if (tone === "auto") color = paise > 0 ? "text-income" : paise < 0 ? "text-expense" : "text-fg";
 
-  return <span className={cn("tnum tabular-nums", color, className)}>{text}</span>;
+  return <span className={cn("tnum", color, className)}>{text}</span>;
 }

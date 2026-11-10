@@ -1,5 +1,5 @@
 "use client";
-import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { Card, CardBody, CardHeader } from "./report-card";
 import { EmptyState } from "@/components/ui/misc";
 import { Money } from "@/components/money";
 import { AccountIcon } from "@/components/app/accounts/account-icon";
@@ -31,7 +31,7 @@ export function AccountReport({ perAccount }: { perAccount: PerAccountRow[] }) {
           <Money paise={totalBalance} tone={totalBalance >= 0 ? "default" : "expense"} />
         </Tile>
         <Tile label="Accounts" hint="active">
-          <span className="tabular-nums">{active.length}</span>
+          <span>{active.length}</span>
         </Tile>
       </div>
 
@@ -47,9 +47,9 @@ export function AccountReport({ perAccount }: { perAccount: PerAccountRow[] }) {
                 (including the footer) keeps the same cells with the same
                 hidden classes so column counts always line up — no colSpan
                 arithmetic to keep in sync with what's hidden. */}
-            <table className="w-full table-fixed text-sm">
+            <table className="w-full table-fixed text-xs sm:text-sm">
               <thead>
-                <tr className="border-b border-border text-left text-xs text-muted">
+                <tr className="border-b border-border/15 text-left text-xs text-muted">
                   <th className="px-3 py-2.5 font-medium sm:px-5">Account</th>
                   <th className="hidden w-28 px-3 py-2.5 font-medium sm:table-cell">Type</th>
                   <th className="w-24 px-2 py-2.5 text-right font-medium sm:w-28 sm:px-3">Spent</th>
@@ -57,7 +57,7 @@ export function AccountReport({ perAccount }: { perAccount: PerAccountRow[] }) {
                   <th className="w-24 px-2 py-2.5 text-right font-medium sm:w-32 sm:px-5">Balance</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody className="divide-y divide-border/15">
                 {active.map((acc) => {
                   const p = spendById.get(acc.id);
                   return (
@@ -72,7 +72,7 @@ export function AccountReport({ perAccount }: { perAccount: PerAccountRow[] }) {
                       <td className="px-2 py-2.5 text-right sm:px-3">
                         <Money paise={Math.max(0, p?.expense ?? 0)} tone={p && p.expense > 0 ? "expense" : "muted"} />
                       </td>
-                      <td className="hidden py-2.5 px-3 text-right tabular-nums text-muted sm:table-cell">{p?.count ?? 0}</td>
+                      <td className="hidden py-2.5 px-3 text-right text-muted sm:table-cell">{p?.count ?? 0}</td>
                       <td className="px-2 py-2.5 text-right sm:px-5">
                         <Money paise={acc.balance} tone={acc.balance >= 0 ? "default" : "expense"} className="font-medium" />
                       </td>
@@ -81,7 +81,7 @@ export function AccountReport({ perAccount }: { perAccount: PerAccountRow[] }) {
                 })}
               </tbody>
               <tfoot>
-                <tr className="border-t border-border font-medium">
+                <tr className="border-t border-border/25 font-medium">
                   <td className="px-3 py-2.5 text-fg sm:px-5">Total balance</td>
                   <td className="hidden sm:table-cell" />
                   <td className="px-2 py-2.5 sm:px-3" />

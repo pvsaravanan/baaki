@@ -2,22 +2,15 @@
 import type {
   Account,
   Category,
-  Contact,
-  ExpenseShare,
-  FinancialGoal,
-  GoalContribution,
   RecurringTransaction,
   Tag,
   Transaction,
   TransactionTag,
 } from "@/generated/prisma/client";
 import { toISODate } from "./dates";
-import { allocatedAmount } from "./goal-allocation";
 import type {
   AccountDTO,
   CategoryDTO,
-  ContactDTO,
-  GoalDTO,
   RecurringDTO,
   TagDTO,
   TransactionDTO,
@@ -26,8 +19,6 @@ import type {
   AccountType,
   CategoryKind,
   Frequency,
-  GoalStatus,
-  PaymentMethod,
   TransactionType,
 } from "./constants";
 
@@ -64,22 +55,8 @@ export function serializeTag(t: Tag): TagDTO {
   return { id: t.id, name: t.name, color: t.color };
 }
 
-export function serializeContact(c: Contact, owedToYou: number, youOwe: number): ContactDTO {
-  return {
-    id: c.id,
-    name: c.name,
-    color: c.color,
-    avatarUrl: c.avatarUrl,
-    isArchived: c.isArchived,
-    owedToYou,
-    youOwe,
-    net: owedToYou - youOwe,
-  };
-}
-
 type TxnWithTags = Transaction & {
   tags?: (TransactionTag & { tag: Tag })[];
-  shares?: (ExpenseShare & { contact: Contact | null })[];
 };
 
 export function serializeTransaction(t: TxnWithTags): TransactionDTO {
@@ -93,20 +70,9 @@ export function serializeTransaction(t: TxnWithTags): TransactionDTO {
     categoryId: t.categoryId,
     accountId: t.accountId,
     transferAccountId: t.transferAccountId,
-    paymentMethod: (t.paymentMethod as PaymentMethod | null) ?? null,
     notes: t.notes,
     recurringId: t.recurringId,
     tags: t.tags?.map((tt) => tt.tag.name) ?? [],
-    shares:
-      t.shares?.map((s) => ({
-        id: s.id,
-        contactId: s.contactId,
-        contactName: s.contact?.name ?? "Someone",
-        amount: s.amount,
-        direction: s.direction as "owed_to_you" | "you_owe",
-        settled: s.settled,
-        settledAt: s.settledAt ? toISODate(s.settledAt) : null,
-      })) ?? [],
   };
 }
 
@@ -119,7 +85,6 @@ export function serializeRecurring(r: RecurringTransaction): RecurringDTO {
     categoryId: r.categoryId,
     accountId: r.accountId,
     transferAccountId: r.transferAccountId,
-    paymentMethod: (r.paymentMethod as PaymentMethod | null) ?? null,
     notes: r.notes,
     frequency: r.frequency as Frequency,
     interval: r.interval,
@@ -129,24 +94,5 @@ export function serializeRecurring(r: RecurringTransaction): RecurringDTO {
     lastPostedDate: r.lastPostedDate ? toISODate(r.lastPostedDate) : null,
     isActive: r.isActive,
     autoPost: r.autoPost,
-  };
-}
-
-type GoalWithContributions = FinancialGoal & { contributions: GoalContribution[] };
-
-export function serializeGoal(g: GoalWithContributions): GoalDTO {
-  return {
-    id: g.id,
-    name: g.name,
-    icon: g.icon,
-    targetAmount: g.targetAmount,
-    targetDate: g.targetDate ? toISODate(g.targetDate) : null,
-    status: g.status as GoalStatus,
-    allocatedAmount: allocatedAmount(g.contributions),
-    allocations: g.contributions
-      .slice()
-      .sort((a, b) => b.date.getTime() - a.date.getTime() || b.createdAt.getTime() - a.createdAt.getTime())
-      .map((c) => ({ id: c.id, amount: c.amount, at: c.date.toISOString(), note: c.note })),
-    createdAt: g.createdAt.toISOString(),
   };
 }

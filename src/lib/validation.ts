@@ -8,7 +8,6 @@ import {
   CATEGORY_KINDS,
   FREQUENCIES,
   MAX_PAISE,
-  PAYMENT_METHODS,
   TRANSACTION_TYPES,
 } from "./constants";
 import { fromISODate } from "./dates";
@@ -55,19 +54,6 @@ export const resetSchema = z.object({
   password: z.string().min(8, "Use at least 8 characters").max(200),
 });
 
-/**
- * Someone's share of a transaction's cost — see ExpenseShare in the schema.
- * Name the person with `contactId` (a saved person) or `name`: an existing
- * person with that name is used, otherwise a new one is added. With neither,
- * the share is for "Someone" who hasn't been named yet (older entries).
- */
-export const shareInputSchema = z.object({
-  contactId: z.string().min(1).nullish().transform((v) => v ?? null),
-  name: z.string().trim().min(1).max(80).nullish().transform((v) => v ?? null),
-  amount: positivePaise,
-});
-export type ShareInput = { contactId?: string | null; name?: string | null; amount: number };
-
 export const transactionSchema = z
   .object({
     type: z.enum(TRANSACTION_TYPES),
@@ -78,12 +64,10 @@ export const transactionSchema = z
     categoryId: z.string().optional().nullable(),
     accountId: z.string().min(1, "Account is required"),
     transferAccountId: z.string().optional().nullable(),
-    paymentMethod: z.string().trim().max(60).optional().nullable(),
     notes: z.string().trim().max(1000).optional().nullable(),
     tags: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
-    // People this expense is shared with. Omit to leave existing shares
-    // untouched on an edit; send [] to clear them.
-    shares: z.array(shareInputSchema).max(20).optional(),
+    /** On create: also repeat this entry at this frequency, as a recurring rule. */
+    repeat: z.enum(FREQUENCIES).optional().nullable(),
   })
   .refine((d) => d.type !== "transfer" || (d.transferAccountId && d.transferAccountId !== d.accountId), {
     message: "Transfers need a different destination account",
@@ -96,34 +80,9 @@ export const transactionSchema = z
   .refine((d) => d.type === "transfer" || !!d.categoryId, {
     message: "Choose a category",
     path: ["categoryId"],
-  })
-  // People-shares split the *cost* of something — meaningless for a transfer,
-  // which just moves your own money between your own accounts. The UI never
-  // offers sharing for a transfer; enforce it here too so a direct API call
-  // can't attach shares to one.
-  .refine((d) => d.type !== "transfer" || !d.shares?.length, {
-    message: "Transfers can't be split with people",
-    path: ["shares"],
   });
 
 export type TransactionInput = z.infer<typeof transactionSchema>;
-
-export const contactSchema = z.object({
-  name: z.string().trim().min(1, "Name is required").max(80),
-  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default("#64748b"),
-  // A photo from the address book, already shrunk on the phone.
-  avatarUrl: z.string().regex(/^data:image\/(jpeg|png|webp);base64,/).max(150_000).nullish(),
-  /** Only sent to bring an archived person back (see deleteContact). */
-  isArchived: z.boolean().optional(),
-});
-
-/** A standalone ledger entry against a contact (not tied to a transaction). */
-export const standaloneShareSchema = z.object({
-  amount: positivePaise,
-  direction: z.enum(["owed_to_you", "you_owe"]),
-  description: z.string().trim().max(200).optional().nullable(),
-  date: isoDate.optional(),
-});
 
 export const accountSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(80),
@@ -164,7 +123,6 @@ export const recurringSchema = z
     categoryId: z.string().optional().nullable(),
     accountId: z.string().min(1, "Account is required"),
     transferAccountId: z.string().optional().nullable(),
-    paymentMethod: z.string().trim().max(60).optional().nullable(),
     notes: z.string().trim().max(1000).optional().nullable(),
     frequency: z.enum(FREQUENCIES),
     interval: z.number().int().min(1).max(365).default(1),
@@ -185,27 +143,6 @@ export const recurringSchema = z
     message: "Choose a category",
     path: ["categoryId"],
   });
-
-export const goalSchema = z.object({
-  name: z.string().trim().min(1, "Name is required").max(120),
-  icon: z.string().max(40).default("profits"),
-  targetAmount: positivePaise,
-  targetDate: isoDate.optional().nullable(),
-});
-
-/**
- * Editing a goal. `status` only archives or restores — "Completed" is never
- * set by hand; it follows from the allocation reaching the target.
- */
-export const goalUpdateSchema = goalSchema
-  .extend({ status: z.enum(["active", "archived"]) })
-  .partial();
-
-/** Allocating to, or removing from, a goal — always a positive amount. */
-export const allocationSchema = z.object({
-  amount: positivePaise,
-  note: z.string().trim().max(200).optional().nullable(),
-});
 
 export const preferenceSchema = z.object({
   dashboardWidgets: z.array(z.string()).optional(),

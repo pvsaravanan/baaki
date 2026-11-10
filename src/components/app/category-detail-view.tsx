@@ -181,7 +181,7 @@ function Stat({ label, children }: { label: string; children: React.ReactNode })
   return (
     <div className="rounded-none border border-border bg-surface p-4 [container-type:inline-size]">
       <p className="text-label-sm uppercase text-muted">{label}</p>
-      <p className="mt-1 whitespace-nowrap tabular-nums text-[clamp(1rem,9cqi,1.5rem)]">{children}</p>
+      <p className="mt-1 whitespace-nowrap text-[clamp(1rem,9cqi,1.5rem)]">{children}</p>
     </div>
   );
 }

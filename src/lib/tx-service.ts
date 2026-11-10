@@ -1,10 +1,12 @@
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "./db";
-import { fromISODate } from "./dates";
+import { addDays, fromISODate, startOfDay } from "./dates";
 import { BadRequestError, NotFoundError } from "./api";
 import { accountDeltas, accountsLowered, balanceShortfalls, type Movement } from "./balance-guard";
 import { formatINR } from "./money";
-import type { ShareInput, TransactionInput } from "./validation";
+import { computeNextOccurrence } from "./recurring";
+import type { Frequency } from "./constants";
+import type { TransactionInput } from "./validation";
 
 /**
  * Refuse a change that would take an account below ₹0 (see balance-guard.ts).
@@ -15,7 +17,7 @@ export async function assertSufficientBalance(
   userId: string,
   before: Movement[],
   after: Movement[],
-  opts: { removing?: boolean; undoing?: boolean } = {},
+  opts: { removing?: boolean } = {},
 ): Promise<void> {
   const ids = accountsLowered(before, after);
   if (ids.length === 0) return;
@@ -37,9 +39,7 @@ export async function assertSufficientBalance(
   );
   if (shortfalls.length > 0) {
     const { name, available } = shortfalls[0];
-    const message = opts.undoing
-      ? `Can't undo this: ${name} would go below ₹0 (it holds ${formatINR(available)} without the repayment).`
-      : opts.removing
+    const message = opts.removing
       ? `Can't delete this: ${name} would go below ₹0 (it holds ${formatINR(available)} without it).`
       : `Not enough balance in ${name}: only ${formatINR(available)} available.`;
     throw new BadRequestError(message, { amount: message });
@@ -118,11 +118,6 @@ async function resolveTagIds(userId: string, names: string[]): Promise<string[]>
   return rows.map((r) => r.id);
 }
 
-/** A repayment is created by settling a share, and only that changes it. */
-function assertNotRepayment(t: { type: string }) {
-  if (t.type === "repayment") throw new BadRequestError("A repayment can't be changed. Settle or edit the shared expense instead.");
-}
-
 function toData(userId: string, input: TransactionInput): Prisma.TransactionUncheckedCreateInput {
   const date = fromISODate(input.date);
   if (!date) throw new NotFoundError("Invalid date");
@@ -136,7 +131,6 @@ function toData(userId: string, input: TransactionInput): Prisma.TransactionUnch
     categoryId: input.type === "transfer" ? null : input.categoryId ?? null,
     accountId: input.accountId,
     transferAccountId: input.type === "transfer" ? input.transferAccountId ?? null : null,
-    paymentMethod: input.paymentMethod ?? null,
     notes: input.notes ?? null,
   };
 }
@@ -144,32 +138,53 @@ function toData(userId: string, input: TransactionInput): Prisma.TransactionUnch
 export async function createTransaction(userId: string, input: TransactionInput): Promise<string> {
   await assertOwnership(userId, input);
   await assertSufficientBalance(userId, [], [movementOf(input)]);
-  // Shares split a cost and are meaningless for a transfer (see the matching
-  // schema refinement in validation.ts); drop them defensively so a transfer
-  // can never carry shares regardless of how this function is called.
-  const shares = input.type === "transfer" ? undefined : input.shares;
-  // Validate shares before creating the row so an over-cap share fails fast
-  // instead of leaving an orphaned transaction behind.
-  if (shares?.length) await assertSharesValid(userId, shares, input.amount);
   const tagIds = await resolveTagIds(userId, input.tags ?? []);
-  // The transaction row and its shares are created in one DB transaction so a
-  // failure creating shares can't leave a shareless transaction behind.
-  const created = await prisma.$transaction(async (tx) => {
-    const txn = await tx.transaction.create({
-      data: {
-        ...toData(userId, input),
-        tags: { create: tagIds.map((tagId) => ({ tagId })) },
-      },
-    });
-    if (shares?.length) {
-      const people = await resolveShares(tx, userId, shares);
-      await tx.expenseShare.createMany({
-        data: people.map((s) => ({ transactionId: txn.id, contactId: s.contactId, amount: s.amount })),
-      });
-    }
-    return txn;
+  const data = {
+    ...toData(userId, input),
+    tags: { create: tagIds.map((tagId) => ({ tagId })) },
+  };
+  if (!input.repeat) {
+    const created = await prisma.transaction.create({ data });
+    return created.id;
+  }
+  const repeat = input.repeat;
+  return prisma.$transaction(async (db) => {
+    const rule = await db.recurringTransaction.create({ data: repeatingRuleFor(userId, input, data.date as Date, repeat) });
+    const created = await db.transaction.create({ data: { ...data, recurringId: rule.id } });
+    return created.id;
   });
-  return created.id;
+}
+
+/**
+ * The rule that repeats a new entry: it starts on the entry's date, which counts
+ * as already posted, so its first occurrence is a later one and the entry isn't
+ * recorded twice. Like a rule made by hand, it waits for you to post each
+ * occurrence unless you turn on auto-post.
+ */
+function repeatingRuleFor(
+  userId: string,
+  input: TransactionInput,
+  date: Date,
+  frequency: Frequency,
+): Prisma.RecurringTransactionUncheckedCreateInput {
+  const dayAfter = addDays(startOfDay(date), 1);
+  const today = startOfDay(new Date());
+  return {
+    userId,
+    // A description may be longer than a rule's name.
+    name: input.description.slice(0, 120),
+    type: input.type,
+    amount: input.amount,
+    categoryId: input.type === "transfer" ? null : input.categoryId ?? null,
+    accountId: input.accountId,
+    transferAccountId: input.type === "transfer" ? input.transferAccountId ?? null : null,
+    notes: input.notes ?? null,
+    frequency,
+    interval: 1,
+    startDate: startOfDay(date),
+    lastPostedDate: startOfDay(date),
+    nextOccurrence: computeNextOccurrence(date, frequency, 1, dayAfter > today ? dayAfter : today),
+  };
 }
 
 export async function updateTransaction(userId: string, id: string, input: TransactionInput) {
@@ -178,160 +193,27 @@ export async function updateTransaction(userId: string, id: string, input: Trans
     select: { id: true, categoryId: true, ...MOVEMENT_FIELDS },
   });
   if (!existing) throw new NotFoundError("Transaction not found");
-  assertNotRepayment(existing);
   await assertOwnership(userId, input, existing);
   await assertSufficientBalance(userId, [existing], [movementOf(input)]);
-  // A transfer can never carry shares (see createTransaction / validation.ts).
-  // Forcing an empty array here also clears any shares left over should an
-  // existing expense be edited into a transfer.
-  const shares = input.type === "transfer" ? [] : input.shares;
-  // Validate shares before mutating the row so invalid shares don't commit the
-  // edit (and blow away the old tags) and only then throw.
-  const retainedShares = shares === undefined
-    ? (await prisma.expenseShare.findMany({ where: { transactionId: id }, select: { contactId: true, amount: true } })).map(
-        (s) => ({ ...s, name: null }),
-      )
-    : shares;
-  await assertSharesValid(userId, retainedShares, input.amount);
   const tagIds = await resolveTagIds(userId, input.tags ?? []);
-  // The edit, its tags and its shares commit together or not at all.
+  // The edit and its tags commit together or not at all.
   return prisma.$transaction(async (db) => {
     await db.transactionTag.deleteMany({ where: { transactionId: id } });
-    await db.transaction.update({
+    return db.transaction.update({
       where: { id },
       data: {
         ...toData(userId, input),
         tags: { create: tagIds.map((tagId) => ({ tagId })) },
       },
-    });
-    // `shares` omitted entirely means "leave as-is"; an explicit (possibly
-    // empty) array means "replace with this".
-    if (shares !== undefined) await replaceShares(db, userId, id, shares);
-    // Fully hydrated, so the returned row reflects the shares change above.
-    return db.transaction.findUniqueOrThrow({
-      where: { id },
-      include: { tags: { include: { tag: true } }, shares: { include: { contact: true } } },
+      include: { tags: { include: { tag: true } } },
     });
   });
-}
-
-/**
- * Validate a set of shares BEFORE any rows are written: the sum must not
- * exceed `cap`, and every contact must belong to the user. Callers run this
- * up front so an invalid share can't commit a transaction/parts and only then
- * throw, leaving orphaned rows behind.
- */
-export async function assertSharesValid(userId: string, shares: ShareInput[], cap: number): Promise<void> {
-  if (!shares.length) return;
-  const sum = shares.reduce((s, x) => s + x.amount, 0);
-  if (sum > cap) throw new BadRequestError("Shared amounts can't exceed the total");
-  const keys = shares.map((s) => s.contactId ?? (s.name ? `name:${s.name.toLowerCase()}` : null));
-  if (new Set(keys).size !== shares.length) {
-    throw new BadRequestError("Each person can only have one share");
-  }
-  const contactIds = shares.map((s) => s.contactId).filter((id): id is string => id !== null);
-  const contacts = await prisma.contact.findMany({ where: { id: { in: contactIds }, userId }, select: { id: true } });
-  if (contacts.length !== contactIds.length) throw new NotFoundError("Contact not found");
-}
-
-const PERSON_COLORS = ["#64748b", "#0d9488", "#6366f1", "#f97316", "#84cc16", "#06b6d4", "#ef4444", "#ec4899", "#a855f7", "#f59e0b"];
-
-/**
- * Turn the people named in a split into saved people: a share that names a
- * saved person (by id, or by name without regard to case) uses them, and a new
- * name adds a new person. Shares with neither stay "Someone". Run it after the
- * shares are validated, with the same client the shares are written with.
- */
-async function resolveShares(
-  db: Pick<typeof prisma, "contact">,
-  userId: string,
-  shares: ShareInput[],
-): Promise<{ contactId: string | null; amount: number }[]> {
-  const people: { contactId: string | null; amount: number }[] = [];
-  const seen = new Set<string | null>();
-  for (const share of shares) {
-    let contactId = share.contactId ?? null;
-    if (!contactId && share.name) {
-      const found = await db.contact.findFirst({
-        where: { userId, name: { equals: share.name, mode: "insensitive" } },
-        select: { id: true, isArchived: true },
-      });
-      // Naming an archived person in a split brings them back, so the share
-      // doesn't land on someone the People screen is hiding.
-      if (found?.isArchived) await db.contact.update({ where: { id: found.id }, data: { isArchived: false } });
-      contactId =
-        found?.id ??
-        (
-          await db.contact.create({
-            data: { userId, name: share.name, color: PERSON_COLORS[share.name.length % PERSON_COLORS.length] },
-            select: { id: true },
-          })
-        ).id;
-    }
-    if (seen.has(contactId)) throw new BadRequestError("Each person can only have one share");
-    seen.add(contactId);
-    people.push({ contactId, amount: share.amount });
-  }
-  return people;
-}
-
-/**
- * Replace a transaction's shares with a new set, matched by contactId
- * against whatever shares already exist on `transactionId` — a contact who
- * stays on the split has their row updated (amount only) rather than
- * deleted and recreated, so `settled`/`settledAt` survives an edit instead
- * of silently reverting to "owed" every time (e.g. fixing a typo on an
- * already-settled split expense).
- */
-export async function attachShares(
-  userId: string,
-  transactionId: string,
-  shares: ShareInput[],
-): Promise<void> {
-  const txn = await prisma.transaction.findFirst({
-    where: { id: transactionId, userId, deletedAt: null },
-    select: { id: true, amount: true },
-  });
-  if (!txn) throw new NotFoundError("Transaction not found");
-
-  await assertSharesValid(userId, shares, txn.amount);
-  await prisma.$transaction((db) => replaceShares(db, userId, transactionId, shares));
-}
-
-/** The writes of attachShares, on the client of a database transaction (shares already validated). */
-async function replaceShares(
-  db: Prisma.TransactionClient,
-  userId: string,
-  transactionId: string,
-  shares: ShareInput[],
-): Promise<void> {
-  const people = await resolveShares(db, userId, shares);
-  const existing = await db.expenseShare.findMany({
-    where: { transactionId },
-    select: { id: true, contactId: true },
-  });
-  const existingIdByContact = new Map(existing.map((s) => [s.contactId, s.id]));
-  const keep = new Set(people.map((s) => s.contactId));
-  const toDelete = existing.filter((s) => !keep.has(s.contactId)).map((s) => s.id);
-  const toUpdate = people.filter((s) => existingIdByContact.has(s.contactId));
-  const toCreate = people.filter((s) => !existingIdByContact.has(s.contactId));
-
-  if (toDelete.length) await db.expenseShare.deleteMany({ where: { id: { in: toDelete } } });
-  for (const s of toUpdate) {
-    await db.expenseShare.update({ where: { id: existingIdByContact.get(s.contactId)! }, data: { amount: s.amount } });
-  }
-  if (toCreate.length) {
-    await db.expenseShare.createMany({
-      data: toCreate.map((s) => ({ transactionId, contactId: s.contactId, amount: s.amount })),
-    });
-  }
 }
 
 /** Soft-delete. Returns the id so the caller can offer undo. */
 export async function softDeleteTransaction(userId: string, id: string): Promise<void> {
   const existing = await prisma.transaction.findFirst({ where: { id, userId, deletedAt: null } });
   if (!existing) throw new NotFoundError("Transaction not found");
-  assertNotRepayment(existing);
   // Deleting income (or a transfer in) lowers a balance just as spending does.
   await assertSufficientBalance(userId, [existing], [], { removing: true });
   await prisma.transaction.update({ where: { id }, data: { deletedAt: new Date() } });
@@ -341,7 +223,7 @@ export async function softDeleteTransaction(userId: string, id: string): Promise
 export async function bulkSoftDeleteTransactions(userId: string, ids: string[]): Promise<number> {
   const unique = [...new Set(ids)];
   if (unique.length === 0) return 0;
-  const where = { id: { in: unique }, userId, deletedAt: null, type: { not: "repayment" } };
+  const where = { id: { in: unique }, userId, deletedAt: null };
   // The whole batch is checked together: removing some income may be fine
   // when the expenses it paid for go in the same batch.
   const doomed = await prisma.transaction.findMany({ where, select: { id: true, ...MOVEMENT_FIELDS } });
@@ -360,12 +242,7 @@ export async function restoreTransaction(userId: string, id: string): Promise<vo
 /**
  * One-click copy of a transaction (see the "Duplicate" row menu item) — for
  * logging a similar purchase again, not for re-creating everything about the
- * original. Shares are deliberately NOT carried over: the duplicate is a
- * new, separate purchase. There's no follow-up step in the UI to confirm who
- * it's shared with, so silently attaching the same contacts/amounts would
- * create a fresh, un-reviewed debt (e.g. duplicating a past split dinner
- * would owe your friend money again for nothing they agreed to). Add sharing
- * to the copy explicitly if needed.
+ * original.
  */
 export async function duplicateTransaction(userId: string, id: string): Promise<string> {
   const original = await prisma.transaction.findFirst({
@@ -373,7 +250,6 @@ export async function duplicateTransaction(userId: string, id: string): Promise<
     include: { tags: true },
   });
   if (!original) throw new NotFoundError("Transaction not found");
-  assertNotRepayment(original);
   await assertSufficientBalance(userId, [], [original]);
   const copy = await prisma.transaction.create({
     data: {
@@ -386,7 +262,6 @@ export async function duplicateTransaction(userId: string, id: string): Promise<
       categoryId: original.categoryId,
       accountId: original.accountId,
       transferAccountId: original.transferAccountId,
-      paymentMethod: original.paymentMethod,
       notes: original.notes,
       tags: { create: original.tags.map((t) => ({ tagId: t.tagId })) },
     },

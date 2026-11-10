@@ -82,12 +82,9 @@ screen ──usePageData / apiGet / apiPost──▶ local API ──▶ route h
 - **One person, no login.** The database holds a single profile, created with starter
   data on first launch (`src/lib/auth.ts`). The optional app lock uses the phone's own
   fingerprint/screen lock (`src/lib/app-lock.ts`, `src/components/app/lock-gate.tsx`).
-- **Contacts, read only.** Adding a person from the phone's contacts opens Android's own
-  contact picker (`ContactPickerPlugin.java`). baaki asks for READ_CONTACTS, needed for the
-  person's photo, and never for WRITE_CONTACTS.
 - **No network.** A content security policy (`src/app/layout.tsx`) lets the app load only
   its own files and blocks connections to anywhere else.
-- **Detail screens** use a query string (`/goals/detail?id=…`), since a static build
+- **Detail screens** use a query string (`/categories/detail?id=…`), since a static build
   can't pre-render one page per record.
 
 ### Backups
@@ -125,11 +122,9 @@ uses the Indian numbering system (`₹1,00,000`).
 - `src/lib/calculations.ts` — pure financial calculations (balance, summaries, category
   totals, budgets, savings rate, date-range filtering). Unit-tested.
 - `src/lib/analytics.ts` — monthly analytics composed from the calc layer.
-- `src/lib/insights.ts` — deterministic insight generation from real aggregates (no AI).
 - `src/lib/categorize.ts` — rule-based auto-categorization (no AI required).
 - `src/lib/csv.ts`, `src/lib/spreadsheet.ts` — statement import (CSV/Excel) and CSV export.
-- `src/lib/queries.ts`, `src/lib/tx-service.ts`, `src/lib/goals-service.ts`,
-  `src/lib/contacts-service.ts`, `src/lib/recurring.ts` — data loading and business logic.
+- `src/lib/queries.ts`, `src/lib/tx-service.ts`, `src/lib/recurring.ts` — data loading and business logic.
 - `src/lib/backup.ts` — full backup and restore.
 - `src/server/**` — the local API: route handlers, the router and screen loaders.
 - `src/components/**` — reusable UI kit and feature components.

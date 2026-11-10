@@ -13,7 +13,7 @@
  */
 
 import type { TransactionType } from "./constants";
-import { addDays, daysBetween, startOfDay, toISODate, zonedParts } from "./dates";
+import { addDays, daysBetween, startOfDay, toISODate } from "./dates";
 
 /** Minimal transaction shape the calc layer needs. Framework-agnostic. */
 export interface CalcTxn {
@@ -26,8 +26,6 @@ export interface CalcTxn {
   accountId: string;
   transferAccountId?: string | null;
   deletedAt?: Date | null;
-  /** Part of an expense other people owe back (their shares of a split). */
-  sharedAmount?: number;
 }
 
 export interface CalcAccount {
@@ -37,23 +35,6 @@ export interface CalcAccount {
 
 export function isActive(t: CalcTxn): boolean {
   return t.deletedAt == null;
-}
-
-/**
- * What an entry costs you. For an expense split with other people that's your
- * own share, whether their repayment has arrived yet or not; for anything else
- * it's the whole amount. Balances use the full amount instead — that's the cash
- * that actually moved.
- */
-export function ownAmount(t: CalcTxn): number {
-  return t.type === "expense" ? Math.max(0, t.amount - (t.sharedAmount ?? 0)) : t.amount;
-}
-
-/** The same figure for a transaction as the screens receive it (its shares are attached). */
-export function ownAmountOf(t: { type: string; amount: number; shares: { amount: number; direction: string }[] }): number {
-  if (t.type !== "expense") return t.amount;
-  const shared = t.shares.reduce((sum, s) => sum + (s.direction === "owed_to_you" ? s.amount : 0), 0);
-  return Math.max(0, t.amount - shared);
 }
 
 export function activeOnly<T extends CalcTxn>(txns: T[]): T[] {
@@ -82,7 +63,6 @@ export function accountBalance(account: CalcAccount, txns: CalcTxn[]): number {
     if (t.accountId === account.id) {
       switch (t.type) {
         case "income":
-        case "repayment": // someone paid back their share of a split
           balance += t.amount;
           break;
         case "expense":
@@ -107,8 +87,7 @@ export function totalBalance(accounts: CalcAccount[], txns: CalcTxn[]): number {
 
 /**
  * The money you actually have: every non-archived account's balance, summed.
- * This is the dashboard's "Balance" and the base that goal allocations are
- * set aside from — one definition, so the two can never disagree.
+ * This is the dashboard's "Balance".
  */
 export function actualBalance(accounts: (CalcAccount & { isArchived: boolean })[], txns: CalcTxn[]): number {
   return totalBalance(accounts.filter((a) => !a.isArchived), txns);
@@ -142,7 +121,7 @@ export function summarize(txns: CalcTxn[]): PeriodSummary {
         income += t.amount;
         break;
       case "expense":
-        grossExpense += ownAmount(t);
+        grossExpense += t.amount;
         break;
       case "transfer":
         transfersOut += t.amount;
@@ -188,7 +167,7 @@ export function categoryTotals(txns: CalcTxn[]): CategoryTotal[] {
       entry = { categoryId: key, expense: 0, net: 0, count: 0 };
       map.set(key, entry);
     }
-    entry.expense += ownAmount(t);
+    entry.expense += t.amount;
     entry.net = entry.expense;
     entry.count += 1;
   }
@@ -200,7 +179,7 @@ export function categoryAmount(txns: CalcTxn[], categoryId: string, type: "expen
   let total = 0;
   for (const t of txns) {
     if (!isActive(t) || t.categoryId !== categoryId) continue;
-    if (t.type === type) total += ownAmount(t);
+    if (t.type === type) total += t.amount;
   }
   return total;
 }
@@ -232,7 +211,7 @@ export function dailySeries(txns: CalcTxn[], start: Date, end: Date): DailyPoint
     const point = byDay.get(key);
     if (!point) continue;
     point.count += 1;
-    if (t.type === "expense") point.expense += ownAmount(t);
+    if (t.type === "expense") point.expense += t.amount;
     else if (t.type === "income") point.income += t.amount;
   }
   return [...byDay.values()];
@@ -275,33 +254,6 @@ export function budgetStatus(spent: number, limit: number, warnAt = 90): BudgetS
   return { limit, spent, remaining, utilization, state };
 }
 
-/**
- * Monthly contribution needed to reach a savings goal by its target date.
- * Returns the paise/month required; 0 if already reached or no valid date.
- */
-export function monthlyContributionNeeded(
-  target: number,
-  current: number,
-  today: Date,
-  targetDate: Date | null,
-): number {
-  const remaining = target - current;
-  if (remaining <= 0) return 0;
-  if (!targetDate) return remaining;
-  const months = monthsBetween(today, targetDate);
-  if (months <= 0) return remaining;
-  return Math.ceil(remaining / months);
-}
-
-/** Whole months from `from` to `to`, minimum 0. Partial months round up to 1. */
-export function monthsBetween(from: Date, to: Date): number {
-  if (to.getTime() <= from.getTime()) return 0;
-  const f = zonedParts(from);
-  const t = zonedParts(to);
-  let months = (t.year - f.year) * 12 + (t.month - f.month);
-  if (t.day > f.day) months += 1;
-  return Math.max(months, 1);
-}
 
 /** Average daily spend across a period given its effective expense total. */
 export function averageDailySpend(effectiveExpense: number, start: Date, end: Date): number {

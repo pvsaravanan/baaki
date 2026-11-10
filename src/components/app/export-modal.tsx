@@ -7,20 +7,18 @@ import { Input } from "@/components/ui/field";
 import { SelectMenu } from "@/components/ui/select-menu";
 import { useToast } from "@/components/ui/toast";
 import { useAppData } from "./app-data";
+import { DateInput } from "./date-input";
 import { downloadFile } from "@/lib/http";
 import { toPaise } from "@/lib/money";
 import {
   TRANSACTION_TYPES,
   TYPE_LABELS,
-  PAYMENT_METHODS,
-  PAYMENT_METHOD_LABELS,
 } from "@/lib/constants";
 
 export interface ExportFilters {
   type: string;
   categoryId: string;
   accountId: string;
-  paymentMethod: string;
   tag: string;
   start: string;
   end: string;
@@ -33,7 +31,6 @@ const EMPTY: ExportFilters = {
   type: "",
   categoryId: "",
   accountId: "",
-  paymentMethod: "",
   tag: "",
   start: "",
   end: "",
@@ -48,7 +45,6 @@ function buildExportUrl(filters: ExportFilters): string {
   if (filters.type) p.set("type", filters.type);
   if (filters.categoryId) p.set("categoryId", filters.categoryId);
   if (filters.accountId) p.set("accountId", filters.accountId);
-  if (filters.paymentMethod) p.set("paymentMethod", filters.paymentMethod);
   if (filters.tag) p.set("tag", filters.tag);
   if (filters.start) p.set("start", filters.start);
   if (filters.end) p.set("end", filters.end);
@@ -63,7 +59,7 @@ function buildExportUrl(filters: ExportFilters): string {
 }
 
 function hasAnyFilter(f: ExportFilters): boolean {
-  return !!(f.type || f.categoryId || f.accountId || f.paymentMethod || f.tag || f.start || f.end || f.min || f.max || f.q);
+  return !!(f.type || f.categoryId || f.accountId || f.tag || f.start || f.end || f.min || f.max || f.q);
 }
 
 export function ExportModal({
@@ -102,10 +98,10 @@ export function ExportModal({
       <div className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2">
           <FilterField label="From date">
-            <Input type="date" value={filters.start} onChange={(e) => set({ start: e.target.value })} />
+            <DateInput label="From date" placeholder="Any date" optional value={filters.start} onChange={(start) => set({ start })} subtitle="Export transactions from this date." />
           </FilterField>
           <FilterField label="To date">
-            <Input type="date" value={filters.end} onChange={(e) => set({ end: e.target.value })} />
+            <DateInput label="To date" placeholder="Any date" optional value={filters.end} onChange={(end) => set({ end })} subtitle="Export transactions up to this date." />
           </FilterField>
           <FilterField label="Type">
             <SelectMenu
@@ -126,13 +122,6 @@ export function ExportModal({
               value={filters.accountId}
               onChange={(v) => set({ accountId: v })}
               options={[{ value: "", label: "All accounts" }, ...accounts.map((a) => ({ value: a.id, label: a.name }))]}
-            />
-          </FilterField>
-          <FilterField label="Payment method">
-            <SelectMenu
-              value={filters.paymentMethod}
-              onChange={(v) => set({ paymentMethod: v })}
-              options={[{ value: "", label: "Any method" }, ...PAYMENT_METHODS.map((m) => ({ value: m, label: PAYMENT_METHOD_LABELS[m] }))]}
             />
           </FilterField>
           {tags.length > 0 && (

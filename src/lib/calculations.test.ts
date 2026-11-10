@@ -8,8 +8,6 @@ import {
   categoryTotals,
   dailySeries,
   filterRange,
-  monthlyContributionNeeded,
-  monthsBetween,
   percentChange,
   summarize,
   totalBalance,
@@ -236,25 +234,6 @@ describe("dailySeries", () => {
   });
 });
 
-describe("goal math", () => {
-  it("computes monthly contribution needed", () => {
-    const today = new Date(2026, 0, 1);
-    const target = new Date(2026, 6, 1); // 6 months away
-    expect(monthlyContributionNeeded(rs(100000), rs(40000), today, target)).toBe(rs(10000));
-  });
-  it("returns 0 when goal already reached", () => {
-    expect(monthlyContributionNeeded(rs(100000), rs(100000), new Date(), new Date())).toBe(0);
-  });
-  it("returns full remaining when no target date", () => {
-    expect(monthlyContributionNeeded(rs(1000), rs(0), new Date(), null)).toBe(rs(1000));
-  });
-  it("monthsBetween respects boundaries and leap years", () => {
-    expect(monthsBetween(new Date(2026, 0, 1), new Date(2026, 6, 1))).toBe(6);
-    expect(monthsBetween(new Date(2024, 1, 29), new Date(2024, 2, 1))).toBe(1);
-    expect(monthsBetween(new Date(2026, 5, 1), new Date(2026, 5, 1))).toBe(0);
-  });
-});
-
 describe("averageDailySpend", () => {
   it("divides effective expense across the period days", () => {
     const start = new Date(2026, 7, 1);
@@ -263,25 +242,3 @@ describe("averageDailySpend", () => {
   });
 });
 
-describe("an expense shared with other people", () => {
-  const dinner = tx({ type: "expense", amount: 89_860, sharedAmount: 44_930, categoryId: "travel" });
-  const repayment = tx({ type: "repayment", amount: 44_930 });
-
-  it("counts only your share as spending, in totals and categories", () => {
-    expect(summarize([dinner]).effectiveExpense).toBe(44_930);
-    expect(categoryTotals([dinner])[0].expense).toBe(44_930);
-    expect(categoryAmount([dinner], "travel", "expense")).toBe(44_930);
-  });
-
-  it("moves the full amount through the account", () => {
-    expect(accountBalance({ id: "a1", openingBalance: 100_000 }, [dinner])).toBe(100_000 - 89_860);
-  });
-
-  it("takes the repayment into the balance without it being income or spending", () => {
-    const all = [dinner, repayment];
-    expect(accountBalance({ id: "a1", openingBalance: 100_000 }, all)).toBe(100_000 - 44_930);
-    const s = summarize(all);
-    expect(s.income).toBe(0);
-    expect(s.effectiveExpense).toBe(44_930);
-  });
-});

@@ -15,7 +15,7 @@ let splashHandedOff = false;
  * native app — close whatever is open on top (a form, sheet, picker or menu),
  * otherwise go back a screen, otherwise leave the app.
  */
-export function NativeApp() {
+export function NativeApp({ ready = true }: { ready?: boolean }) {
   const [handoff] = useState(() => {
     const first = Capacitor.isNativePlatform() && !splashHandedOff;
     if (first) splashHandedOff = true;
@@ -50,5 +50,5 @@ export function NativeApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return handoff ? <SplashHandoff onShown={hideNativeSplash} /> : null;
+  return handoff ? <SplashHandoff hideNative={hideNativeSplash} ready={ready} /> : null;
 }

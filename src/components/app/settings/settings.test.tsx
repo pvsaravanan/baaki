@@ -6,20 +6,20 @@ import { buildWidgetItems, moveWidget } from "./widget-items";
 
 describe("dashboard widget list", () => {
   it("lists every widget once: saved ones first in each group, in saved order", () => {
-    const items = buildWidgetItems(["insights", "income", "balance"]);
+    const items = buildWidgetItems(["upcoming_recurring", "income", "balance"]);
     expect(items).toHaveLength(DASHBOARD_WIDGETS.length);
     expect(items.slice(0, 3)).toEqual([
       { key: "income", enabled: true },
       { key: "balance", enabled: true },
       { key: "expenses", enabled: false },
     ]);
-    const firstCard = items.findIndex((w) => w.key === "insights");
-    expect(items[firstCard]).toEqual({ key: "insights", enabled: true });
+    const firstCard = items.findIndex((w) => w.key === "upcoming_recurring");
+    expect(items[firstCard]).toEqual({ key: "upcoming_recurring", enabled: true });
     expect(items.slice(firstCard + 1).every((w) => !w.enabled)).toBe(true);
   });
 
   it("moves a widget within its group but never across into the other", () => {
-    const items = buildWidgetItems(["balance", "income", "insights"]);
+    const items = buildWidgetItems(["balance", "income", "upcoming_recurring"]);
     expect(moveWidget(items, 1, -1).slice(0, 2).map((w) => w.key)).toEqual(["income", "balance"]);
     const tiles = items.filter((w) => widgetKind(w.key) === "tile").length;
     expect(moveWidget(items, tiles - 1, 1)).toBe(items); // last tile can't drop into the cards

@@ -8,26 +8,23 @@ import { useAppData } from "@/components/app/app-data";
 import { useMonthParam } from "@/components/app/use-month-param";
 import { ScreenData } from "@/components/app/screen-data";
 import { DashboardSkeleton } from "@/components/app/dashboard-skeleton";
-import { goalProgress } from "@/lib/goal-allocation";
-import { resolveGoalIcon } from "@/lib/category-icons";
 import { isWidgetKey, widgetKind, type WidgetKey } from "@/lib/dashboard-widgets";
-import { ShortfallBanner } from "@/components/app/goals/money-standing";
-import { fromISODate, formatDate, addDays, zonedParts, type MonthKey } from "@/lib/dates";
-import { monthlyContributionNeeded } from "@/lib/calculations";
+import { fromISODate, formatDate, addDays, monthName, zonedParts, type MonthKey } from "@/lib/dates";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Money } from "@/components/money";
 import { Progress, Badge, EmptyState } from "@/components/ui/misc";
-import { Icon } from "@/components/icon";
 import { CategoryIcon } from "@/components/app/category-icon";
-import { StatCard } from "@/components/app/stat-card";
-import { PageHeader } from "@/components/app/page-header";
+import { DashboardGreeting } from "@/components/app/dashboard/greeting";
+import { BalanceHero, SummaryTile } from "@/components/app/dashboard/summary";
+import { SpendingCategoryCard } from "@/components/app/dashboard/category-card";
+import { RecentTransactionsCard } from "@/components/app/dashboard/recent-card";
 import { MonthNav } from "@/components/app/month-nav";
+import { TopbarSlot } from "@/components/app/topbar-slot";
 import { MonthContent, MonthScope } from "@/components/app/month-scope";
 import { SpendingCalendar } from "@/components/app/spending-calendar";
-import { TransactionRow } from "@/components/app/transaction-row";
-import { InteractiveCategoryDonut } from "@/components/app/interactive-category-donut";
 import { IncomeExpenseCard } from "@/components/app/income-expense-card";
 import { formatINR, formatPercent } from "@/lib/money";
+import { cn } from "@/lib/cn";
 
 export default function DashboardPage() {
   return (
@@ -37,29 +34,48 @@ export default function DashboardPage() {
   );
 }
 
+/**
+ * On a phone the default dashboard is exactly one screen: it takes the height
+ * between the top bar and the bottom bar and never scrolls (the recent list
+ * shows as many rows as fit). Widgets the user adds in Settings don't fit on
+ * one screen, so a layout with any of them flows and scrolls as usual.
+ */
+const FIT_TILES = new Set<WidgetKey>(["balance", "income", "expenses", "net_savings"]);
+const FIT_CARDS = new Set<WidgetKey>(["spending_categories", "recent_transactions"]);
+function fitsOneScreen(widgets: string[]): boolean {
+  return widgets.filter(isWidgetKey).every((k) => (widgetKind(k) === "tile" ? FIT_TILES : FIT_CARDS).has(k));
+}
+
 function Dashboard() {
   const { user } = useAppData();
   const { m, monthKey, isCurrent } = useMonthParam();
   const { data, error, isStale } = usePageData("dashboard", { m });
+  const fit = !data || fitsOneScreen(data.preference.dashboardWidgets);
 
   return (
     <MonthScope monthKey={m} loading={isStale}>
-      <PageHeader
-        title={`${greeting()}, ${user.name.split(" ")[0]}`}
-        description="Here's where your money went this month."
-        actions={<MonthNav monthKey={monthKey} isCurrent={isCurrent} className="w-full sm:w-auto" />}
-      />
-      <MonthContent className="space-y-5">
-        <ScreenData data={data} error={error} skeleton={<DashboardSkeleton header={false} />}>
-          {(d) => <DashboardBody data={d} monthKey={monthKey} />}
-        </ScreenData>
-      </MonthContent>
+      <div
+        className={cn(
+          "flex flex-col gap-[clamp(6px,1.2dvh,12px)] md:gap-4",
+          fit && "h-[calc(100dvh-10.75rem-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px))] overflow-hidden md:h-auto md:overflow-visible",
+        )}
+      >
+        <DashboardGreeting greeting={greeting().toUpperCase()} name={user.name.split(" ")[0]} monthName={monthName(monthKey.month)} />
+        <TopbarSlot>
+          <MonthNav monthKey={monthKey} isCurrent={isCurrent} bar />
+        </TopbarSlot>
+        <MonthContent className="flex min-h-0 flex-1 flex-col gap-[clamp(6px,1.2dvh,12px)] md:flex-none md:gap-5">
+          <ScreenData data={data} error={error} skeleton={<DashboardSkeleton header={false} />}>
+            {(d) => <DashboardBody data={d} monthKey={monthKey} fit={fit} />}
+          </ScreenData>
+        </MonthContent>
+      </div>
     </MonthScope>
   );
 }
 
-function DashboardBody({ data, monthKey }: { data: PageData<"dashboard">; monthKey: MonthKey }) {
-  const { analytics: a, preference: pref, recent, recurring, goals, goalMoney } = data;
+function DashboardBody({ data, monthKey, fit }: { data: PageData<"dashboard">; monthKey: MonthKey; fit: boolean }) {
+  const { analytics: a, preference: pref, recent, recurring } = data;
 
   const budgetLimit = a.budget.overallLimit ?? a.budget.lines.reduce((s, l) => s + l.limit, 0);
   const budgetRemaining = budgetLimit - a.budget.overallSpent;
@@ -77,31 +93,19 @@ function DashboardBody({ data, monthKey }: { data: PageData<"dashboard">; monthK
     .sort((x, y) => x.date.getTime() - y.date.getTime())
     .slice(0, 5);
 
-  const donutData = a.categories.slice(0, 8).map((c) => ({ name: c.name, value: c.net, color: c.color, icon: c.icon }));
-  const activeGoals = goals.filter((g) => g.status !== "archived").slice(0, 3);
-
-  // Goal allocations stay in the accounts, so Balance is unchanged; the hint
-  // says how much of it is still free.
-  const balanceHint =
-    goalMoney.shortfall > 0
-      ? `over-allocated by ${formatINR(goalMoney.shortfall)}`
-      : goalMoney.totalAllocated > 0
-        ? `${formatINR(goalMoney.available)} safe to spend`
-        : "across all accounts";
-
   // Every tile and card is its own Settings widget (see dashboard-widgets);
   // the enabled ones render in the saved order — tiles in the top row, cards
   // below.
   const order = pref.dashboardWidgets.filter(isWidgetKey);
   const TILES: Partial<Record<WidgetKey, React.ReactNode>> = {
-    balance: <StatCard key="balance" label="Balance" value={a.totalBalance} tone="default" hint={balanceHint} />,
-    income: <StatCard key="income" label="Income" value={a.current.income} tone="income" delta={a.deltas.income} deltaGood="up" />,
-    expenses: <StatCard key="expenses" label="Expenses" value={a.current.effectiveExpense} tone="expense" delta={a.deltas.expense} deltaGood="down" />,
-    net_savings: <StatCard key="net_savings" label="Net savings" value={a.current.net} tone={a.current.net >= 0 ? "income" : "expense"} delta={a.deltas.net} deltaGood="up" />,
+    income: <SummaryTile key="income" label="Income" value={a.current.income} tone="income" delta={a.deltas.income} deltaGood="up" />,
+    expenses: <SummaryTile key="expenses" label="Expenses" value={a.current.effectiveExpense} tone="expense" delta={a.deltas.expense} deltaGood="down" />,
+    net_savings: <SummaryTile key="net_savings" label="Savings" value={a.current.net} tone={a.current.net >= 0 ? "income" : "expense"} delta={a.deltas.net} deltaGood="up" />,
     savings_rate: <SavingsRateCard key="savings_rate" rate={a.current.savingsRate} delta={a.deltas.savings} />,
     budget_left: <BudgetRemainingCard key="budget_left" remaining={budgetRemaining} limit={budgetLimit} />,
   };
-  const tiles = order.filter((k) => widgetKind(k) === "tile").flatMap((k) => (TILES[k] ? [TILES[k]] : []));
+  const tiles = order.filter((k) => widgetKind(k) === "tile" && k !== "balance").flatMap((k) => (TILES[k] ? [TILES[k]] : []));
+  const showBalance = order.includes("balance");
 
   const CARDS: Partial<Record<WidgetKey, { wide: boolean; node: React.ReactNode | null }>> = {
     income_vs_expenses: { wide: true, node: <IncomeExpenseCard trend={a.incomeExpenseTrend} /> },
@@ -120,61 +124,14 @@ function DashboardBody({ data, monthKey }: { data: PageData<"dashboard">; monthK
         </Card>
       ),
     },
-    recent_transactions: {
-      wide: true,
-      node: (
-        <Card>
-          <CardHeader title="Recent transactions" action={<Link href="/transactions" className="text-label-sm uppercase text-brand-hover underline-offset-4 hover:underline">View all</Link>} />
-          <CardBody className="px-3 py-2">
-            {recent.length === 0 ? (
-              <EmptyState title="No transactions yet" description="Add your first transaction to get started." />
-            ) : (
-              <div className="divide-y divide-border">
-                {recent.map((t) => (
-                  <TransactionRow key={t.id} txn={t} />
-                ))}
-              </div>
-            )}
-          </CardBody>
-        </Card>
-      ),
-    },
+    recent_transactions: { wide: false, node: <RecentTransactionsCard transactions={recent} fit={fit} /> },
     spending_categories: {
       wide: false,
       node: (
-        <Card>
-          <CardHeader title="Spending by category" action={<Link href="/reports" className="text-label-sm uppercase text-brand-hover underline-offset-4 hover:underline">Report</Link>} />
-          <CardBody>
-            {donutData.length === 0 ? (
-              <EmptyState title="No spending yet" description="Categories appear as you spend." />
-            ) : (
-              <>
-                <InteractiveCategoryDonut
-                  data={donutData}
-                  height={200}
-                  total={a.current.effectiveExpense}
-                  totalLabel="Spent"
-                  labelClassName="max-w-[5.5rem] truncate text-label-sm uppercase text-muted"
-                />
-                {/* Shared grid: percentage + amount columns size to the
-                    widest value across ALL rows, so they stay in straight
-                    lines regardless of amount magnitude. */}
-                <ul className="mt-3 grid grid-cols-[auto_1fr_auto_auto] items-center gap-x-2 gap-y-2 text-sm">
-                  {a.categories.slice(0, 5).map((c) => (
-                    <li key={c.categoryId ?? "none"} className="col-span-full grid grid-cols-subgrid items-center">
-                      <span className="h-2.5 w-2.5 shrink-0 rounded-none" style={{ backgroundColor: c.color }} />
-                      <span className="min-w-0 truncate text-fg">{c.name}</span>
-                      <span className="justify-self-end tabular-nums text-muted">
-                        {a.current.effectiveExpense > 0 ? formatPercent((c.net / a.current.effectiveExpense) * 100, 0) : "0%"}
-                      </span>
-                      <Money paise={c.net} tone="default" className="justify-self-end text-sm font-medium" />
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-          </CardBody>
-        </Card>
+        <SpendingCategoryCard
+          categories={a.categories.map((c) => ({ name: c.name, value: c.net, color: c.color }))}
+          total={a.current.effectiveExpense}
+        />
       ),
     },
     budget_progress: {
@@ -233,53 +190,6 @@ function DashboardBody({ data, monthKey }: { data: PageData<"dashboard">; monthK
         </Card>
       ),
     },
-    financial_goals: {
-      wide: false,
-      node: activeGoals.length === 0 ? null : (
-        <Card>
-          <CardHeader title="Goals" action={<Link href="/goals" className="text-label-sm uppercase text-brand-hover underline-offset-4 hover:underline">All</Link>} />
-          <CardBody className="space-y-4">
-            {activeGoals.map((g) => {
-              const pct = goalProgress(g.allocatedAmount, g.targetAmount);
-              return (
-                <Link
-                  key={g.id}
-                  href={`/goals/detail?id=${g.id}`}
-                  className="-mx-2 block px-2 py-1 transition-colors hover:bg-surface-2 focus:outline-none focus-visible:bg-surface-2"
-                >
-                  <div className="mb-1 flex items-center gap-2 text-sm">
-                    <CategoryIcon icon={resolveGoalIcon(g.icon)} size={20} />
-                    <span className="truncate font-medium text-fg">{g.name}</span>
-                    <span className="ml-auto text-xs text-muted">{formatPercent(pct, 0)}</span>
-                  </div>
-                  <Progress value={pct} />
-                  <div className="mt-1 flex justify-between text-2xs text-muted">
-                    <Money paise={g.allocatedAmount} tone="default" compact />
-                    <Money paise={g.targetAmount} tone="muted" compact />
-                  </div>
-                </Link>
-              );
-            })}
-          </CardBody>
-        </Card>
-      ),
-    },
-    insights: {
-      wide: false,
-      node: a.insights.length === 0 ? null : (
-        <Card>
-          <CardHeader title="Insights" action={<Link href="/insights" className="text-label-sm uppercase text-brand-hover underline-offset-4 hover:underline">More</Link>} />
-          <CardBody className="space-y-2.5">
-            {a.insights.slice(0, 4).map((ins) => (
-              <div key={ins.id} className="flex gap-2.5 text-sm">
-                <Icon name={ins.icon} size={16} className={insightColor(ins.tone)} />
-                <p className="text-fg">{ins.text}</p>
-              </div>
-            ))}
-          </CardBody>
-        </Card>
-      ),
-    },
   };
   const cards = order.filter((k) => widgetKind(k) === "card").flatMap((key, i) => {
     const card = CARDS[key];
@@ -288,30 +198,17 @@ function DashboardBody({ data, monthKey }: { data: PageData<"dashboard">; monthK
 
   return (
     <>
-      {/* Spending has eaten into money reserved for goals — say so, but never
-          change the goals; the user decides what to adjust. */}
-      <ShortfallBanner summary={goalMoney} goals={goals} reviewLink />
+      {showBalance && <BalanceHero balance={a.totalBalance} />}
 
       {/* Number tiles, in the order chosen in Settings. */}
-      {tiles.length > 0 && (
-        <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-6">{tiles}</div>
-      )}
+      {tiles.length > 0 && <div className="grid shrink-0 grid-cols-3 gap-2 pb-0.5 pr-0.5 md:gap-3">{tiles}</div>}
 
-      {/* Cards, in the order chosen in Settings. On phones they stack in exactly
-          that order (the columns are display:contents and each card carries a
-          flex `order`); on wide screens wide cards fill the main column and the
-          rest the side column, each still top-to-bottom in that order. */}
-      <div className="flex min-w-0 flex-col gap-5 lg:grid lg:grid-cols-3">
-        <div className="contents lg:col-span-2 lg:block lg:min-w-0 lg:space-y-5">
-          {cards.filter((c) => c.wide).map((c) => (
-            <div key={c.key} className="min-w-0" style={{ order: c.order }}>{c.node}</div>
-          ))}
-        </div>
-        <div className="contents lg:block lg:min-w-0 lg:space-y-5">
-          {cards.filter((c) => !c.wide).map((c) => (
-            <div key={c.key} className="min-w-0" style={{ order: c.order }}>{c.node}</div>
-          ))}
-        </div>
+      {/* Cards, in the order chosen in Settings: one column on phones, two from
+          `lg` up, where the wide ones (the charts) span both. */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-[clamp(6px,1.2dvh,12px)] md:flex-none md:grid md:grid-cols-2 md:items-start md:gap-5">
+        {cards.map((c) => (
+          <div key={c.key} className={cn("flex min-w-0 flex-col md:block", c.key === "recent_transactions" && "min-h-0 flex-1", c.wide && "md:col-span-2")}>{c.node}</div>
+        ))}
       </div>
     </>
   );
@@ -321,7 +218,7 @@ function SavingsRateCard({ rate, delta }: { rate: number; delta: number | null }
   return (
     <div className="rounded-none border border-border bg-surface p-sm [container-type:inline-size]">
       <p className="text-label-sm uppercase text-muted">Savings rate</p>
-      <p className="mt-2 whitespace-nowrap font-bold tabular-nums tracking-tight text-fg text-[clamp(1rem,10.5cqi,1.55rem)]">
+      <p className="mt-2 whitespace-nowrap font-bold tracking-tight text-fg text-[clamp(1rem,10.5cqi,1.55rem)]">
         {formatPercent(rate)}
       </p>
       <p className="mt-1.5 text-label-sm uppercase text-faint">of income saved</p>
@@ -359,8 +256,4 @@ function greeting() {
   if (h < 12) return "Good morning";
   if (h < 17) return "Good afternoon";
   return "Good evening";
-}
-
-function insightColor(tone: string) {
-  return tone === "warning" ? "text-warning" : tone === "positive" ? "text-income" : tone === "info" ? "text-brand-hover" : "text-muted";
 }

@@ -43,7 +43,7 @@ export function SecuritySection() {
   }
 
   return (
-    <Section id="security" title="Security" description="Keep baaki private on your phone.">
+    <Section id="security" title="Privacy & Security" description="Keep baaki private on your phone.">
       <Row
         title="App lock"
         description={

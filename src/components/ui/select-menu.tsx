@@ -17,7 +17,7 @@ export interface SelectMenuOption {
  * dark, rounded, blue-highlight popup with zero relation to baaki's
  * sharp-edged cream/coral theme, and no CSS can reach it. This renders both
  * the trigger and the option list ourselves, in the same anchored-dropdown
- * style as MonthYearPicker/DatePicker. The option list floats above the app
+ * style as MonthYearPicker. The option list floats above the app
  * (see AnchoredPopover), so it's never clipped and never pushes a form around.
  */
 export function SelectMenu({
@@ -30,6 +30,8 @@ export function SelectMenu({
   disabled,
   size = "md",
   ariaLabel,
+  soft = false,
+  icon,
   className,
 }: {
   id?: string;
@@ -43,6 +45,10 @@ export function SelectMenu({
   size?: "sm" | "md";
   /** For a trigger with no associated <label htmlFor> (e.g. a bare card-header select). */
   ariaLabel?: string;
+  /** A rounded, plain-case trigger, for the app's softer pages. Takes the place of `size`. */
+  soft?: boolean;
+  /** Shown before the label. */
+  icon?: React.ReactNode;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -81,13 +87,16 @@ export function SelectMenu({
         aria-haspopup="listbox"
         aria-expanded={open}
         className={cn(
-          "flex w-full items-center justify-between gap-2 rounded-none border bg-surface text-left transition-colors focus:outline-none focus:ring-2 focus:ring-ring/25 disabled:cursor-not-allowed disabled:opacity-60",
-          size === "sm" ? "px-3 py-1.5 text-label-md uppercase" : "px-4 py-3 text-[16px] sm:text-body-md",
-          invalid ? "border-expense focus:border-expense" : "border-border focus:border-brand",
+          "flex w-full items-center justify-between gap-2 border bg-surface text-left transition-colors focus:outline-none focus:ring-2 focus:ring-ring/25 disabled:cursor-not-allowed disabled:opacity-60",
+          soft
+            ? "h-11 rounded-xl px-3 text-xs font-medium"
+            : cn("rounded-none", size === "sm" ? "px-3 py-1.5 text-label-md uppercase" : "px-4 py-3 text-[16px] sm:text-body-md"),
+          invalid ? "border-expense focus:border-expense" : soft ? "border-border/40 focus:border-brand" : "border-border focus:border-brand",
           selected ? "text-fg" : "text-faint",
         )}
       >
-        <span className="truncate">{selected ? selected.label : placeholder}</span>
+        {icon}
+        <span className="min-w-0 flex-1 truncate">{selected ? selected.label : placeholder}</span>
         <ChevronDown className="h-4 w-4 shrink-0 text-muted" />
       </button>
 

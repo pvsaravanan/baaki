@@ -87,13 +87,6 @@ export function resolveCategoryIcon(value: string | null | undefined): CategoryI
   return LEGACY_ICONS[value] ?? DEFAULT_CATEGORY_ICON;
 }
 
-/** New goals start with this icon; goals saved with the old line "target" icon show it too. */
-export const DEFAULT_GOAL_ICON: CategoryIconKey = "profits";
-
-export function resolveGoalIcon(value: string | null | undefined): CategoryIconKey {
-  return !value || value === "target" ? DEFAULT_GOAL_ICON : resolveCategoryIcon(value);
-}
-
 /** New non-bank accounts start with this icon. */
 export const DEFAULT_ACCOUNT_ICON: CategoryIconKey = "payment";
 

@@ -4,6 +4,7 @@ import { TransactionModalProvider } from "./add-transaction";
 import { SidebarProvider } from "./sidebar-context";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
+import { TopbarSlotProvider } from "./topbar-slot";
 import { BottomNav } from "./bottom-nav";
 import { RunDueRecurring } from "./run-due-recurring";
 import { PageTransition } from "./page-transition";
@@ -24,7 +25,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { data, error, mutate, fromCache } = usePageData("shell");
   return (
     <>
-      {data || error ? <NativeApp /> : null}
+      {/* Mounted straight away, so the launch animation plays while the data
+          loads; it leaves once the data (or the recovery screen) is ready. */}
+      <NativeApp ready={Boolean(data || error)} />
       {/* A saved copy from the last launch is only a stand-in: if the database
           then fails to open, recovery is what's needed, not stale numbers. */}
       {data && !(error && fromCache) ? (
@@ -116,16 +119,18 @@ function AppFrame({ data, children }: { data: Omit<AppData, "refresh">; children
               each page hides under the bottom bar. dvh tracks the visible area. */}
           <div className="flex h-dvh overflow-hidden">
             <Sidebar />
+            <TopbarSlotProvider>
             <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
               <Topbar />
               {/* Stable scrollbar gutter: a page whose height changes (e.g. switching
                   months) must not shift sideways as a scrollbar comes and goes. */}
-              <main className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-4 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] pt-5 [scrollbar-gutter:stable] sm:px-6 md:pb-8 lg:px-8">
+              <main className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] pt-5 [scrollbar-gutter:stable] sm:px-6 md:pb-8 lg:px-8">
                 <div className="mx-auto w-full min-w-0 max-w-6xl">
                   <PageTransition>{children}</PageTransition>
                 </div>
               </main>
             </div>
+            </TopbarSlotProvider>
           </div>
           <BottomNav />
         </SidebarProvider>

@@ -97,7 +97,7 @@ export function PreviewStep({
                 <tbody className="divide-y divide-border">
                   {summary.invalidRows.map((r) => (
                     <tr key={r.index}>
-                      <td className="whitespace-nowrap px-4 py-2 tabular-nums text-muted">#{r.index + 2}</td>
+                      <td className="whitespace-nowrap px-4 py-2 text-muted">#{r.index + 2}</td>
                       <td className="px-4 py-2">
                         <ul className="space-y-0.5">
                           {r.errors.map((err, i) => (
@@ -156,7 +156,7 @@ function StatTile({
   return (
     <div className="rounded-none border border-border bg-surface p-4 shadow-card">
       <p className="text-xs font-medium text-muted">{label}</p>
-      <p className={cn("mt-1.5 text-2xl font-semibold tabular-nums", colors[tone])}>{value}</p>
+      <p className={cn("mt-1.5 text-2xl font-semibold", colors[tone])}>{value}</p>
     </div>
   );
 }

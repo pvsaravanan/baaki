@@ -19,7 +19,7 @@ const importSchema = z.object({
 interface Resolved {
   key: string;
   type: string; amount: number; description: string; date: Date;
-  categoryId: string | null; accountId: string; paymentMethod: string | null; notes: string | null;
+  categoryId: string | null; accountId: string; notes: string | null;
 }
 
 /**
@@ -97,7 +97,6 @@ export const POST = withUser(async (user, req: NextRequest) => {
       date: fromISODate(row.date)!,
       categoryId,
       accountId,
-      paymentMethod: row.paymentMethod,
       notes: row.notes,
     });
   }
@@ -190,7 +189,6 @@ export const POST = withUser(async (user, req: NextRequest) => {
           date: t.date,
           categoryId: t.categoryId,
           accountId: t.accountId,
-          paymentMethod: t.paymentMethod,
           notes: t.notes,
         })),
       });

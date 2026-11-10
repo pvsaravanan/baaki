@@ -1,19 +1,15 @@
 "use client";
 import { useState } from "react";
-import { ArrowLeftRight, Copy, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { Icon } from "@/components/icon";
 import { CategoryIcon } from "@/components/app/category-icon";
 import { Money } from "@/components/money";
 import { useAppData, useLookups } from "./app-data";
 import { useTransactionModal } from "./add-transaction";
 import { useToast } from "@/components/ui/toast";
-import { ActionMenu, ActionMenuItem } from "@/components/ui/action-menu";
 import { useConfirm } from "@/components/ui/confirm";
+import { SwipeActions } from "@/components/ui/swipe-actions";
 import { apiDelete, apiPost } from "@/lib/http";
 import { fromISODate, formatRelativeDay } from "@/lib/dates";
-import { formatPaymentMethod } from "@/lib/constants";
-import { ownAmountOf } from "@/lib/calculations";
-import { formatINR } from "@/lib/money";
 import type { TransactionDTO } from "@/lib/types";
 import { cn } from "@/lib/cn";
 
@@ -21,12 +17,13 @@ const TONE: Record<string, "income" | "expense" | "muted" | "default"> = {
   income: "income",
   expense: "expense",
   transfer: "muted",
-  repayment: "income",
 };
 
 export function TransactionRow({
   txn,
   showDate = true,
+  swipeActions = true,
+  compact = false,
   onChanged,
   selectMode = false,
   selected = false,
@@ -34,6 +31,10 @@ export function TransactionRow({
 }: {
   txn: TransactionDTO;
   showDate?: boolean;
+  /** Swipe left for Edit and Delete; the dashboard leaves it out. */
+  swipeActions?: boolean;
+  /** A tighter row (smaller icon and padding) for places short on room. */
+  compact?: boolean;
   onChanged?: () => void;
   selectMode?: boolean;
   selected?: boolean;
@@ -44,7 +45,6 @@ export function TransactionRow({
   const { openEdit } = useTransactionModal();
   const toast = useToast();
   const confirm = useConfirm();
-  const [menuOpen, setMenuOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const cat = txn.categoryId ? category(txn.categoryId) : null;
@@ -59,7 +59,6 @@ export function TransactionRow({
   };
 
   async function onDelete() {
-    setMenuOpen(false);
     const ok = await confirm({
       title: "Delete this transaction?",
       message: "You can undo this right after.",
@@ -84,21 +83,9 @@ export function TransactionRow({
     }
   }
 
-  async function onDuplicate() {
-    setMenuOpen(false);
-    try {
-      await apiPost(`/api/transactions/${txn.id}/duplicate`);
-      done();
-      toast.success("Transaction duplicated");
-    } catch {
-      toast.error("Could not duplicate the transaction");
-    }
-  }
-
   const meta = [
     isTransfer ? `${accountName(txn.accountId)} → ${accountName(txn.transferAccountId)}` : cat?.name ?? "Uncategorized",
     !isTransfer ? accountName(txn.accountId) : null,
-    txn.paymentMethod ? formatPaymentMethod(txn.paymentMethod) : null,
   ].filter(Boolean);
 
   const badgeColor = isTransfer
@@ -108,24 +95,22 @@ export function TransactionRow({
   // Transfers keep a plain ⇆ symbol (money moving between your own accounts);
   // everything else shows an illustration — its category's, or one for its
   // type when it has no category.
-  const fallbackIcon = txn.type === "income" || txn.type === "repayment" ? "dollars" : "more";
-
-  // A repayment is created by settling a share and changes only with it, so it
-  // can't be edited, copied or deleted on its own.
-  const isRepayment = txn.type === "repayment";
-  const owedShares = txn.shares.filter((s) => s.direction === "owed_to_you");
-  const stillOwed = owedShares.some((s) => !s.settled);
-  const yours = ownAmountOf(txn);
+  const fallbackIcon = txn.type === "income" ? "dollars" : "more";
 
   const openOrToggle = () => {
     if (selectMode) onToggleSelect?.(txn.id);
-    else if (!isRepayment) openEdit(txn);
+    else openEdit(txn);
   };
 
   return (
-    <div
-      className={cn(
-        "group relative flex items-center gap-3 px-2 py-2.5 transition-colors hover:bg-surface-2",
+    <SwipeActions
+      name={txn.description}
+      enabled={swipeActions && !selectMode}
+      onEdit={() => openEdit(txn)}
+      onDelete={onDelete}
+      contentClassName={cn(
+        "group flex items-center gap-3 px-2 hover:bg-surface-2",
+        compact ? "py-1" : "py-2 md:py-2.5",
         busy && "opacity-50",
       )}
     >
@@ -141,12 +126,12 @@ export function TransactionRow({
 
       <button
         onClick={openOrToggle}
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-none"
+        className={cn("flex shrink-0 items-center justify-center rounded-none", compact ? "h-8 w-8" : "h-9 w-9")}
         style={{ color: badgeColor }}
         aria-label="Edit transaction"
       >
         {!isTransfer ? (
-          <CategoryIcon icon={cat?.icon ?? fallbackIcon} size={30} />
+          <CategoryIcon icon={cat?.icon ?? fallbackIcon} size={compact ? 26 : 30} />
         ) : (
           <Icon name="arrow-left-right" size={20} strokeWidth={2.2} />
         )}
@@ -154,44 +139,21 @@ export function TransactionRow({
 
       <button onClick={openOrToggle} className="min-w-0 flex-1 text-left">
         <div className="flex items-center gap-2">
-          <p className="min-w-0 flex-1 truncate text-sm font-medium text-fg">{txn.description}</p>
+          <p className={cn("min-w-0 truncate font-medium text-fg", compact ? "text-[13px] leading-[18px]" : "text-[13px] font-semibold leading-[18px] md:text-sm")}>{txn.description}</p>
           {txn.recurringId && (
             <span className="shrink-0 rounded bg-brand-soft px-1.5 py-0.5 text-2xs font-medium text-brand-hover">auto</span>
           )}
-          {owedShares.length > 0 && (
-            <span className="shrink-0 rounded bg-brand-soft px-1.5 py-0.5 text-2xs font-medium text-brand-hover">
-              {stillOwed ? "pending" : "settled"}
-            </span>
-          )}
         </div>
-        <p className="truncate text-xs text-muted">
+        <p className={cn("truncate text-muted", compact ? "text-[11px] leading-[14px]" : "text-[11px] leading-4 md:text-xs")}>
           {meta.join(" · ")}
           {txn.tags.length > 0 && <span className="text-faint"> · {txn.tags.map((t) => `#${t}`).join(" ")}</span>}
         </p>
       </button>
 
       <div className="flex shrink-0 flex-col items-end">
-        <Money paise={signed} tone={TONE[txn.type]} sign={txn.type !== "expense" && txn.type !== "transfer"} className="text-sm font-semibold" />
-        {owedShares.length > 0 && <span className="text-2xs text-faint">your share {formatINR(yours, { decimals: "auto" })}</span>}
+        <Money paise={signed} tone={TONE[txn.type]} sign={txn.type !== "expense" && txn.type !== "transfer"} className={cn("font-semibold", compact ? "text-[13px]" : "text-[13px] md:text-sm")} />
         {showDate && <span className="text-2xs text-faint">{formatRelativeDay(fromISODate(txn.date) ?? new Date(), new Date())}</span>}
       </div>
-
-      {!selectMode && !isRepayment && (
-        <div className="relative">
-          <button
-            onClick={() => setMenuOpen((o) => !o)}
-            className="flex h-9 w-9 items-center justify-center rounded-none p-1 text-faint opacity-100 sm:opacity-0 transition-opacity hover:text-fg focus:opacity-100 sm:group-hover:opacity-100 active:text-fg"
-            aria-label="Transaction actions"
-          >
-            <MoreVertical className="h-4 w-4" />
-          </button>
-          <ActionMenu open={menuOpen} onClose={() => setMenuOpen(false)} width={160} label="Transaction actions">
-            <ActionMenuItem icon={<Pencil className="h-4 w-4" />} onClick={() => { setMenuOpen(false); openEdit(txn); }}>Edit</ActionMenuItem>
-            <ActionMenuItem icon={<Copy className="h-4 w-4" />} onClick={onDuplicate}>Duplicate</ActionMenuItem>
-            <ActionMenuItem icon={<Trash2 className="h-4 w-4" />} onClick={onDelete} danger>Delete</ActionMenuItem>
-          </ActionMenu>
-        </div>
-      )}
-    </div>
+    </SwipeActions>
   );
 }

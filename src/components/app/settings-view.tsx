@@ -1,59 +1,133 @@
 "use client";
-import { Suspense } from "react";
-import { cn } from "@/lib/cn";
-import { useActiveSection } from "./settings/layout";
-import { ProfileSection } from "./settings/profile-section";
-import { PreferencesSection } from "./settings/preferences-section";
-import { SecuritySection } from "./settings/security-section";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import {
+  ArrowLeft,
+  ChevronRight,
+  DatabaseBackup,
+  IndianRupee,
+  Info,
+  Languages,
+  Layers,
+  LayoutDashboard,
+  Lock,
+  Moon,
+  Smartphone,
+  Target,
+  Wallet,
+} from "lucide-react";
+import { version } from "../../../package.json";
+import { Modal } from "@/components/ui/modal";
+import { useAppData } from "./app-data";
+import { UserAvatar } from "./user-avatar";
+import { BackButton } from "./back-button";
 import { DashboardSection } from "./settings/dashboard-section";
 import { DataSection } from "./settings/data-section";
+import { DefaultAccountRow } from "./settings/preferences-section";
+import { ProfileSection } from "./settings/profile-section";
+import { SecuritySection } from "./settings/security-section";
+import { Group, InfoRow, NavRow } from "./settings/settings-rows";
 
-const SECTIONS = [
-  { id: "profile", label: "Profile" },
-  { id: "preferences", label: "Preferences" },
-  { id: "security", label: "Security" },
-  { id: "dashboard", label: "Dashboard" },
-  { id: "data", label: "Data & backup" },
-] as const;
+type Panel = "profile" | "dashboard" | "security" | "data";
+
+const PANEL_TITLES: Record<Panel, string> = {
+  profile: "Profile",
+  dashboard: "Dashboard Layout",
+  security: "Privacy & Security",
+  data: "Backup & Data",
+};
 
 export function SettingsView() {
-  const activeSection = useActiveSection(SECTIONS.map((s) => s.id));
+  return (
+    // The top bar links here with ?choose=picture, and reading that needs Suspense.
+    <Suspense>
+      <Settings />
+    </Suspense>
+  );
+}
+
+function Settings() {
+  const { user, preference } = useAppData();
+  const [panel, setPanel] = useState<Panel | null>(null);
+
+  // The picture picker lives in the profile panel; ProfileSection opens it from the same query.
+  const choose = useSearchParams().get("choose");
+  useEffect(() => {
+    if (choose === "picture") setPanel("profile");
+  }, [choose]);
 
   return (
-    <div className="mx-auto grid max-w-5xl gap-8 lg:grid-cols-[11rem_minmax(0,1fr)]">
-      {/* Section index — desktop only; on phones the sections simply stack. */}
-      <nav aria-label="Settings sections" className="hidden lg:block">
-        <ul className="sticky top-0 flex flex-col border-l border-border">
-          {SECTIONS.map((s) => (
-            <li key={s.id}>
-              <button
-                type="button"
-                onClick={() => document.getElementById(s.id)?.scrollIntoView({ behavior: "smooth", block: "start" })}
-                aria-current={activeSection === s.id ? "true" : undefined}
-                className={cn(
-                  "-ml-px w-full border-l-2 py-2 pl-4 text-left text-label-md uppercase transition-colors",
-                  activeSection === s.id
-                    ? "border-brand text-fg"
-                    : "border-transparent text-muted hover:text-fg",
-                )}
-              >
-                {s.label}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </nav>
+    <div className="mx-auto max-w-2xl space-y-4">
+      <header className="flex items-center gap-1">
+        <BackButton />
+        <h1 className="text-headline-md text-fg sm:text-headline-lg">Settings</h1>
+      </header>
 
-      <div className="flex min-w-0 flex-col gap-10">
-        {/* Profile reads the address's query (?choose=picture), which needs Suspense. */}
-        <Suspense>
-          <ProfileSection />
-        </Suspense>
-        <PreferencesSection />
-        <SecuritySection />
-        <DashboardSection />
-        <DataSection />
-      </div>
+      <button
+        type="button"
+        onClick={() => setPanel("profile")}
+        className="flex w-full items-center gap-3.5 rounded-xl bg-brand-soft/40 p-3.5 text-left transition-colors active:bg-brand-soft/60"
+      >
+        <UserAvatar url={user.avatarUrl} className="h-14 w-14 shrink-0" />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-base font-bold text-fg">{user.name}</span>
+          <span className="mt-0.5 block text-xs text-muted">Your name and picture</span>
+        </span>
+        <ChevronRight aria-hidden className="h-5 w-5 shrink-0 text-fg" />
+      </button>
+
+      <Group title="Preferences">
+        <InfoRow icon={<Moon />} label="Appearance" value="Dark mode soon" />
+        <DefaultAccountRow />
+        <NavRow icon={<LayoutDashboard />} label="Dashboard layout" onClick={() => setPanel("dashboard")} />
+        <InfoRow icon={<IndianRupee />} label="Currency" value="INR (₹)" />
+        <InfoRow icon={<Languages />} label="Language" value="English" />
+      </Group>
+
+      <Group title="Money & Data">
+        <NavRow icon={<Wallet />} label="Accounts" href="/accounts" />
+        <NavRow icon={<Layers />} label="Categories" href="/categories" />
+        <NavRow icon={<Target />} label="Budgets" href="/budgets" />
+        <NavRow
+          icon={<DatabaseBackup />}
+          label="Backup & Data"
+          value={
+            // Says where the data is, so nobody mistakes this for a synced copy.
+            <span className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2 py-0.5 text-fg">
+              <Smartphone aria-hidden className="h-3.5 w-3.5 shrink-0" />
+              On this phone
+            </span>
+          }
+          onClick={() => setPanel("data")}
+        />
+      </Group>
+
+      <Group title="App">
+        <NavRow
+          icon={<Lock />}
+          label="Privacy & Security"
+          value={preference.appLock ? "App lock on" : "App lock off"}
+          onClick={() => setPanel("security")}
+        />
+        <InfoRow icon={<Info />} label="About Baaki" value={`v${version}`} />
+      </Group>
+
+      {panel && (
+        <Modal open fullScreen onClose={() => setPanel(null)} title={PANEL_TITLES[panel]}>
+          <div className="space-y-3 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-[calc(0.75rem+env(safe-area-inset-top))] sm:pb-4 sm:pt-4">
+            <header className="flex items-center gap-3">
+              <button type="button" onClick={() => setPanel(null)} aria-label="Back" className="-ml-1 p-1 text-fg">
+                <ArrowLeft className="h-6 w-6" />
+              </button>
+              <h2 className="text-headline-sm tracking-normal text-fg">{PANEL_TITLES[panel]}</h2>
+            </header>
+            {panel === "profile" && <ProfileSection />}
+            {panel === "dashboard" && <DashboardSection />}
+            {panel === "security" && <SecuritySection />}
+            {panel === "data" && <DataSection />}
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

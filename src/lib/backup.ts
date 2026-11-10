@@ -9,8 +9,9 @@ import { LOCAL_EMAIL } from "./auth";
  *
  * Version 2 (written here) holds every table as-is. Restore also reads
  * version 1 — the "Full backup" the baaki website exports — so an online
- * account can be brought onto the phone once; that format has no people,
- * shared expenses or preferences, which then start empty/default.
+ * account can be brought onto the phone once; that format has no
+ * preferences, which then start empty/default. A backup that still holds the
+ * removed people, split-expense and goal tables restores fine without them.
  */
 
 export const BACKUP_VERSION = 2;
@@ -38,29 +39,18 @@ const SPECS = {
   tags: { id: "s", name: "s", color: "s" },
   recurring: {
     id: "s", name: "s", type: "s", amount: "i", categoryId: "s?", accountId: "s", transferAccountId: "s?",
-    paymentMethod: "s?", notes: "s?", frequency: "s", interval: "i", startDate: "d", endDate: "d?",
+    notes: "s?", frequency: "s", interval: "i", startDate: "d", endDate: "d?",
     nextOccurrence: "d", lastPostedDate: "d?", isActive: "b", autoPost: "b", createdAt: "d", updatedAt: "d",
   },
   transactions: {
     id: "s", type: "s", amount: "i", description: "s", merchant: "s?", date: "d", categoryId: "s?", accountId: "s",
-    transferAccountId: "s?", paymentMethod: "s?", notes: "s?", recurringId: "s?",
+    transferAccountId: "s?", notes: "s?", recurringId: "s?",
     createdAt: "d", updatedAt: "d", deletedAt: "d?",
   },
   transactionTags: { transactionId: "s", tagId: "s" },
   budgets: { id: "s", year: "i", month: "i", overallLimit: "i?", createdAt: "d", updatedAt: "d" },
   budgetCategories: { id: "s", budgetId: "s", categoryId: "s", limit: "i" },
   budgetAccounts: { budgetId: "s", accountId: "s" },
-  goals: {
-    id: "s", name: "s", icon: "s", color: "s", targetAmount: "i", targetDate: "d?", accountId: "s?", status: "s",
-    createdAt: "d", updatedAt: "d",
-  },
-  goalContributions: { id: "s", goalId: "s", amount: "i", date: "d", note: "s?", createdAt: "d" },
-  contacts: { id: "s", name: "s", color: "s", avatarUrl: "s?", isArchived: "b", createdAt: "d" },
-  expenseShares: {
-    // No contactId: a share for "Someone" not yet named (see ExpenseShare).
-    id: "s", transactionId: "s?", contactId: "s?", amount: "i", direction: "s", description: "s?", date: "d",
-    settled: "b", settledAt: "d?", createdAt: "d", settlementTransactionId: "s?",
-  },
 } satisfies Record<string, Spec>;
 
 type Table = keyof typeof SPECS;
@@ -70,7 +60,7 @@ export async function buildBackup(userId: string) {
   const where = { userId };
   // One transaction, so the file is a single moment in time: the on-device
   // database holds back any write until it ends.
-  const [user, preference, accounts, categories, tags, recurring, transactions, budgets, goals, contacts, expenseShares] =
+  const [user, preference, accounts, categories, tags, recurring, transactions, budgets] =
     await prisma.$transaction(
       (tx) =>
         Promise.all([
@@ -82,11 +72,6 @@ export async function buildBackup(userId: string) {
           tx.recurringTransaction.findMany({ where }),
           tx.transaction.findMany({ where, include: { tags: true }, orderBy: [{ date: "asc" }, { createdAt: "asc" }] }),
           tx.budget.findMany({ where, include: { categories: true, accounts: true } }),
-          tx.financialGoal.findMany({ where, include: { contributions: true } }),
-          tx.contact.findMany({ where }),
-          // Every share, named or not: one for "Someone" has no person, only
-          // its transaction, so it can't be found through the people.
-          tx.expenseShare.findMany({ where: { OR: [{ contact: where }, { transaction: where }] } }),
         ]),
       WHOLE_DATABASE,
     );
@@ -114,10 +99,6 @@ export async function buildBackup(userId: string) {
     budgets: budgets.map((r) => omit(r, "userId", "categories", "accounts")),
     budgetCategories: budgets.flatMap((b) => b.categories),
     budgetAccounts: budgets.flatMap((b) => b.accounts),
-    goals: goals.map((r) => omit(r, "userId", "contributions")),
-    goalContributions: goals.flatMap((g) => g.contributions),
-    contacts: contacts.map((r) => omit(r, "userId")),
-    expenseShares,
   };
 }
 
@@ -198,23 +179,17 @@ export async function restoreBackup(userId: string, input: unknown): Promise<Res
   const tags = rows(backup, "tags");
   const recurring = rows(backup, "recurring", stamps);
   const budgets = rows(backup, "budgets", stamps);
-  const goals = rows(backup, "goals", stamps);
-  const contacts = rows(backup, "contacts", stamps);
 
   let transactions: Row[];
   let transactionTags: Row[];
   let budgetCategories: Row[];
   let budgetAccounts: Row[];
-  let goalContributions: Row[];
-  let expenseShares: Row[];
   if (backup.version === 2) {
     transactions = rows(backup, "transactions");
     transactionTags = rows(backup, "transactionTags");
     budgetCategories = rows(backup, "budgetCategories");
     // Backups made before budgets could cover chosen accounts have none: all accounts.
     budgetAccounts = rows(backup, "budgetAccounts");
-    goalContributions = rows(backup, "goalContributions", stamps);
-    expenseShares = rows(backup, "expenseShares", stamps);
   } else {
     // Version 1 nests these, and names each transaction's tags.
     const v1Transactions = (Array.isArray(backup.transactions) ? backup.transactions : []) as Row[];
@@ -226,14 +201,12 @@ export async function restoreBackup(userId: string, input: unknown): Promise<Res
         return tagId ? [{ transactionId: t.id as string, tagId }] : [];
       }),
     );
-    const nested = (table: "budgets" | "goals", key: string) =>
+    const nested = (table: "budgets", key: string) =>
       ((Array.isArray(backup[table]) ? backup[table] : []) as Row[]).flatMap((r) =>
         Array.isArray(r[key]) ? (r[key] as Row[]) : [],
       );
     budgetCategories = rows({ budgetCategories: nested("budgets", "categories") }, "budgetCategories");
     budgetAccounts = [];
-    goalContributions = rows({ goalContributions: nested("goals", "contributions") }, "goalContributions", stamps);
-    expenseShares = [];
   }
 
   const user = backup.user as Row | undefined;
@@ -265,10 +238,6 @@ export async function restoreBackup(userId: string, input: unknown): Promise<Res
     await tx.budget.createMany({ data: own(budgets) as never });
     await tx.budgetCategory.createMany({ data: budgetCategories as never });
     await tx.budgetAccount.createMany({ data: budgetAccounts as never });
-    await tx.financialGoal.createMany({ data: own(goals) as never });
-    await tx.goalContribution.createMany({ data: goalContributions as never });
-    await tx.contact.createMany({ data: own(contacts) as never });
-    await tx.expenseShare.createMany({ data: expenseShares as never });
 
     const defaultAccountId =
       typeof preference?.defaultAccountId === "string" && accounts.some((a) => a.id === preference.defaultAccountId)

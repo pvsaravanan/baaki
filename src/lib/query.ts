@@ -41,8 +41,6 @@ export function buildWhere(userId: string, params: URLSearchParams): Prisma.Tran
     // (accountId) and the one it arrived in (transferAccountId).
     and.push({ OR: [{ accountId: { in: accounts } }, { transferAccountId: { in: accounts } }] });
   }
-  const methods = csv("paymentMethod");
-  if (methods.length) where.paymentMethod = { in: methods };
 
   const categories = csv("categoryId");
   if (categories.length) {
@@ -81,6 +79,9 @@ export function buildWhere(userId: string, params: URLSearchParams): Prisma.Tran
   if (tags.length) {
     and.push({ tags: { some: { tag: { name: { in: tags } } } } });
   }
+
+  if (params.get("hasNotes")) and.push({ notes: { not: null } }, { NOT: { notes: "" } });
+  if (params.get("recurring")) where.recurringId = { not: null };
 
   if (and.length) where.AND = and;
   return where;

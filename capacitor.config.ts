@@ -15,8 +15,9 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
-      // Hidden by the app itself once its data is ready (see native-app.tsx).
-      launchAutoHide: false,
+      // Not used at launch: the launch animation (LaunchVideo.java) covers the
+      // app while it loads, and the app dismisses it once its data is ready.
+      launchShowDuration: 0,
       // No cross-fade into the app: during one, the splash logo hangs
       // half-transparent over the welcome screen beneath it. 1 ms, not 0: at 0
       // the plugin leaves the exit to the system, whose own fade does the same.

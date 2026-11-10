@@ -1,6 +1,6 @@
 "use client";
 import { useMemo } from "react";
-import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { Card, CardBody, CardHeader } from "./report-card";
 import { EmptyState } from "@/components/ui/misc";
 import { Money } from "@/components/money";
 import { CategoryIcon } from "@/components/app/category-icon";
@@ -54,16 +54,16 @@ export function CategoryReport({ a, title }: { a: ReportsAnalytics; title: strin
                   truncates to fit instead of forcing the whole table (and page)
                   wider than the viewport. Txns hides below sm — least essential
                   column, and the first to go on a narrow phone. */}
-              <table className="w-full table-fixed text-sm">
+              <table className="w-full table-fixed text-xs sm:text-sm">
                 <thead>
-                  <tr className="border-b border-border text-left text-xs text-muted">
+                  <tr className="border-b border-border/15 text-left text-xs text-muted">
                     <th className="px-3 py-2.5 font-medium sm:px-5">Category</th>
                     <th className="hidden w-14 px-3 py-2.5 text-right font-medium sm:table-cell">Txns</th>
                     <th className="w-16 px-2 py-2.5 text-right font-medium sm:w-20 sm:px-3">% of spend</th>
                     <th className="w-28 px-2 py-2.5 text-right font-medium sm:w-32 sm:px-5">Amount</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
+                <tbody className="divide-y divide-border/15">
                   {rows.map((c) => (
                     <tr key={c.categoryId ?? "none"}>
                       <td className="min-w-0 px-3 py-2.5 sm:px-5">
@@ -72,8 +72,8 @@ export function CategoryReport({ a, title }: { a: ReportsAnalytics; title: strin
                           <span className="truncate text-fg">{c.name}</span>
                         </div>
                       </td>
-                      <td className="hidden py-2.5 px-3 text-right tabular-nums text-muted sm:table-cell">{c.count}</td>
-                      <td className="px-2 py-2.5 text-right tabular-nums text-muted sm:px-3">
+                      <td className="hidden py-2.5 px-3 text-right text-muted sm:table-cell">{c.count}</td>
+                      <td className="px-2 py-2.5 text-right text-muted sm:px-3">
                         {totalSpend > 0 ? formatPercent((c.net / totalSpend) * 100) : "—"}
                       </td>
                       <td className="px-2 py-2.5 text-right sm:px-5">
@@ -83,12 +83,12 @@ export function CategoryReport({ a, title }: { a: ReportsAnalytics; title: strin
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr className="border-t border-border font-medium">
+                  <tr className="border-t border-border/25 font-medium">
                     <td className="px-3 py-2.5 text-fg sm:px-5">Total</td>
-                    <td className="hidden py-2.5 px-3 text-right tabular-nums text-muted sm:table-cell">
+                    <td className="hidden py-2.5 px-3 text-right text-muted sm:table-cell">
                       {rows.reduce((s, c) => s + c.count, 0)}
                     </td>
-                    <td className="px-2 py-2.5 text-right tabular-nums text-muted sm:px-3">100%</td>
+                    <td className="px-2 py-2.5 text-right text-muted sm:px-3">100%</td>
                     <td className="px-2 py-2.5 text-right sm:px-5">
                       <Money paise={totalSpend} tone="default" className="font-semibold" />
                     </td>

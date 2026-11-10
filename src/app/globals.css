@@ -59,19 +59,22 @@ body {
   color: hsl(var(--fg));
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  /* Regular text: see the weight mapping in tailwind.config.ts. */
+  font-weight: 500;
   overscroll-behavior: none;
 }
 
 /* Headlines are heavy and negatively tracked — poster-like rhythm. */
 h1, h2, h3 {
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: -0.02em;
 }
 
-/* Money and any numeric data use tabular, lining figures so columns align. */
+/* Money uses lining, proportional figures: amounts are right-aligned, and
+   proportional digits keep "₹3,42,645" compact. */
 .tnum {
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum" 1, "lnum" 1;
+  font-variant-numeric: lining-nums;
+  font-feature-settings: "lnum" 1;
 }
 
 /* Focus ring — visible for keyboard users. */
@@ -167,26 +170,6 @@ input[type="number"]::-webkit-outer-spin-button {
 input[type="number"] {
   -moz-appearance: textfield;
   appearance: textfield;
-}
-
-/* Date inputs on iOS Safari use a content-based intrinsic width and ignore
-   `width: 100%` / box-sizing, so the field overflowed the modal (and let the
-   whole sheet pan sideways). Strip the native appearance and let it shrink. */
-input[type="date"] {
-  -webkit-appearance: none;
-  appearance: none;
-  min-width: 0;
-  max-width: 100%;
-  min-height: 3rem;
-}
-/* iOS centers the value via this pseudo-element; left-align it so the date
-   reads like every other field, and stop it from forcing extra width. */
-input[type="date"]::-webkit-date-and-time-value {
-  text-align: left;
-  min-width: 0;
-}
-input[type="date"]::-webkit-calendar-picker-indicator {
-  margin-inline-start: auto;
 }
 
 /* Recharts makes chart parts focusable — the Pie's root <g> gets tabindex="0"

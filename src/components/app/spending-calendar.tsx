@@ -159,7 +159,7 @@ export function SpendingCalendar({
               onBlur={() => setFocused((f) => (f === date ? null : f))}
               onClick={() => !isFuture && setPinned((p) => (p === date ? null : date))}
               className={cn(
-                "relative flex aspect-square min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-none border border-border-faint px-0.5 py-1 text-center text-label-sm tabular-nums sm:min-h-14 sm:gap-1 sm:py-1.5",
+                "relative flex aspect-square min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-none border border-border-faint px-0.5 py-1 text-center text-label-sm sm:min-h-14 sm:gap-1 sm:py-1.5",
                 "transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
                 "focus:outline-none focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-ring/40",
                 isFuture ? "cursor-default" : "hover:z-10 hover:-translate-x-px hover:-translate-y-px hover:shadow-stamp-sm",

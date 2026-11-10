@@ -44,23 +44,21 @@ const SCREENS: Screen[] = [
   { file: "02-transactions", path: "/transactions", wait: "Team dinner" },
   { file: "03-accounts", path: "/accounts", wait: "SBI Savings" },
   { file: "04-budgets", path: "/budgets", wait: "Groceries" },
-  { file: "05-goals", path: "/goals", wait: "Goa trip" },
-  { file: "06-goal-detail", path: "/goals/detail?id=goal-emergency", wait: "Emergency fund" },
-  { file: "07-people", path: "/people", wait: "Arjun" },
   { file: "08-recurring", path: "/recurring", wait: "Airtel Fiber" },
-  { file: "09-reports", path: "/reports", wait: "Income vs expenses" },
-  { file: "10-trends", path: "/trends", wait: "Spending pace" },
-  { file: "11-insights", path: "/insights", wait: "What your numbers are telling you" },
-  { file: "12-categories", path: "/categories", wait: "Organize spending", open: "Expense (14)" },
+  { file: "09-reports", path: "/reports", wait: "Spending Trend" },
+  { file: "12-categories", path: "/categories", wait: "Add Category" },
   { file: "13-category-detail", path: "/categories/detail?id=cat-food", wait: "Monthly spend" },
   { file: "14-import", path: "/import", wait: "Bring in transactions" },
-  { file: "15-settings", path: "/settings", wait: "Data & backup" },
+  { file: "15-settings", path: "/settings", wait: "Money & Data" },
   { file: "16-add-transaction", path: "/dashboard", wait: "Good afternoon", open: "Add transaction", overlay: true, phoneOnly: true },
   { file: "17-more-menu", path: "/dashboard", wait: "Good afternoon", open: "More", overlay: true, phoneOnly: true },
+  { file: "23-filters", path: "/transactions", wait: "Team dinner", open: "Filters", overlay: true },
   { file: "18-welcome", wait: "Get Started", firstRun: true },
   { file: "19-onboarding-expenses", wait: "Track every expense easily", firstRun: true },
   { file: "20-onboarding-spending", wait: "Understand your spending", firstRun: true },
-  { file: "21-onboarding-goals", wait: "Set goals for a better you", firstRun: true },
+  { file: "24-onboarding-budgets", wait: "Set budgets that stick", firstRun: true },
+  { file: "25-onboarding-bills", wait: "Never miss a bill", firstRun: true },
+  { file: "26-onboarding-private", wait: "Your money stays private", firstRun: true },
   { file: "22-choose-avatar", wait: "Choose a profile picture", firstRun: true },
 ];
 
@@ -261,7 +259,9 @@ async function loadSampleData(s: Send, app: string) {
   const file = join(mkdtempSync(join(tmpdir(), "baaki-sample-")), "baaki-sample.json");
   writeFileSync(file, JSON.stringify(sampleBackup()));
   try {
-    await open(s, `${app}/settings`, "Restore from backup");
+    await open(s, `${app}/settings`, "Money & Data");
+    await evaluate(s, `[...document.querySelectorAll("button")].find((b) => b.innerText.startsWith("Backup & Data")).click()`);
+    await waitFor(s, "Restore from backup");
     const { root: doc } = await s("DOM.getDocument", { depth: 0 });
     const { nodeId } = await s("DOM.querySelector", {
       nodeId: (doc as { nodeId: number }).nodeId,
@@ -298,8 +298,8 @@ async function open(s: Send, url: string, wait: string) {
 
 /** UI/showcase-*.png: five framed phones side by side, as in the README. */
 const SHOWCASES: Record<string, string[]> = {
-  "showcase-1": ["01-dashboard", "02-transactions", "04-budgets", "05-goals", "09-reports"],
-  "showcase-2": ["16-add-transaction", "07-people", "08-recurring", "11-insights", "15-settings"],
+  "showcase-1": ["01-dashboard", "02-transactions", "04-budgets", "09-reports"],
+  "showcase-2": ["16-add-transaction", "08-recurring", "15-settings"],
 };
 
 /** Matched to the showcases made before this script. */

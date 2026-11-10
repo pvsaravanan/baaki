@@ -5,7 +5,7 @@ import { join, sep } from "node:path";
 vi.mock("@/lib/db", async () => (await import("@/test/memory-db")).memoryDb());
 
 import { handle, loadPage, matchRoute } from "./local-server";
-import type { AccountDTO, CategoryDTO } from "@/lib/types";
+import type { AccountDTO, CategoryDTO, RecurringDTO } from "@/lib/types";
 import { addDays, monthKeyOf, toISODate } from "@/lib/dates";
 
 async function call<T>(method: string, url: string, body?: unknown): Promise<{ status: number; data: T }> {
@@ -21,12 +21,10 @@ describe("route matching", () => {
   it("prefers a fixed path over a parameter at the same depth", () => {
     expect(matchRoute("/api/transactions/bulk-delete")?.params).toEqual({});
     expect(matchRoute("/api/transactions/abc123")?.params).toEqual({ id: "abc123" });
-    expect(matchRoute("/api/goals/resolve-shortfall")?.params).toEqual({});
   });
 
   it("reads nested parameters", () => {
     expect(matchRoute("/api/transactions/t1/restore")?.params).toEqual({ id: "t1" });
-    expect(matchRoute("/api/contacts/c1/shares")?.params).toEqual({ id: "c1" });
   });
 
   it("answers every route file (run `npm run generate` after adding one)", () => {
@@ -87,12 +85,10 @@ describe("the on-device app", () => {
     expect((await call("POST", "/api/transactions", {
       type: "income", amount: 5_000_000, description: "Salary", date: today, categoryId: cat("salary"), accountId: bank.id,
     })).status).toBe(201);
-    const { data: people } = await call<{ contacts: { id: string }[] }>("POST", "/api/contacts", { name: "Asha" });
     expect((await call("POST", "/api/transactions", {
       type: "expense", amount: 240_000, description: "Dinner", date: today, categoryId: cat("food"), accountId: bank.id,
-      tags: ["friends"], shares: [{ contactId: people.contacts[0].id, amount: 120_000 }],
+      tags: ["friends"],
     })).status).toBe(201);
-    expect((await call("POST", "/api/goals", { name: "Trip", targetAmount: 1_000_000 })).status).toBe(201);
     await call("PATCH", "/api/user", { name: "Priya" });
 
     const exported = await handle("/api/export?format=json");
@@ -111,7 +107,17 @@ describe("the on-device app", () => {
     expect({ ...again, exportedAt: null }).toEqual({ ...backup, exportedAt: null });
     const after = await loadPage("shell", {});
     expect(after.user.name).toBe("Priya");
-    expect(after.contacts[0]).toMatchObject({ name: "Asha" });
+  });
+
+  it("restores an older backup that still lists people and shares, leaving them out", async () => {
+    const backup = await (await handle("/api/export?format=json")).json();
+    const old = {
+      ...backup,
+      contacts: [{ id: "c1", name: "Asha", color: "#64748b", avatarUrl: null, isArchived: false, createdAt: backup.exportedAt }],
+      expenseShares: [{ id: "s1", transactionId: null, contactId: "c1", amount: 100, direction: "you_owe", date: backup.exportedAt }],
+    };
+    const res = await call("POST", "/api/backup/restore", old);
+    expect(res.status).toBe(200);
   });
 
   it("leaves everything as it was when a backup file is damaged", async () => {
@@ -150,7 +156,7 @@ describe("the on-device app", () => {
       transactions: [
         {
           id: "t1", userId: "web-user", type: "expense", amount: 45_000, description: "Groceries", merchant: null,
-          date: "2026-09-18", categoryId: "c1", accountId: "a1", transferAccountId: null, paymentMethod: "upi",
+          date: "2026-09-18", categoryId: "c1", accountId: "a1", transferAccountId: null,
           notes: null, recurringId: null, splitGroupId: null, createdAt: "2026-09-18T08:00:00.000Z",
           updatedAt: "2026-09-18T08:00:00.000Z", deletedAt: null, tags: ["home"],
         },
@@ -194,10 +200,34 @@ describe("the on-device app", () => {
     expect(shell.accounts).toHaveLength(1);
     expect(shell.accounts[0]).toMatchObject({ name: "HDFC", balance: 1_000_000 - 45_000 });
     expect(shell.preference.defaultAccountId).toBe("a1");
-    expect(shell.goalMoney.summary.totalAllocated).toBe(200_000);
     const { data } = await call<{ transactions: { date: string; tags: string[] }[] }>("GET", "/api/transactions");
     expect(data.transactions[0]).toMatchObject({ date: "2026-09-18", tags: ["home"] });
   });
+  it("repeats a new entry from its next occurrence, without recording it twice", async () => {
+    await call("POST", "/api/accounts", { name: "Repeat from", type: "bank", openingBalance: 1_000_000 });
+    const { data: list } = await call<{ accounts: AccountDTO[] }>("GET", "/api/accounts");
+    const account = list.accounts.find((x) => x.name === "Repeat from")!;
+    const shell = await loadPage("shell", {});
+    const category = shell.categories.find((c: { kind: string }) => c.kind === "expense")!;
+    const today = toISODate(new Date());
+
+    const { status, data } = await call<{ transaction: { id: string; recurringId: string | null } }>("POST", "/api/transactions", {
+      type: "expense", amount: 42_000, description: "Gym membership", date: today, accountId: account.id, categoryId: category.id, repeat: "monthly",
+    });
+    expect(status).toBe(201);
+    expect(data.transaction.recurringId).not.toBeNull();
+
+    const { data: rules } = await call<{ recurring: RecurringDTO[] }>("GET", "/api/recurring");
+    const rule = rules.recurring.find((r) => r.id === data.transaction.recurringId)!;
+    expect(rule.name).toBe("Gym membership");
+    expect(rule.startDate).toBe(today);
+    expect(rule.nextOccurrence > today).toBe(true);
+
+    await call("POST", "/api/recurring/run-due");
+    const { data: entries } = await call<{ transactions: { description: string }[] }>("GET", `/api/transactions?accountId=${account.id}`);
+    expect(entries.transactions.map((t) => t.description)).toEqual(["Gym membership"]);
+  });
+
   it("lists a transfer under both of its accounts", async () => {
     await call("POST", "/api/accounts", { name: "Transfer from", type: "bank", openingBalance: 100_000 });
     await call("POST", "/api/accounts", { name: "Transfer to", type: "cash" });
@@ -223,6 +253,27 @@ describe("the on-device app", () => {
     expect(count(a.id)).toBe(1);
     expect(count(b.id)).toBe(1);
   });
+  it("counts each category's transactions, leaving out deleted ones", async () => {
+    await call("POST", "/api/accounts", { name: "Count A", type: "bank", openingBalance: 1_000_000 });
+    const { data: list } = await call<{ accounts: AccountDTO[] }>("GET", "/api/accounts");
+    const account = list.accounts.find((x) => x.name === "Count A")!;
+    const made = await call<{ createdId: string }>("POST", "/api/categories", { name: "Count Cat", kind: "expense" });
+    const unused = await call<{ createdId: string }>("POST", "/api/categories", { name: "Count Empty", kind: "expense" });
+    const add = () =>
+      call<{ transaction: { id: string } }>("POST", "/api/transactions", {
+        type: "expense", amount: 100, description: "Count test", date: new Date().toISOString().slice(0, 10),
+        categoryId: made.data.createdId, accountId: account.id,
+      });
+    await add();
+    const second = await add();
+    await add();
+    await call("DELETE", `/api/transactions/${second.data.transaction.id}`);
+
+    const page = await loadPage("categories", {});
+    expect(page.transactionCounts[made.data.createdId]).toBe(2);
+    expect(page.transactionCounts[unused.data.createdId]).toBeUndefined();
+  });
+
   it("counts budget spending only in the accounts the budget covers", async () => {
     await call("POST", "/api/accounts", { name: "Budget A", type: "bank", openingBalance: 1_000_000 });
     await call("POST", "/api/accounts", { name: "Budget B", type: "cash", openingBalance: 1_000_000 });
@@ -292,194 +343,6 @@ describe("the on-device app", () => {
     expect((await loadPage("category", { id: expenseCat.id })).detail!.kind).toBe("expense");
   });
 
-  it("counts only your share of a split, and takes the repayment in without making it income", async () => {
-    const shell = await loadPage("shell", {});
-    const bank = shell.accounts[0];
-    const food = shell.categories.find((c: CategoryDTO) => c.systemKey === "food")!.id;
-    const today = new Date().toISOString().slice(0, 10);
-    const balance = async () => (await loadPage("shell", {})).accounts.find((a: AccountDTO) => a.id === bank.id)!.balance;
-    await call("POST", "/api/transactions", {
-      type: "income", amount: 1_000_000, description: "Pay", date: today, categoryId: shell.categories.find((c: CategoryDTO) => c.kind === "income")!.id, accountId: bank.id,
-    });
-    const start = await balance();
-    const before = (await loadPage("dashboard", {})).analytics.current;
-    const incomeBefore = before.income;
-    const totalsBefore = (await call<{ totals: { income: number; expense: number } }>("GET", "/api/transactions")).data.totals;
-
-    // Split ₹898.60 with no one named: your share is ₹449.30.
-    const made = await call<{ transaction: { id: string; shares: { id: string; contactName: string }[] } }>(
-      "POST", "/api/transactions",
-      { type: "expense", amount: 89_860, description: "Train tickets", date: today, categoryId: food, accountId: bank.id, shares: [{ amount: 44_930 }] },
-    );
-    expect(made.status).toBe(201);
-    expect(made.data.transaction.shares[0].contactName).toBe("Someone");
-    expect(await balance()).toBe(start - 89_860);
-
-    const dash = async () => (await loadPage("dashboard", {})).analytics.current;
-    expect((await dash()).effectiveExpense).toBe(before.effectiveExpense + 44_930);
-
-    // It waits under "Someone" until paid; naming the person is optional.
-    const waiting = await loadPage("people", {});
-    expect(waiting.someone).toHaveLength(1);
-    const shareId = waiting.someone[0].id;
-
-    const settled = await call("POST", `/api/shares/${shareId}/settle`, { record: true, accountId: bank.id });
-    expect(settled.status).toBe(200);
-    expect(await balance()).toBe(start - 44_930);
-    const after = await dash();
-    expect(after.income).toBe(incomeBefore);
-    expect(after.effectiveExpense).toBe(before.effectiveExpense + 44_930);
-
-    // The repayment is in the list, and can't be edited on its own.
-    const list = await call<{ transactions: { id: string; type: string }[]; totals: { income: number; expense: number } }>("GET", "/api/transactions");
-    const repayment = list.data.transactions.find((t) => t.type === "repayment")!;
-    expect(list.data.totals).toEqual({ income: totalsBefore.income, expense: totalsBefore.expense + 44_930 });
-    expect((await call("DELETE", `/api/transactions/${repayment.id}`)).status).toBe(400);
-  });
-
-  it("lets you name the person behind a share later", async () => {
-    const shell = await loadPage("shell", {});
-    const bank = shell.accounts[0];
-    const food = shell.categories.find((c: CategoryDTO) => c.systemKey === "food")!.id;
-    const today = new Date().toISOString().slice(0, 10);
-    await call("POST", "/api/transactions", {
-      type: "income", amount: 1_000_000, description: "Pay", date: today, categoryId: shell.categories.find((c: CategoryDTO) => c.kind === "income")!.id, accountId: bank.id,
-    });
-    await call("POST", "/api/transactions", {
-      type: "expense", amount: 20_000, description: "Cab", date: today, categoryId: food, accountId: bank.id, shares: [{ amount: 10_000 }],
-    });
-    const { data: people } = await call<{ contacts: { id: string; name: string }[] }>("POST", "/api/contacts", { name: "Mohammed" });
-    const share = (await loadPage("people", {})).someone.find((s: { description: string }) => s.description === "Cab")!;
-    const named = await call<{ someone: unknown[]; contacts: { name: string; owedToYou: number }[] }>(
-      "PATCH", `/api/shares/${share.id}`, { contactId: people.contacts.find((c) => c.name === "Mohammed")!.id },
-    );
-    expect(named.status).toBe(200);
-    expect(named.data.someone.find((s) => (s as { id: string }).id === share.id)).toBeUndefined();
-    expect(named.data.contacts.find((c) => c.name === "Mohammed")?.owedToYou).toBe(10_000);
-  });
-
-  it("keeps a person's photo from the phone's contacts", async () => {
-    const photo = "data:image/jpeg;base64,/9j/4AAQSkZJRg==";
-    const { data } = await call<{ contacts: { name: string; avatarUrl: string | null }[] }>(
-      "POST", "/api/contacts", { name: "Meera", avatarUrl: photo },
-    );
-    expect(data.contacts.find((c) => c.name === "Meera")?.avatarUrl).toBe(photo);
-    const bad = await call("POST", "/api/contacts", { name: "Ravi", avatarUrl: "https://example.com/x.png" });
-    expect(bad.status).toBe(422);
-  });
-
-  it("adds the person you type in a split, or reuses one with the same name", async () => {
-    const shell = await loadPage("shell", {});
-    const bank = shell.accounts[0];
-    const food = shell.categories.find((c: CategoryDTO) => c.systemKey === "food")!.id;
-    const today = new Date().toISOString().slice(0, 10);
-    await call("POST", "/api/transactions", {
-      type: "income", amount: 1_000_000, description: "Pay", date: today, categoryId: shell.categories.find((c: CategoryDTO) => c.kind === "income")!.id, accountId: bank.id,
-    });
-    const split = (name: string, amount: number) => call<{ transaction: { shares: { contactId: string; contactName: string }[] } }>(
-      "POST", "/api/transactions",
-      { type: "expense", amount, description: "Lunch", date: today, categoryId: food, accountId: bank.id, shares: [{ name, amount: amount / 2 }] },
-    );
-
-    const owedBefore = (await loadPage("people", {})).contacts.find((c: { name: string }) => c.name === "Mohammed")?.owedToYou ?? 0;
-    const first = await split("Mohammed", 20_000);
-    expect(first.status).toBe(201);
-    expect(first.data.transaction.shares[0].contactName).toBe("Mohammed");
-
-    // The same name in another case is the same person, not a second one.
-    const second = await split("mohammed", 10_000);
-    expect(second.data.transaction.shares[0].contactId).toBe(first.data.transaction.shares[0].contactId);
-    const people = (await loadPage("people", {})).contacts.filter((c: { name: string }) => c.name.toLowerCase() === "mohammed");
-    expect(people).toHaveLength(1);
-    expect(people[0].owedToYou).toBe(owedBefore + 15_000);
-
-    // The same person twice in one split is refused, and adds nobody.
-    const twice = await call("POST", "/api/transactions", {
-      type: "expense", amount: 30_000, description: "Dinner", date: today, categoryId: food, accountId: bank.id,
-      shares: [{ name: "Priya", amount: 5_000 }, { name: "priya", amount: 5_000 }],
-    });
-    expect(twice.status).toBe(400);
-    expect((await loadPage("people", {})).contacts.some((c: { name: string }) => c.name === "Priya")).toBe(false);
-  });
-
-  it("settles everything open with one person together, moving only the difference", async () => {
-    const shell = await loadPage("shell", {});
-    const bank = shell.accounts[0];
-    const food = shell.categories.find((c: CategoryDTO) => c.systemKey === "food")!.id;
-    const today = new Date().toISOString().slice(0, 10);
-    await call("POST", "/api/transactions", {
-      type: "income", amount: 1_000_000, description: "Pay", date: today, categoryId: shell.categories.find((c: CategoryDTO) => c.kind === "income")!.id, accountId: bank.id,
-    });
-    const balance = async () => (await loadPage("shell", {})).accounts.find((a: AccountDTO) => a.id === bank.id)!.balance;
-    const spent = async () => (await loadPage("dashboard", {})).analytics.current.effectiveExpense;
-    const income = async () => (await loadPage("dashboard", {})).analytics.current.income;
-
-    // Dinner ₹1,000 split with Ritu (she owes ₹500); she also paid ₹300 for you.
-    await call("POST", "/api/transactions", {
-      type: "expense", amount: 100_000, description: "Dinner", date: today, categoryId: food, accountId: bank.id, shares: [{ name: "Ritu", amount: 50_000 }],
-    });
-    const ritu = (await loadPage("people", {})).contacts.find((c: { name: string }) => c.name === "Ritu")!;
-    await call("POST", `/api/contacts/${ritu.id}/shares`, { amount: 30_000, direction: "you_owe", description: "Cab" });
-    const after = (await loadPage("people", {})).contacts.find((c: { name: string }) => c.name === "Ritu")!;
-    expect(after).toMatchObject({ owedToYou: 50_000, youOwe: 30_000, net: 20_000 });
-
-    const startBalance = await balance();
-    const startSpent = await spent();
-    const startIncome = await income();
-    const done = await call<{ settled: { owedToYou: number; youOwe: number; net: number; entries: number } }>(
-      "POST", `/api/contacts/${ritu.id}/settle`, { record: true, accountId: bank.id },
-    );
-    expect(done.status).toBe(200);
-    expect(done.data.settled).toEqual({ owedToYou: 50_000, youOwe: 30_000, net: 20_000, entries: 2 });
-    expect(await balance()).toBe(startBalance + 20_000); // only the difference moves
-    expect(await spent()).toBe(startSpent + 30_000); // the cab you owed is now your cost
-    expect(await income()).toBe(startIncome); // and nothing counts as income
-    expect((await loadPage("people", {})).contacts.find((c: { name: string }) => c.name === "Ritu")).toMatchObject({ owedToYou: 0, youOwe: 0, net: 0 });
-
-    // Nothing left open, so settling again is refused.
-    expect((await call("POST", `/api/contacts/${ritu.id}/settle`, { record: true, accountId: bank.id })).status).toBe(400);
-  });
-
-  it("settles a person's entries without touching an account when asked not to", async () => {
-    const { data: people } = await call<{ contacts: { id: string; name: string }[] }>("POST", "/api/contacts", { name: "Dev" });
-    const dev = people.contacts.find((c) => c.name === "Dev")!;
-    await call("POST", `/api/contacts/${dev.id}/shares`, { amount: 12_000, direction: "you_owe", description: "Tickets" });
-    await call("POST", `/api/contacts/${dev.id}/shares`, { amount: 5_000, direction: "owed_to_you", description: "Snacks" });
-    const balances = async () => (await loadPage("shell", {})).accounts.map((a: AccountDTO) => a.balance);
-    const before = await balances();
-    expect((await call("POST", `/api/contacts/${dev.id}/settle`, {})).status).toBe(200);
-    expect(await balances()).toEqual(before);
-    expect((await loadPage("people", {})).contacts.find((c: { name: string }) => c.name === "Dev")).toMatchObject({ net: 0 });
-  });
-
-  it("backs up and restores shares not yet named for anyone (\"Someone\")", async () => {
-    const shell = await loadPage("shell", {});
-    const today = new Date().toISOString().slice(0, 10);
-    const food = shell.categories.find((c: CategoryDTO) => c.kind === "expense")!.id;
-    const salary = shell.categories.find((c: CategoryDTO) => c.kind === "income")!.id;
-    await call("POST", "/api/transactions", {
-      type: "income", amount: 500_000, description: "Salary", date: today, categoryId: salary, accountId: shell.accounts[0].id,
-    });
-    const people = await call<{ contacts: { id: string }[] }>("POST", "/api/contacts", { name: "Ravi" });
-    const split = await call("POST", "/api/transactions", {
-      type: "expense", amount: 90_000, description: "Pizza night", date: today, categoryId: food, accountId: shell.accounts[0].id,
-      shares: [{ contactId: people.data.contacts[0].id, amount: 30_000 }, { amount: 30_000 }],
-    });
-    expect(split.status, JSON.stringify(split.data)).toBe(201);
-    const spentBefore = (await loadPage("dashboard", {})).analytics.current.effectiveExpense;
-
-    const backup = await (await handle("/api/export?format=json")).json();
-    const pizza = backup.transactions.find((t: { description: string }) => t.description === "Pizza night").id;
-    const unnamed = (b: { expenseShares: { transactionId: string | null; contactId: string | null }[] }) =>
-      b.expenseShares.filter((sh) => sh.transactionId === pizza && sh.contactId === null);
-    expect(unnamed(backup)).toHaveLength(1);
-    expect((await call("POST", "/api/backup/restore", backup)).status).toBe(200);
-
-    const spentAfter = (await loadPage("dashboard", {})).analytics.current.effectiveExpense;
-    expect(spentAfter).toBe(spentBefore); // only your share counts, as before
-    expect(unnamed(await (await handle("/api/export?format=json")).json())).toHaveLength(1);
-  });
-
   it("reads a long history back past 500 rows, page by page", async () => {
     const shell = await loadPage("shell", {});
     const cash = shell.accounts[0].id;
@@ -502,7 +365,27 @@ describe("the on-device app", () => {
     expect(new Set([...first.data.transactions, ...rest.data.transactions].map((t) => t.id)).size).toBe(750);
   });
 
-  it("brings back an archived account and an archived person", async () => {
+  it("totals a month across every matching transaction, not just the page asked for", async () => {
+    const shell = await loadPage("shell", {});
+    const cat = (kind: string) => shell.categories.find((c: CategoryDTO) => c.kind === kind)!.id;
+    const add = (type: string, amount: number, date: string, description: string) =>
+      call("POST", "/api/transactions", { type, amount, date, description, categoryId: cat(type), accountId: shell.accounts[0].id });
+    await add("income", 90_000, "2025-03-05", "Monthly pay");
+    await add("expense", 10_000, "2025-03-06", "Monthly a");
+    await add("expense", 20_000, "2025-03-31", "Monthly b");
+    await add("expense", 5_000, "2025-04-01", "Monthly c");
+    type Res = { months?: Record<string, { income: number; expense: number }> };
+    const { data } = await call<Res>("GET", "/api/transactions?q=Monthly&take=1&skip=0");
+    expect(data.months).toEqual({
+      "2025-03": { income: 90_000, expense: 30_000 },
+      "2025-04": { income: 0, expense: 5_000 },
+    });
+    // The filter applies, and later pages don't repeat the work.
+    expect((await call<Res>("GET", "/api/transactions?q=Monthly&type=expense&take=1&skip=0")).data.months?.["2025-03"]).toEqual({ income: 0, expense: 30_000 });
+    expect((await call<Res>("GET", "/api/transactions?q=Monthly&take=1&skip=1")).data.months).toBeUndefined();
+  });
+
+  it("brings back an archived account", async () => {
     const shell = await loadPage("shell", {});
     const today = new Date().toISOString().slice(0, 10);
     const salary = shell.categories.find((c: CategoryDTO) => c.kind === "income")!.id;
@@ -516,18 +399,6 @@ describe("the on-device app", () => {
     const back = await call<{ accounts: AccountDTO[] }>("PATCH", `/api/accounts/${wallet.id}`, { isArchived: false });
     expect(back.data.accounts.find((a) => a.id === wallet.id)?.isArchived).toBe(false);
 
-    const food = shell.categories.find((c: CategoryDTO) => c.kind === "expense")!.id;
-    const people = await call<{ contacts: { id: string; name: string }[] }>("POST", "/api/contacts", { name: "Meena" });
-    const meena = people.data.contacts.find((c) => c.name === "Meena")!;
-    await call("POST", "/api/transactions", {
-      type: "expense", amount: 2_000, description: "Tea", date: today, categoryId: food, accountId: wallet.id,
-      shares: [{ contactId: meena.id, amount: 1_000 }],
-    });
-    await call("DELETE", `/api/contacts/${meena.id}`);
-    const hidden = await call<{ contacts: { id: string; isArchived: boolean }[] }>("GET", "/api/contacts");
-    expect(hidden.data.contacts.find((c) => c.id === meena.id)?.isArchived).toBe(true);
-    const restored = await call<{ contacts: { id: string; isArchived: boolean }[] }>("PATCH", `/api/contacts/${meena.id}`, { isArchived: false });
-    expect(restored.data.contacts.find((c) => c.id === meena.id)?.isArchived).toBe(false);
   });
 
   it("keeps a deleted category on the transactions that used it", async () => {
@@ -614,130 +485,27 @@ describe("the on-device app", () => {
     expect(res.data.summary.willImport).toBe(1);
   });
 
-  it("still lets an old entry be edited after its category changes kind, and keeps an unnamed share", async () => {
+  it("still lets an old entry be edited after its category changes kind", async () => {
     const shell = await loadPage("shell", {});
     const today = toISODate(new Date());
     const made = await call<{ createdId: string }>("POST", "/api/categories", { name: "Flexible", kind: "expense" });
     const base = {
       type: "expense", amount: 4_000, description: "Chai", date: today, categoryId: made.data.createdId,
-      accountId: shell.accounts[0].id, shares: [{ amount: 1_000 }], // a share nobody is named for
+      accountId: shell.accounts[0].id,
     };
     const created = await call<{ transaction: { id: string } }>("POST", "/api/transactions", base);
     expect(created.status, JSON.stringify(created.data)).toBe(201);
     await call("PATCH", `/api/categories/${made.data.createdId}`, { kind: "income" });
 
-    const edited = await call<{ transaction: { notes: string; shares: { amount: number; contactName: string }[] } }>(
+    const edited = await call<{ transaction: { notes: string } }>(
       "PATCH", `/api/transactions/${created.data.transaction.id}`, { ...base, notes: "with ginger" },
     );
     expect(edited.status, JSON.stringify(edited.data)).toBe(200);
     expect(edited.data.transaction.notes).toBe("with ginger");
-    expect(edited.data.transaction.shares).toMatchObject([{ amount: 1_000, contactName: "Someone" }]);
 
     // A new entry in that category is still held to the category's kind.
-    const fresh = await call("POST", "/api/transactions", { ...base, description: "New chai", shares: [] });
+    const fresh = await call("POST", "/api/transactions", { ...base, description: "New chai" });
     expect(fresh.status).toBe(400);
   });
 
-  it("applies the past-date rule to a changed goal target date only", async () => {
-    const made = await call<{ goals: { id: string; name: string }[] }>("POST", "/api/goals", { name: "Trip", targetAmount: 100_000 });
-    const goal = made.data.goals.find((g) => g.name === "Trip")!;
-    const past = await call("PATCH", `/api/goals/${goal.id}`, { targetDate: "2020-01-01" });
-    expect(past.status).toBe(400);
-    expect((await call("PATCH", `/api/goals/${goal.id}`, { name: "Big trip" })).status).toBe(200);
-  });
-
-  it("undoes a settlement, taking back the money it recorded", async () => {
-    const shell = await loadPage("shell", {});
-    const today = toISODate(new Date());
-    const bank = shell.accounts[0];
-    const food = shell.categories.find((c: CategoryDTO) => c.kind === "expense")!.id;
-    const salary = shell.categories.find((c: CategoryDTO) => c.kind === "income")!.id;
-    await call("POST", "/api/transactions", { type: "income", amount: 1_000_000, description: "Pay", date: today, categoryId: salary, accountId: bank.id });
-    const balance = async () => (await loadPage("shell", {})).accounts.find((a: AccountDTO) => a.id === bank.id)!.balance;
-    const people = await call<{ contacts: { id: string; name: string }[] }>("POST", "/api/contacts", { name: "Undo Friend" });
-    const friend = people.data.contacts.find((c) => c.name === "Undo Friend")!;
-    const base = { type: "expense", description: "Undo dinner", date: today, categoryId: food, accountId: bank.id };
-    const a = await call<{ transaction: { shares: { id: string }[] } }>("POST", "/api/transactions", { ...base, amount: 60_000, shares: [{ contactId: friend.id, amount: 20_000 }] });
-    const b = await call<{ transaction: { shares: { id: string }[] } }>("POST", "/api/transactions", { ...base, amount: 90_000, shares: [{ contactId: friend.id, amount: 30_000 }] });
-    const shareA = a.data.transaction.shares[0].id;
-    const shareB = b.data.transaction.shares[0].id;
-    const start = await balance();
-    const owed = async () => (await loadPage("people", {})).contacts.find((c) => c.id === friend.id)!.owedToYou;
-    expect(await owed()).toBe(50_000);
-
-    // Settled together, recorded as one repayment; undo one share and only its part goes.
-    await call("POST", `/api/contacts/${friend.id}/settle`, { record: true, accountId: bank.id });
-    expect(await balance()).toBe(start + 50_000);
-    expect(await owed()).toBe(0);
-    expect((await call("POST", `/api/shares/${shareA}/unsettle`)).status).toBe(200);
-    expect(await balance()).toBe(start + 30_000);
-    expect(await owed()).toBe(20_000);
-
-    // The last one takes the repayment away entirely.
-    expect((await call("POST", `/api/shares/${shareB}/unsettle`)).status).toBe(200);
-    expect(await balance()).toBe(start);
-    expect(await owed()).toBe(50_000);
-    const repayments = (await call<{ transactions: { type: string }[] }>("GET", "/api/transactions?q=Undo Friend paid back")).data.transactions;
-    expect(repayments.filter((t) => t.type === "repayment")).toHaveLength(0);
-
-    // Settled one by one and recorded, then undone: back to owed, balance restored.
-    await call("POST", `/api/shares/${shareA}/settle`, { record: true, accountId: bank.id });
-    expect(await balance()).toBe(start + 20_000);
-    await call("POST", `/api/shares/${shareA}/unsettle`);
-    expect(await balance()).toBe(start);
-
-    // Settled without recording: only the ledger comes back.
-    await call("POST", `/api/shares/${shareA}/settle`, { record: false });
-    await call("POST", `/api/shares/${shareA}/unsettle`);
-    expect(await balance()).toBe(start);
-    expect(await owed()).toBe(50_000);
-    // Undoing something that isn't settled changes nothing.
-    expect((await call("POST", `/api/shares/${shareA}/unsettle`)).status).toBe(200);
-    expect(await owed()).toBe(50_000);
-  });
-
-  it("won't undo a repayment that the account has since spent", async () => {
-    const shell = await loadPage("shell", {});
-    const today = toISODate(new Date());
-    const food = shell.categories.find((c: CategoryDTO) => c.kind === "expense")!.id;
-    const made = await call<{ accounts: AccountDTO[] }>("POST", "/api/accounts", { name: "Thin", type: "bank", openingBalance: 100_000 });
-    const thin = made.data.accounts.find((a) => a.name === "Thin")!;
-    const people = await call<{ contacts: { id: string; name: string }[] }>("POST", "/api/contacts", { name: "Thin Friend" });
-    const friend = people.data.contacts.find((c) => c.name === "Thin Friend")!;
-    const t = await call<{ transaction: { shares: { id: string }[] } }>("POST", "/api/transactions", {
-      type: "expense", amount: 80_000, description: "Thin dinner", date: today, categoryId: food, accountId: thin.id,
-      shares: [{ contactId: friend.id, amount: 40_000 }],
-    });
-    const shareId = t.data.transaction.shares[0].id;
-    await call("POST", `/api/shares/${shareId}/settle`, { record: true, accountId: thin.id }); // balance 60,000
-    await call("POST", "/api/transactions", { type: "expense", amount: 55_000, description: "Spent it", date: today, categoryId: food, accountId: thin.id });
-    const undo = await call<{ error: string }>("POST", `/api/shares/${shareId}/unsettle`);
-    expect(undo.status).toBe(400);
-    expect(undo.data.error).toMatch(/Can't undo/);
-    const still = (await loadPage("people", {})).contacts.find((c) => c.id === friend.id)!;
-    expect(still.owedToYou).toBe(0); // still settled
-  });
-
-  it("undoes a settlement made before shares remembered their entry", async () => {
-    const { prisma } = await import("@/lib/db");
-    const shell = await loadPage("shell", {});
-    const today = toISODate(new Date());
-    const bank = shell.accounts[0];
-    const food = shell.categories.find((c: CategoryDTO) => c.kind === "expense")!.id;
-    const people = await call<{ contacts: { id: string; name: string }[] }>("POST", "/api/contacts", { name: "Old Friend" });
-    const friend = people.data.contacts.find((c) => c.name === "Old Friend")!;
-    const t = await call<{ transaction: { shares: { id: string }[] } }>("POST", "/api/transactions", {
-      type: "expense", amount: 20_000, description: "Old lunch", date: today, categoryId: food, accountId: bank.id,
-      shares: [{ contactId: friend.id, amount: 10_000 }],
-    });
-    const shareId = t.data.transaction.shares[0].id;
-    const balance = async () => (await loadPage("shell", {})).accounts.find((a: AccountDTO) => a.id === bank.id)!.balance;
-    const start = await balance();
-    await call("POST", `/api/shares/${shareId}/settle`, { record: true, accountId: bank.id });
-    await prisma.expenseShare.update({ where: { id: shareId }, data: { settlementTransactionId: null } }); // as an older version left it
-    expect(await balance()).toBe(start + 10_000);
-    expect((await call("POST", `/api/shares/${shareId}/unsettle`)).status).toBe(200);
-    expect(await balance()).toBe(start);
-    expect((await loadPage("people", {})).contacts.find((c) => c.id === friend.id)!.owedToYou).toBe(10_000);
-  });
 });

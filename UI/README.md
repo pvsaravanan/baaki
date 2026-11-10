@@ -1,7 +1,7 @@
 # baaki — screens
 
 Screenshots of every screen of the app, taken from the real app with sample data
-(three months of transactions, a September budget, three goals, two people and five
+(three months of transactions, a September budget and five
 recurring items, from `scripts/sample-data.ts`) on 24 September 2026.
 
 - `showcase-1.png`, `showcase-2.png` — five phone screens side by side
@@ -26,13 +26,8 @@ made by the script.
 | 02 | Transactions | [phone](phone-framed/02-transactions.png) | [mobile](mobile/02-transactions.png) | [desktop](desktop/02-transactions.png) |
 | 03 | Accounts | [phone](phone-framed/03-accounts.png) | [mobile](mobile/03-accounts.png) | [desktop](desktop/03-accounts.png) |
 | 04 | Budgets | [phone](phone-framed/04-budgets.png) | [mobile](mobile/04-budgets.png) | [desktop](desktop/04-budgets.png) |
-| 05 | Goals | [phone](phone-framed/05-goals.png) | [mobile](mobile/05-goals.png) | [desktop](desktop/05-goals.png) |
-| 06 | Goal detail | [phone](phone-framed/06-goal-detail.png) | [mobile](mobile/06-goal-detail.png) | [desktop](desktop/06-goal-detail.png) |
-| 07 | People | [phone](phone-framed/07-people.png) | [mobile](mobile/07-people.png) | [desktop](desktop/07-people.png) |
 | 08 | Recurring | [phone](phone-framed/08-recurring.png) | [mobile](mobile/08-recurring.png) | [desktop](desktop/08-recurring.png) |
 | 09 | Reports | [phone](phone-framed/09-reports.png) | [mobile](mobile/09-reports.png) | [desktop](desktop/09-reports.png) |
-| 10 | Trends | [phone](phone-framed/10-trends.png) | [mobile](mobile/10-trends.png) | [desktop](desktop/10-trends.png) |
-| 11 | Insights | [phone](phone-framed/11-insights.png) | [mobile](mobile/11-insights.png) | [desktop](desktop/11-insights.png) |
 | 12 | Categories | [phone](phone-framed/12-categories.png) | [mobile](mobile/12-categories.png) | [desktop](desktop/12-categories.png) |
 | 13 | Category detail | [phone](phone-framed/13-category-detail.png) | [mobile](mobile/13-category-detail.png) | [desktop](desktop/13-category-detail.png) |
 | 14 | Import | [phone](phone-framed/14-import.png) | [mobile](mobile/14-import.png) | [desktop](desktop/14-import.png) |
@@ -42,5 +37,8 @@ made by the script.
 | 18 | Welcome | [phone](phone-framed/18-welcome.png) | [mobile](mobile/18-welcome.png) | [desktop](desktop/18-welcome.png) |
 | 19 | Onboarding: track expenses | [phone](phone-framed/19-onboarding-expenses.png) | [mobile](mobile/19-onboarding-expenses.png) | [desktop](desktop/19-onboarding-expenses.png) |
 | 20 | Onboarding: understand spending | [phone](phone-framed/20-onboarding-spending.png) | [mobile](mobile/20-onboarding-spending.png) | [desktop](desktop/20-onboarding-spending.png) |
-| 21 | Onboarding: set goals | [phone](phone-framed/21-onboarding-goals.png) | [mobile](mobile/21-onboarding-goals.png) | [desktop](desktop/21-onboarding-goals.png) |
+| 24 | Onboarding: set budgets | [phone](phone-framed/24-onboarding-budgets.png) | [mobile](mobile/24-onboarding-budgets.png) | [desktop](desktop/24-onboarding-budgets.png) |
+| 25 | Onboarding: never miss a bill | [phone](phone-framed/25-onboarding-bills.png) | [mobile](mobile/25-onboarding-bills.png) | [desktop](desktop/25-onboarding-bills.png) |
+| 26 | Onboarding: stays private | [phone](phone-framed/26-onboarding-private.png) | [mobile](mobile/26-onboarding-private.png) | [desktop](desktop/26-onboarding-private.png) |
 | 22 | Choose a profile picture | [phone](phone-framed/22-choose-avatar.png) | [mobile](mobile/22-choose-avatar.png) | [desktop](desktop/22-choose-avatar.png) |
+| 23 | Transaction filters | [phone](phone-framed/23-filters.png) | [mobile](mobile/23-filters.png) | [desktop](desktop/23-filters.png) |

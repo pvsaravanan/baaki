@@ -65,7 +65,7 @@ export const DELETE = withUser(async (user, _req: NextRequest, ctx: Ctx) => {
   await owned(user.id, id);
 
   // The "is this account used" check and the hard-delete must happen inside
-  // one transaction. Without that, a transaction/recurring-post/goal write
+  // one transaction. Without that, a transaction or recurring-post write
   // that references this account and lands between the check and the delete
   // would get silently destroyed by the cascade below once the delete runs
   // (see onDelete: Cascade on Transaction.account). Postgres's default READ
@@ -78,12 +78,11 @@ export const DELETE = withUser(async (user, _req: NextRequest, ctx: Ctx) => {
       // Count references from ANY user, not just this one. Scoping this to
       // `userId` would hide foreign rows and let the hard-delete below cascade
       // through them.
-      const [usedByTxn, usedByRecurring, usedByGoal] = await Promise.all([
+      const [usedByTxn, usedByRecurring] = await Promise.all([
         db.transaction.count({ where: { OR: [{ accountId: id }, { transferAccountId: id }] } }),
         db.recurringTransaction.count({ where: { OR: [{ accountId: id }, { transferAccountId: id }] } }),
-        db.financialGoal.count({ where: { accountId: id } }),
       ]);
-      const used = usedByTxn + usedByRecurring + usedByGoal;
+      const used = usedByTxn + usedByRecurring;
 
       if (used > 0) {
         // Preserve history: archive instead of deleting.

@@ -1,69 +1,56 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import useSWRInfinite from "swr/infinite";
-import { CheckSquare, Filter, Search, Trash2, X } from "lucide-react";
+import { Filter, Search, Trash2, X } from "lucide-react";
 import { SectionIcon } from "./section-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/field";
-import { SelectMenu } from "@/components/ui/select-menu";
-import { AnchoredPopover, isInsidePopover } from "@/components/ui/anchored-popover";
 import { EmptyState, Skeleton } from "@/components/ui/misc";
 import { Money } from "@/components/money";
 import { useConfirm } from "@/components/ui/confirm";
 import { useToast } from "@/components/ui/toast";
 import { TransactionRow } from "./transaction-row";
+import { Sheet } from "./sheet";
+import { TransactionFiltersSheet, TypePills } from "./transaction-filters-sheet";
 import { useAppData } from "./app-data";
 import { ApiError, apiPost, swrFetcher } from "@/lib/http";
 import { toPaise } from "@/lib/money";
-import { fromISODate, formatDate } from "@/lib/dates";
-import {
-  PAYMENT_METHODS,
-  PAYMENT_METHOD_LABELS,
-  TRANSACTION_TYPES,
-  TYPE_LABELS,
-  formatPaymentMethod,
-} from "@/lib/constants";
-import { ownAmountOf } from "@/lib/calculations";
-import type { TransactionDTO } from "@/lib/types";
+import { fromISODate, formatDate, monthLabel } from "@/lib/dates";
+import type { MonthTotals, TransactionDTO } from "@/lib/types";
+import { categoryKindMatches, EMPTY_FILTERS, matchingPreset, wholeMonth, type TransactionFilters } from "@/lib/transaction-filters";
 import { cn } from "@/lib/cn";
 
-interface Filters {
-  q: string;
-  type: string;
-  categoryId: string;
-  accountId: string;
-  paymentMethod: string;
-  start: string;
-  end: string;
-  min: string;
-  max: string;
-  tag: string;
-}
-
 const PAGE_SIZE = 50;
-
-const EMPTY: Filters = { q: "", type: "", categoryId: "", accountId: "", paymentMethod: "", start: "", end: "", min: "", max: "", tag: "" };
 
 type TransactionsResponse = {
   transactions: TransactionDTO[];
   total: number;
   totals?: { income: number; expense: number };
+  /** Only on the first page: they cover every matching row. */
+  months?: MonthTotals;
 };
 
 export function TransactionsView({
   initialData,
+  selectMode,
+  onSelectModeChange,
 }: {
   initialData?: TransactionsResponse;
-} = {}) {
-  const { categories, accounts, tags } = useAppData();
+  selectMode: boolean;
+  onSelectModeChange: (on: boolean) => void;
+}) {
+  const { categories, accounts } = useAppData();
   const confirm = useConfirm();
   const toast = useToast();
-  const [filters, setFilters] = useState<Filters>(EMPTY);
+  // The Accounts page links here with one account already chosen.
+  const [filters, setFilters] = useState<TransactionFilters>(() => {
+    const accountId = new URLSearchParams(window.location.search).get("accountId");
+    return accountId ? { ...EMPTY_FILTERS, accountId } : EMPTY_FILTERS;
+  });
   const [debouncedQ, setDebouncedQ] = useState("");
   const [showFilters, setShowFilters] = useState(false);
-  const filterPanelRef = useRef<HTMLDivElement>(null);
-  const filterWrapperRef = useRef<HTMLDivElement>(null);
-  const [selectMode, setSelectMode] = useState(false);
+  // Stable, or the sheet re-focuses its first control on every keystroke.
+  const closeFilters = useCallback(() => setShowFilters(false), []);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
 
@@ -72,32 +59,10 @@ export function TransactionsView({
     return () => clearTimeout(t);
   }, [filters.q]);
 
-  // Filter panel: a dropdown pinned to the Filters button, not a modal — page
-  // content stays visible and interactive around it, closing on an outside
-  // tap or Escape. Its selects' option lists float separately (see
-  // AnchoredPopover), so a tap in one of those isn't "outside".
-  useEffect(() => {
-    if (!showFilters) return;
-    const onPointerDown = (e: PointerEvent) => {
-      const target = e.target as Element | null;
-      if (target?.closest?.("[data-popover]")) return;
-      if (!isInsidePopover(target, filterPanelRef.current, filterWrapperRef.current)) setShowFilters(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setShowFilters(false);
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [showFilters]);
-
   // A selection belongs to the list it was made in: a new search or filter
   // starts afresh, so "Delete" can never reach rows that are no longer shown.
   const queryKey = JSON.stringify([debouncedQ, { ...filters, q: "" }]);
-  useEffect(() => setSelectedIds(new Set()), [queryKey]);
+  useEffect(() => setSelectedIds(new Set()), [queryKey, selectMode]);
 
   const query = useMemo(() => {
     const p = new URLSearchParams();
@@ -105,10 +70,11 @@ export function TransactionsView({
     if (filters.type) p.set("type", filters.type);
     if (filters.categoryId) p.set("categoryId", filters.categoryId);
     if (filters.accountId) p.set("accountId", filters.accountId);
-    if (filters.paymentMethod) p.set("paymentMethod", filters.paymentMethod);
     if (filters.start) p.set("start", filters.start);
     if (filters.end) p.set("end", filters.end);
     if (filters.tag) p.set("tag", filters.tag);
+    if (filters.hasNotes) p.set("hasNotes", "1");
+    if (filters.recurring) p.set("recurring", "1");
     try {
       if (filters.min) p.set("min", String(toPaise(filters.min)));
       if (filters.max) p.set("max", String(toPaise(filters.max)));
@@ -118,17 +84,7 @@ export function TransactionsView({
     return p.toString();
   }, [debouncedQ, filters]);
 
-  const isDefaultQuery =
-    !debouncedQ &&
-    !filters.type &&
-    !filters.categoryId &&
-    !filters.accountId &&
-    !filters.paymentMethod &&
-    !filters.start &&
-    !filters.end &&
-    !filters.tag &&
-    !filters.min &&
-    !filters.max;
+  const isDefaultQuery = !debouncedQ && Object.entries(filters).every(([key, value]) => key === "q" || !value);
 
   // Pages of PAGE_SIZE rows, fetched with skip/take so a long history can be
   // read all the way back (the API caps one request at 500 rows). Changing
@@ -161,23 +117,22 @@ export function TransactionsView({
   // pages — see the comment in the API route.
   const totals = data?.totals ?? { income: 0, expense: 0 };
 
-  const grouped = useMemo(() => groupByDay(txns), [txns]);
-
-  // Categories on offer in the filter follow the selected transaction Type,
-  // same as the add/edit form: transfers never carry a category, income
-  // filters to income/both-kind categories, expense to expense/both.
-  const eligibleCategories = useMemo(
-    () => categories.filter((c) => categoryKindMatches(c.kind, filters.type)),
-    [categories, filters.type],
-  );
+  const months = useMemo(() => groupByMonth(groupByDay(txns)), [txns]);
+  const monthTotals = data?.months ?? {};
 
   const activeChips = buildChips(filters, { categories, accounts });
-  const set = (patch: Partial<Filters>) => setFilters((f) => ({ ...f, ...patch }));
-
-  function exitSelectMode() {
-    setSelectMode(false);
-    setSelectedIds(new Set());
+  function setType(type: string) {
+    setFilters((f) => {
+      const cat = categories.find((c) => c.id === f.categoryId);
+      // Switching to a type the current category doesn't fit (e.g. an expense
+      // category while Type is now Income) — clear it rather than silently
+      // keep filtering on a mismatched pair.
+      const stillFits = !cat || categoryKindMatches(cat.kind, type);
+      return { ...f, type, categoryId: stillFits ? f.categoryId : "" };
+    });
   }
+  const set = (patch: Partial<TransactionFilters>) => setFilters((f) => ({ ...f, ...patch }));
+  const clearFilters = () => setFilters((f) => ({ ...EMPTY_FILTERS, q: f.q }));
 
   function toggleSelect(id: string) {
     setSelectedIds((prev) => {
@@ -206,12 +161,8 @@ export function TransactionsView({
     setDeleting(true);
     try {
       const res = await apiPost<{ count: number }>("/api/transactions/bulk-delete", { ids: [...selectedIds] });
-      const skipped = count - res.count;
-      toast.success(
-        `${res.count} transaction${res.count === 1 ? "" : "s"} deleted` +
-          (skipped > 0 ? ` (${skipped} repayment${skipped === 1 ? "" : "s"} can't be deleted)` : ""),
-      );
-      exitSelectMode();
+      toast.success(`${res.count} transaction${res.count === 1 ? "" : "s"} deleted`);
+      onSelectModeChange(false);
       mutate();
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Could not delete the selected transactions");
@@ -221,125 +172,46 @@ export function TransactionsView({
   }
 
   return (
-    <div className="space-y-4">
-      {/* Search + actions */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-[200px] flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
-          <Input value={filters.q} onChange={(e) => set({ q: e.target.value })} placeholder="Search description, notes, merchant…" className="pl-9" />
-        </div>
-        <div ref={filterWrapperRef} className="relative">
-          <Button
-            variant={showFilters || activeChips.length ? "secondary" : "outline"}
-            onClick={() => setShowFilters((s) => !s)}
-            aria-haspopup="true"
-            aria-expanded={showFilters}
-          >
-            <Filter className="h-4 w-4" />
-            Filters
-            {activeChips.length > 0 && <span className="ml-1 rounded-none bg-brand px-1.5 text-2xs text-brand-fg">{activeChips.length}</span>}
-          </Button>
-
-          {/* 34rem, right-aligned to the button (the full width, less margins, on phones). */}
-          <AnchoredPopover
-            ref={filterPanelRef}
-            open={showFilters}
-            role="dialog"
-            aria-label="Filters"
-            width={544}
-            preferredHeight={560}
-            scroll="content"
-          >
-              <div className="flex items-center justify-between border-b border-border bg-brand-soft px-4 py-2.5">
-                <span className="text-sm font-semibold text-fg">Filters</span>
-                <button type="button" onClick={() => setShowFilters(false)} aria-label="Close" className="text-muted hover:text-fg">
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <FilterField label="Type">
-                    <SelectMenu
-                      value={filters.type}
-                      onChange={(type) => {
-                        setFilters((f) => {
-                          const cat = categories.find((c) => c.id === f.categoryId);
-                          // Switching to a type the current category doesn't fit (e.g.
-                          // an expense category while Type is now Income) — clear it
-                          // rather than silently keep filtering on a mismatched pair.
-                          const stillFits = !cat || categoryKindMatches(cat.kind, type);
-                          return { ...f, type, categoryId: stillFits ? f.categoryId : "" };
-                        });
-                      }}
-                      options={[{ value: "", label: "All types" }, ...TRANSACTION_TYPES.map((t) => ({ value: t, label: TYPE_LABELS[t] })), { value: "repayment", label: TYPE_LABELS.repayment }]}
-                    />
-                  </FilterField>
-                  <FilterField label="Category">
-                    <SelectMenu
-                      value={filters.categoryId}
-                      onChange={(v) => set({ categoryId: v })}
-                      options={[{ value: "", label: "All categories" }, ...eligibleCategories.map((c) => ({ value: c.id, label: c.name }))]}
-                    />
-                  </FilterField>
-                  <FilterField label="Account">
-                    <SelectMenu
-                      value={filters.accountId}
-                      onChange={(v) => set({ accountId: v })}
-                      options={[{ value: "", label: "All accounts" }, ...accounts.map((a) => ({ value: a.id, label: a.name }))]}
-                    />
-                  </FilterField>
-                  <FilterField label="Payment method">
-                    <SelectMenu
-                      value={filters.paymentMethod}
-                      onChange={(v) => set({ paymentMethod: v })}
-                      options={[{ value: "", label: "Any method" }, ...PAYMENT_METHODS.map((m) => ({ value: m, label: PAYMENT_METHOD_LABELS[m] }))]}
-                    />
-                  </FilterField>
-                  {tags.length > 0 && (
-                    <FilterField label="Tag" className="col-span-2">
-                      <SelectMenu
-                        value={filters.tag}
-                        onChange={(v) => set({ tag: v })}
-                        options={[{ value: "", label: "Any tag" }, ...tags.map((t) => ({ value: t.name, label: t.name }))]}
-                      />
-                    </FilterField>
-                  )}
-                  {/* Date and amount ranges share one labeled row each (two inputs
-                      side by side) instead of four separate label+field rows — the
-                      biggest win for vertical space on a phone-height sheet. */}
-                  <FilterField label="Date range" className="col-span-2">
-                    <div className="flex items-center gap-2">
-                      <Input type="date" aria-label="From date" value={filters.start} onChange={(e) => set({ start: e.target.value })} className="min-w-0 flex-1" />
-                      <span className="shrink-0 text-xs text-faint">to</span>
-                      <Input type="date" aria-label="To date" value={filters.end} onChange={(e) => set({ end: e.target.value })} className="min-w-0 flex-1" />
-                    </div>
-                  </FilterField>
-                  <FilterField label="Amount (₹)" className="col-span-2">
-                    <div className="flex items-center gap-2">
-                      <Input inputMode="decimal" aria-label="Min amount" value={filters.min} onChange={(e) => set({ min: e.target.value.replace(/[^0-9.]/g, "") })} placeholder="Min" className="min-w-0 flex-1" />
-                      <span className="shrink-0 text-xs text-faint">to</span>
-                      <Input inputMode="decimal" aria-label="Max amount" value={filters.max} onChange={(e) => set({ max: e.target.value.replace(/[^0-9.]/g, "") })} placeholder="Max" className="min-w-0 flex-1" />
-                    </div>
-                  </FilterField>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between gap-2 border-t border-border bg-surface-2/50 px-4 py-3">
-                <Button variant="ghost" onClick={() => setFilters(EMPTY)}>Clear all</Button>
-                <Button onClick={() => setShowFilters(false)}>Done</Button>
-              </div>
-          </AnchoredPopover>
-        </div>
-        <Button variant={selectMode ? "secondary" : "outline"} onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}>
-          <CheckSquare className="h-4 w-4" />
-          {selectMode ? "Cancel" : "Select"}
-        </Button>
+    <div className="space-y-3 md:space-y-4">
+      {/* Summary */}
+      <div className="grid grid-cols-3 divide-x divide-border rounded-lg border border-border bg-brand-soft/60 py-2.5">
+        <SummaryCell label={total === 1 ? "Transaction" : "Transactions"}>
+          <span className="tnum text-fg">{total.toLocaleString("en-IN")}</span>
+        </SummaryCell>
+        <SummaryCell label="Income"><SummaryMoney paise={totals.income} tone="income" /></SummaryCell>
+        <SummaryCell label="Expenses"><SummaryMoney paise={totals.expense} tone="expense" /></SummaryCell>
       </div>
+
+      {/* Search + filters */}
+      <div className="flex items-center gap-2">
+        <div className="relative min-w-0 flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+          <Input value={filters.q} onChange={(e) => set({ q: e.target.value })} placeholder="Search transactions…" aria-label="Search transactions" className="!h-10 !rounded-lg !py-0 !pr-2 pl-9 !text-[13px] md:!text-sm" />
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowFilters(true)}
+          aria-haspopup="dialog"
+          aria-expanded={showFilters}
+          aria-label={activeChips.length ? `Filters, ${activeChips.length} on` : "Filters"}
+          className="relative flex h-10 shrink-0 items-center gap-1.5 rounded-lg border border-border bg-surface px-3 text-[13px] font-bold text-fg transition-colors hover:bg-surface-2 md:text-sm"
+        >
+          <Filter className="h-4 w-4" />
+          Filters
+          {activeChips.length > 0 && <span aria-hidden className="absolute right-1 top-1 h-2 w-2 rounded-full bg-brand-hover" />}
+        </button>
+      </div>
+
+      <Sheet open={showFilters} onClose={closeFilters} title="Filters" bare>
+        <TransactionFiltersSheet filters={filters} count={total} onChange={set} onTypeChange={setType} onClose={closeFilters} />
+      </Sheet>
+
+      {/* Type */}
+      <TypePills value={filters.type} onChange={setType} />
 
       {/* Bulk selection toolbar */}
       {selectMode && (
-        <div className="flex flex-wrap items-center gap-3 rounded-none border border-border bg-surface-2 px-4 py-2.5 text-sm animate-fade-in">
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm animate-fade-in">
           <label className="flex items-center gap-2 text-muted">
             <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} className="h-4 w-4 accent-brand" />
             Select all
@@ -356,30 +228,26 @@ export function TransactionsView({
 
       {/* Active chips */}
       {activeChips.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {activeChips.map((chip) => (
-            <button key={chip.key} onClick={() => set({ [chip.key]: "" } as Partial<Filters>)} className="inline-flex items-center gap-1 rounded-none border border-border bg-surface-2 px-2.5 py-1 text-xs text-fg hover:bg-border/50">
-              {chip.label}
-              <X className="h-3 w-3 text-faint" />
-            </button>
-          ))}
+        <div className="flex items-start gap-3">
+          <div className="flex min-w-0 flex-1 flex-wrap gap-1.5">
+            {activeChips.map((chip) => (
+              <button key={chip.label} type="button" onClick={() => set(chip.clear)} aria-label={`Remove filter: ${chip.label}`} className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-brand-soft px-3 py-1 text-xs font-medium text-fg">
+                <span className="truncate">{chip.label}</span>
+                <X className="h-3 w-3 shrink-0" />
+              </button>
+            ))}
+          </div>
+          <button type="button" onClick={clearFilters} className="shrink-0 py-1 text-xs font-medium text-brand-hover">Clear all</button>
         </div>
       )}
 
-      {/* Summary */}
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-1 rounded-none border border-border bg-surface-2 px-4 py-2.5 text-sm">
-        <span className="text-muted">{total} transaction{total === 1 ? "" : "s"}</span>
-        <span className="flex items-center gap-1.5 text-muted">Income <Money paise={totals.income} tone="income" className="font-medium" /></span>
-        <span className="flex items-center gap-1.5 text-muted">Expense <Money paise={totals.expense} tone="expense" className="font-medium" /></span>
-      </div>
-
       {/* Results */}
       {isLoading && !data ? (
-        <div className="space-y-2 rounded-none border border-border bg-surface p-4">
+        <div className="space-y-2 rounded-lg border border-border bg-surface p-4">
           {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
         </div>
       ) : error && !data ? (
-        <div className="rounded-none border border-border bg-surface">
+        <div className="rounded-lg border border-border bg-surface">
           <EmptyState
             icon={<Search className="h-5 w-5" />}
             title="Couldn't load transactions"
@@ -388,35 +256,48 @@ export function TransactionsView({
           />
         </div>
       ) : txns.length === 0 ? (
-        <div className="rounded-none border border-border bg-surface">
+        <div className="rounded-lg border border-border bg-surface">
           <EmptyState
-            {...(activeChips.length
+            {...(!isDefaultQuery
               ? { icon: <Search className="h-5 w-5" /> }
               : { illustration: <SectionIcon section="transactions" size={56} /> })}
-            title="No transactions found" description={activeChips.length ? "Try adjusting or clearing your filters." : "Add your first transaction with the + button."} />
+            title="No transactions found" description={!isDefaultQuery ? "Try adjusting or clearing your filters." : "Add your first transaction with the + button."} />
         </div>
       ) : (
         <div className="space-y-4">
-          {grouped.map((group) => (
-            <div key={group.date} className="rounded-none border border-border bg-surface">
-              <div className="flex items-center justify-between border-b border-border px-4 py-2">
-                <span className="text-xs font-medium text-muted">{formatDate(fromISODate(group.date)!)}</span>
-                <Money paise={-group.net} tone={group.net >= 0 ? "expense" : "income"} className="text-xs font-medium" />
+          {months.map((month) => (
+            <section key={month.key} className="space-y-2.5 md:space-y-3">
+              <div className="flex items-baseline justify-between gap-3 px-0.5">
+                <h2 className="text-label-lg uppercase tracking-[0.06em] text-fg">{month.label}</h2>
+                <div className="flex gap-3 text-[13px] font-medium">
+                  {(monthTotals[month.key]?.income ?? 0) > 0 && <Money paise={monthTotals[month.key].income} tone="income" sign />}
+                  {(monthTotals[month.key]?.expense ?? 0) > 0 && <Money paise={-monthTotals[month.key].expense} tone="expense" />}
+                </div>
               </div>
-              <div className="divide-y divide-border px-2 py-1">
-                {group.items.map((t) => (
-                  <TransactionRow
-                    key={t.id}
-                    txn={t}
-                    showDate={false}
-                    onChanged={() => mutate()}
-                    selectMode={selectMode}
-                    selected={selectedIds.has(t.id)}
-                    onToggleSelect={toggleSelect}
-                  />
-                ))}
-              </div>
-            </div>
+              {month.days.map((group) => (
+                // The border is a layer over the card, not around it: the header's tint runs
+                // underneath, so no pale fringe shows where the two curve together.
+                <div key={group.date} className="relative rounded-lg bg-surface after:pointer-events-none after:absolute after:inset-0 after:rounded-lg after:border after:border-border">
+                  <div className={cn("flex items-center justify-between rounded-t-lg border-b border-border px-3.5 py-1 md:px-4 md:py-2", group.net > 0 ? "bg-brand-soft/60" : "bg-surface-2")}>
+                    <span className="text-xs font-medium text-fg">{formatDate(fromISODate(group.date)!)}</span>
+                    <Money paise={-group.net} tone={group.net > 0 ? "expense" : group.net < 0 ? "income" : "muted"} sign className="text-xs font-semibold" />
+                  </div>
+                  <div className="divide-y divide-border-faint px-1.5 md:px-2 md:py-0.5">
+                    {group.items.map((t) => (
+                      <TransactionRow
+                        key={t.id}
+                        txn={t}
+                        showDate={false}
+                        onChanged={() => mutate()}
+                        selectMode={selectMode}
+                        selected={selectedIds.has(t.id)}
+                        onToggleSelect={toggleSelect}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </section>
           ))}
           {total > txns.length && (
             <div className="flex justify-center">
@@ -429,21 +310,19 @@ export function TransactionsView({
   );
 }
 
-function FilterField({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
+/** One figure in the summary card, over its label; shrinks to fit a narrow phone. */
+function SummaryCell({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className={cn("space-y-1", className)}>
-      <label className="block text-xs font-medium text-muted">{label}</label>
-      {children}
+    <div className="min-w-0 px-3 [container-type:inline-size] md:px-5">
+      <p className="truncate whitespace-nowrap text-[clamp(0.8rem,16cqi,1.5rem)] font-bold leading-tight tracking-tight">{children}</p>
+      <p className="mt-0.5 truncate text-[10px] uppercase leading-4 tracking-[0.04em] text-muted md:text-label-sm">{label}</p>
     </div>
   );
 }
 
-/** Whether a category's kind is a sensible filter option for a transaction type. */
-function categoryKindMatches(kind: string, type: string): boolean {
-  if (type === "transfer" || type === "repayment") return false; // these never carry a category
-  if (type === "income") return kind === "income" || kind === "both";
-  if (type === "expense") return kind === "expense" || kind === "both";
-  return true; // "" = all types — no restriction
+/** Whole rupees, and ₹1.2Cr-style from a crore up, where the full figure can't fit. */
+function SummaryMoney({ paise, tone }: { paise: number; tone: "income" | "expense" }) {
+  return <Money paise={paise} tone={tone} decimals="never" compact={paise >= 1_000_000_000} />;
 }
 
 interface DayGroup { date: string; items: TransactionDTO[]; net: number }
@@ -453,22 +332,47 @@ function groupByDay(txns: TransactionDTO[]): DayGroup[] {
     let g = map.get(t.date);
     if (!g) { g = { date: t.date, items: [], net: 0 }; map.set(t.date, g); }
     g.items.push(t);
-    if (t.type === "expense") g.net += ownAmountOf(t);
+    if (t.type === "expense") g.net += t.amount;
     else if (t.type === "income") g.net -= t.amount;
   }
   return [...map.values()];
 }
 
-function buildChips(filters: Filters, lookups: { categories: { id: string; name: string }[]; accounts: { id: string; name: string }[] }) {
-  const chips: { key: keyof Filters; label: string }[] = [];
-  if (filters.type) chips.push({ key: "type", label: TYPE_LABELS[filters.type as keyof typeof TYPE_LABELS] ?? filters.type });
-  if (filters.categoryId) chips.push({ key: "categoryId", label: lookups.categories.find((c) => c.id === filters.categoryId)?.name ?? "Category" });
-  if (filters.accountId) chips.push({ key: "accountId", label: lookups.accounts.find((a) => a.id === filters.accountId)?.name ?? "Account" });
-  if (filters.paymentMethod) chips.push({ key: "paymentMethod", label: formatPaymentMethod(filters.paymentMethod) });
-  if (filters.tag) chips.push({ key: "tag", label: `#${filters.tag}` });
-  if (filters.start) chips.push({ key: "start", label: `From ${filters.start}` });
-  if (filters.end) chips.push({ key: "end", label: `To ${filters.end}` });
-  if (filters.min) chips.push({ key: "min", label: `≥ ₹${filters.min}` });
-  if (filters.max) chips.push({ key: "max", label: `≤ ₹${filters.max}` });
+interface MonthGroup { key: string; label: string; days: DayGroup[] }
+/** Days are newest first, so a month's days are always next to each other. */
+function groupByMonth(days: DayGroup[]): MonthGroup[] {
+  const months: MonthGroup[] = [];
+  for (const day of days) {
+    const key = day.date.slice(0, 7);
+    let month = months[months.length - 1];
+    if (month?.key !== key) {
+      const [year, m] = key.split("-").map(Number);
+      month = { key, label: monthLabel({ year, month: m }, { short: true }), days: [] };
+      months.push(month);
+    }
+    month.days.push(day);
+  }
+  return months;
+}
+
+function buildChips(filters: TransactionFilters, lookups: { categories: { id: string; name: string }[]; accounts: { id: string; name: string }[] }) {
+  const chips: { label: string; clear: Partial<TransactionFilters> }[] = [];
+  if (filters.categoryId) chips.push({ label: lookups.categories.find((c) => c.id === filters.categoryId)?.name ?? "Category", clear: { categoryId: "" } });
+  if (filters.accountId) chips.push({ label: lookups.accounts.find((a) => a.id === filters.accountId)?.name ?? "Account", clear: { accountId: "" } });
+  if (filters.tag) chips.push({ label: `#${filters.tag}`, clear: { tag: "" } });
+  const preset = matchingPreset(filters, new Date());
+  const month = wholeMonth(filters);
+  if (preset) {
+    chips.push({ label: preset.label, clear: { start: "", end: "" } });
+  } else if (month) {
+    chips.push({ label: monthLabel(month), clear: { start: "", end: "" } });
+  } else {
+    if (filters.start) chips.push({ label: `From ${filters.start}`, clear: { start: "" } });
+    if (filters.end) chips.push({ label: `To ${filters.end}`, clear: { end: "" } });
+  }
+  if (filters.min) chips.push({ label: `≥ ₹${filters.min}`, clear: { min: "" } });
+  if (filters.max) chips.push({ label: `≤ ₹${filters.max}`, clear: { max: "" } });
+  if (filters.hasNotes) chips.push({ label: "With notes", clear: { hasNotes: "" } });
+  if (filters.recurring) chips.push({ label: "Recurring", clear: { recurring: "" } });
   return chips;
 }

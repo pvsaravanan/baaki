@@ -1,12 +1,12 @@
 import {
-  AlertTriangle, ArrowDownRight, ArrowLeftRight, ArrowUpRight, Banknote, Briefcase,
-  Building2, Calendar, CreditCard, Flame, Gauge, GraduationCap, Home, Landmark,
-  LayoutDashboard, PiggyBank, PieChart, Plane, Plus, PlusCircle, Receipt, Repeat,
-  Settings, ShoppingBag, Smartphone, Tag, Target, TrendingDown, TrendingUp, Wallet,
+  ArrowLeftRight, Banknote, Briefcase,
+  Building2, Calendar, CreditCard, GraduationCap, Home, Landmark,
+  LayoutDashboard, PiggyBank, Plane, Plus, PlusCircle, Receipt, Repeat,
+  Settings, ShoppingBag, Smartphone, Tag, Target, Wallet,
   type LucideIcon,
 } from "lucide-react";
 
-/** Named line-icon registry for accounts, goals, insights and UI. Categories use CategoryIcon. */
+/** Named line-icon registry for accounts and UI. Categories use CategoryIcon. */
 const ICONS: Record<string, LucideIcon> = {
   home: Home,
   "graduation-cap": GraduationCap,
@@ -17,8 +17,6 @@ const ICONS: Record<string, LucideIcon> = {
   landmark: Landmark,
   wallet: Wallet,
   briefcase: Briefcase,
-  "trending-up": TrendingUp,
-  "trending-down": TrendingDown,
   "plus-circle": PlusCircle,
   tag: Tag,
   target: Target,
@@ -27,14 +25,8 @@ const ICONS: Record<string, LucideIcon> = {
   building: Building2,
   smartphone: Smartphone,
   "piggy-bank": PiggyBank,
-  // insight + ui icons
-  "pie-chart": PieChart,
-  "arrow-up-right": ArrowUpRight,
-  "arrow-down-right": ArrowDownRight,
+  // ui icons
   "arrow-left-right": ArrowLeftRight,
-  flame: Flame,
-  gauge: Gauge,
-  "alert-triangle": AlertTriangle,
   calendar: Calendar,
   dashboard: LayoutDashboard,
   settings: Settings,

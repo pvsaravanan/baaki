@@ -66,7 +66,7 @@ export function DataSection() {
         <ActionRow
           icon={<Database className="h-5 w-5" aria-hidden />}
           title="Full backup"
-          description="Everything — accounts, transactions, budgets, goals, people and splits — as one JSON file."
+          description="Everything — accounts, transactions and budgets — as one JSON file."
           onClick={handleBackupDownload}
           busy={downloadingBackup}
           trailing={<Download className="h-4 w-4" aria-hidden />}

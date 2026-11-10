@@ -11,7 +11,7 @@ import { cn } from "@/lib/cn";
 const TABS = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard },
   { href: "/transactions", label: "Transactions", icon: ArrowLeftRight },
-  { href: "/budgets", label: "Budgets", icon: PieChart },
+  { href: "/reports", label: "Reports", icon: PieChart },
 ];
 
 export function BottomNav() {
@@ -31,7 +31,7 @@ export function BottomNav() {
             <button
               onClick={() => openAdd()}
               aria-label="Add transaction"
-              className="-mt-5 flex h-13 w-13 items-center justify-center rounded-none border-2 border-border bg-brand text-brand-fg shadow-stamp transition-all hover:shadow-stamp-lg active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
+              className="flex h-10 w-10 items-center justify-center rounded-none border-2 border-border bg-brand text-brand-fg shadow-stamp transition-all hover:shadow-stamp-lg active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
             >
               <Plus className="h-6 w-6" strokeWidth={2.5} />
             </button>
@@ -40,8 +40,8 @@ export function BottomNav() {
           <button
             onClick={() => setMoreOpen(true)}
             className={cn(
-              "flex min-h-[44px] flex-col items-center justify-center gap-1 py-1.5 text-label-sm uppercase active:opacity-70",
-              moreOpen ? "text-brand-hover" : "text-muted",
+              "flex min-h-[44px] flex-col items-center justify-center gap-1 py-1.5 text-[10px] font-bold uppercase leading-[14px] tracking-[0.02em] active:opacity-70",
+              moreOpen ? "text-brand-hover" : "text-fg",
             )}
           >
             <MoreHorizontal className="h-5 w-5" />
@@ -87,7 +87,7 @@ function Tab({ href, label, icon: Icon, active }: { href: string; label: string;
   return (
     <Link
       href={href}
-      className={cn("flex flex-col items-center gap-1 py-2 text-label-sm uppercase", active ? "text-brand-hover" : "text-muted")}
+      className={cn("flex flex-col items-center gap-1 py-1.5 text-[10px] font-bold uppercase leading-[14px] tracking-[0.02em]", active ? "text-brand-hover" : "text-fg")}
     >
       <Icon className="h-5 w-5" strokeWidth={active ? 2.4 : 2} />
       {label}

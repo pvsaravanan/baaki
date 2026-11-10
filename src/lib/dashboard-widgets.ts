@@ -10,20 +10,26 @@ export const DASHBOARD_WIDGETS = [
   { key: "net_savings", label: "Net savings", kind: "tile" },
   { key: "savings_rate", label: "Savings rate", kind: "tile" },
   { key: "budget_left", label: "Budget left", kind: "tile" },
+  { key: "spending_categories", label: "Spending by category", kind: "card" },
+  { key: "recent_transactions", label: "Recent transactions", kind: "card" },
   { key: "income_vs_expenses", label: "Income vs expenses", kind: "card" },
   { key: "spending_calendar", label: "Spending calendar", kind: "card" },
-  { key: "recent_transactions", label: "Recent transactions", kind: "card" },
-  { key: "spending_categories", label: "Spending by category", kind: "card" },
   { key: "budget_progress", label: "Budget", kind: "card" },
   { key: "upcoming_recurring", label: "Upcoming payments", kind: "card" },
-  { key: "financial_goals", label: "Goals", kind: "card" },
-  { key: "insights", label: "Insights", kind: "card" },
 ] as const;
 
 export type WidgetKey = (typeof DASHBOARD_WIDGETS)[number]["key"];
 export type WidgetKind = "tile" | "card";
 
-export const DEFAULT_DASHBOARD_WIDGETS: WidgetKey[] = DASHBOARD_WIDGETS.map((w) => w.key);
+/** What a new profile shows: the balance, the three summaries, where the money went, and the latest entries. */
+export const DEFAULT_DASHBOARD_WIDGETS: WidgetKey[] = [
+  "balance",
+  "income",
+  "expenses",
+  "net_savings",
+  "spending_categories",
+  "recent_transactions",
+];
 
 const BY_KEY = new Map<string, (typeof DASHBOARD_WIDGETS)[number]>(DASHBOARD_WIDGETS.map((w) => [w.key, w]));
 

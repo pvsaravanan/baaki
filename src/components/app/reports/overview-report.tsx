@@ -1,11 +1,11 @@
 "use client";
-import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { Card, CardBody, CardHeader } from "./report-card";
 import { EmptyState } from "@/components/ui/misc";
 import { StatCard } from "@/components/app/stat-card";
 import { SectionIcon } from "@/components/app/section-icon";
 import { IncomeExpenseBars, TrendArea } from "@/components/charts/chart-kit";
 import { formatPercent } from "@/lib/money";
-import { dailySeries, Tile, type ReportsAnalytics } from "./shared";
+import { dailySeries, lastSixMonths, Tile, type ReportsAnalytics } from "./shared";
 
 export function OverviewReport({ a, label }: { a: ReportsAnalytics; label: string }) {
   return (
@@ -20,14 +20,14 @@ export function OverviewReport({ a, label }: { a: ReportsAnalytics; label: strin
       </div>
 
       <Card>
-        <CardHeader title="Income vs expenses" subtitle="Last 6 months" />
+        <CardHeader title="Income vs Expenses" subtitle="Last 6 months" />
         <CardBody className="pt-2">
-          <IncomeExpenseBars data={a.incomeExpenseTrend} />
+          <IncomeExpenseBars data={lastSixMonths(a)} rounded />
         </CardBody>
       </Card>
 
       <Card>
-        <CardHeader title="Daily spending" subtitle={label} />
+        <CardHeader title="Daily Spending" subtitle={label} />
         <CardBody className="pt-2">
           {a.transactionCount === 0 ? (
             <EmptyState illustration={<SectionIcon section="reports" size={56} />} title="No activity this period" description="Charts appear once you record transactions." />

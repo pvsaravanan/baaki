@@ -22,11 +22,14 @@ const KIND_LABELS: Record<CategoryKind, string> = {
 
 export function CategoryForm({
   initial,
+  defaultKind = "expense",
   onSaved,
   onCancel,
   onBusyChange,
 }: {
   initial: CategoryDTO | null;
+  /** The kind a new category starts on. */
+  defaultKind?: CategoryKind;
   onSaved: (categories: CategoryDTO[]) => void;
   onCancel: () => void;
   onBusyChange?: (busy: boolean) => void;
@@ -34,7 +37,7 @@ export function CategoryForm({
   const editing = !!initial;
   const { categories } = useAppData();
   const [name, setName] = useState(initial?.name ?? "");
-  const [kind, setKind] = useState<CategoryKind>(initial?.kind ?? "expense");
+  const [kind, setKind] = useState<CategoryKind>(initial?.kind ?? defaultKind);
   const [icon, setIcon] = useState<string>(resolveCategoryIcon(initial?.icon));
   // A new category starts on the palette colour fewest categories use.
   const [color, setColor] = useState(() => initial?.color ?? leastUsedColor(categories.map((c) => c.color)));

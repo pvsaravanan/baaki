@@ -17,12 +17,14 @@ export function Modal({
   footer,
   size = "md",
   busy = false,
+  fullScreen = false,
 }: {
   open: boolean;
   onClose: () => void;
   title?: string;
   description?: string;
-  children: React.ReactNode;
+  /** Left out (a confirmation), the header's message sits right above the footer. */
+  children?: React.ReactNode;
   footer?: React.ReactNode;
   size?: "sm" | "md" | "lg";
   /**
@@ -32,6 +34,11 @@ export function Modal({
    * mutation complete anyway after the user believed they'd cancelled.
    */
   busy?: boolean;
+  /**
+   * The children are the whole screen on small screens (a tall card on sm+) and
+   * draw their own header and footer; `title` only names the dialog.
+   */
+  fullScreen?: boolean;
 }) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -137,6 +144,7 @@ export function Modal({
   if (!open || typeof document === "undefined") return null;
 
   const maxW = size === "sm" ? "sm:max-w-sm" : size === "lg" ? "sm:max-w-2xl" : "sm:max-w-lg";
+  const hasContent = children != null && children !== false;
 
   return createPortal(
     <div
@@ -150,14 +158,14 @@ export function Modal({
       <div
         ref={panelRef}
         className={cn(
-          "relative z-10 flex max-h-[92vh] w-full flex-col overflow-hidden bg-surface shadow-pop",
-          "rounded-none border-2 border-border animate-sheet-up",
+          "relative z-10 flex w-full flex-col overflow-hidden bg-surface shadow-pop",
+          "rounded-none border-border animate-sheet-up",
           "sm:rounded-none sm:shadow-stamp-lg sm:animate-scale-in",
-          maxW,
+          fullScreen ? "h-full sm:h-[min(820px,92vh)] sm:max-w-md sm:border-2" : cn("max-h-[92vh] border-2", maxW),
         )}
       >
-        {(title || description) && (
-          <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
+        {!fullScreen && (title || description) && (
+          <div className={cn("flex items-start justify-between gap-3 px-5 py-4", hasContent && "border-b border-border")}>
             <div className="min-w-0">
               {title && <h2 className="text-base font-semibold text-fg">{title}</h2>}
               {description && <p className="mt-0.5 text-sm text-muted">{description}</p>}
@@ -172,16 +180,19 @@ export function Modal({
             </button>
           </div>
         )}
-        <div
-          ref={contentRef}
-          // Without a footer the content is the panel's bottom edge, so it clears the system navigation bar itself.
-          className={cn(
-            "flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5",
-            !footer && "pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-4",
-          )}
-        >
-          {children}
-        </div>
+        {hasContent && (
+          <div
+            ref={contentRef}
+            // Without a footer the content is the panel's bottom edge, so it clears the system navigation bar itself.
+            className={cn(
+              "flex-1 overflow-y-auto overscroll-contain",
+              !fullScreen && "px-4 py-4 sm:px-5",
+              !fullScreen && !footer && "pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-4",
+            )}
+          >
+            {children}
+          </div>
+        )}
         {footer && (
           <div className="border-t border-border bg-surface-2/50 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-5 sm:pb-3">
             {footer}

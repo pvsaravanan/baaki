@@ -39,7 +39,7 @@ export function Field({
 
 // Flat, square, utilitarian — the same language as cards. 13px/16px padding.
 // 16px minimum text size on mobile prevents iOS Safari auto-zooming the viewport on focus.
-const base =
+export const INPUT_BASE =
   "w-full rounded-none border bg-surface px-4 py-3 text-[16px] sm:text-body-md text-fg placeholder:text-faint transition-colors focus:outline-none focus:ring-2 focus:ring-ring/25 disabled:cursor-not-allowed disabled:opacity-60";
 
 export const Input = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean }>(
@@ -47,7 +47,7 @@ export const Input = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTML
     return (
       <input
         ref={ref}
-        className={cn(base, invalid ? "border-expense focus:border-expense" : "border-border focus:border-brand", className)}
+        className={cn(INPUT_BASE, invalid ? "border-expense focus:border-expense" : "border-border focus:border-brand", className)}
         {...props}
       />
     );
@@ -80,7 +80,7 @@ export const Select = forwardRef<
     <select
       ref={ref}
       className={cn(
-        base,
+        INPUT_BASE,
         "cursor-pointer appearance-none bg-[right_0.9rem_center] bg-no-repeat pr-10",
         invalid ? "border-expense" : "border-border focus:border-brand",
         className,
