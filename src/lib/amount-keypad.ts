@@ -3,7 +3,7 @@ import { formatINR, groupIndian, toPaise } from "./money";
 
 export const OPERATORS = ["+", "−", "×", "÷"] as const;
 export type AmountOperator = (typeof OPERATORS)[number];
-export type AmountKey = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "." | "backspace" | AmountOperator;
+export type AmountKey = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "." | "backspace" | "=" | AmountOperator;
 
 /** Keeps a sum short enough to read on one or two lines. */
 const MAX_LENGTH = 40;
@@ -16,9 +16,11 @@ const endsWithOperator = (expression: string) => OPERATOR.test(expression.slice(
  * The expression after pressing a keypad key. A key that would make it invalid
  * (a second dot in a number, a third decimal, a number larger than the app can
  * store) leaves it unchanged. A second operator in a row replaces the first.
+ * "=" works the sum out and leaves just the result, to carry on from.
  */
 export function pressAmountKey(expression: string, key: AmountKey): string {
   if (key === "backspace") return expression.slice(0, -1);
+  if (key === "=") return solveAmount(expression);
   if (expression.length >= MAX_LENGTH) return expression;
 
   if ((OPERATORS as readonly string[]).includes(key)) {
@@ -37,6 +39,20 @@ export function pressAmountKey(expression: string, key: AmountKey): string {
   if (decimals !== undefined && decimals.length >= 2) return expression;
   const next = number === "0" ? key : number + key;
   return toPaise(next) > MAX_PAISE ? expression : before + next;
+}
+
+/**
+ * A sum's result as a plain number to type on from ("178", "178.5", "178.05"),
+ * or the sum itself when there is nothing to work out or it has no result
+ * (divide by zero, below ₹0, too large: the problem stays on show).
+ */
+function solveAmount(expression: string): string {
+  if (!hasOperator(expression)) return expression;
+  const { paise, problem } = evaluateAmount(expression);
+  if (problem) return expression;
+  const rupees = Math.floor(paise / 100);
+  const rest = paise % 100;
+  return rest === 0 ? String(rupees) : `${rupees}.${String(rest).padStart(2, "0").replace(/0$/, "")}`;
 }
 
 export function hasOperator(expression: string): boolean {

@@ -63,6 +63,55 @@ describe("pressAmountKey with operators", () => {
   });
 });
 
+describe("pressAmountKey with =", () => {
+  it("works the sum out and leaves just the result, with × and ÷ first", () => {
+    expect(press(["2", "5", "0", "−", "3", "6", "×", "2", "="])).toBe("178");
+    expect(press(["1", "0", "+", "5", "×", "2", "="])).toBe("20");
+  });
+
+  it("keeps the paise, without a pointless trailing zero", () => {
+    expect(press(["1", "2", "÷", "8", "="])).toBe("1.5"); // ₹1.50
+    expect(press(["1", "0", "0", "÷", "8", "="])).toBe("12.5");
+    expect(press(["1", ".", "0", "5", "+", "2", "="])).toBe("3.05");
+    expect(press(["0", ".", "1", "+", "0", ".", "2", "="])).toBe("0.3"); // no float error
+  });
+
+  it("rounds to the paisa, as the amount does", () => {
+    expect(press(["1", "0", "0", "÷", "3", "="])).toBe("33.33");
+    expect(press(["2", "0", "0", "÷", "3", "="])).toBe("66.67");
+  });
+
+  it("ignores a trailing operator, as the amount does", () => {
+    expect(press(["1", "2", "+", "="])).toBe("12");
+  });
+
+  it("does nothing when there is no sum to work out", () => {
+    expect(press(["="])).toBe("");
+    expect(press(["4", "2", "="])).toBe("42");
+    expect(press(["4", ".", "="])).toBe("4.");
+  });
+
+  it("leaves a sum alone when it has no result, so the problem stays on show", () => {
+    expect(press(["1", "0", "÷", "0", "="])).toBe("10÷0");
+    expect(press(["5", "−", "9", "="])).toBe("5−9");
+    expect(press(["9", "9", "9", "9", "9", "9", "9", "×", "9", "9", "9", "9", "9", "9", "9", "="])).toBe("9999999×9999999");
+  });
+
+  it("gives 0 for a sum that comes to nothing, and the result can be typed on from", () => {
+    expect(press(["5", "−", "5", "="])).toBe("0");
+    expect(press(["1", "0", "+", "5", "=", "2"])).toBe("152");
+    expect(press(["1", "0", "+", "5", "=", "+", "1", "="])).toBe("16");
+  });
+
+  it("gives back a result the keypad's own rules would allow", () => {
+    for (const sum of [["9", "9", "9", "9", "9", "9", "9", "+", "1", "="], ["1", "÷", "3", "×", "3", "="]] as AmountKey[][]) {
+      const result = press(sum);
+      expect(evaluateAmount(result).problem).toBeNull();
+      expect(result.split(".")[1]?.length ?? 0).toBeLessThanOrEqual(2);
+    }
+  });
+});
+
 describe("evaluateAmount", () => {
   const paise = (expression: string) => evaluateAmount(expression).paise;
 

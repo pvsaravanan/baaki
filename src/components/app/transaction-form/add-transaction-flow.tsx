@@ -55,15 +55,16 @@ import { TYPE_OPTIONS } from "./types";
 import { equalShare, isEqualSplit, type SplitMode } from "@/lib/split";
 
 const TYPE_ICONS = { expense: ArrowDownRight, income: ArrowUpRight, transfer: ArrowLeftRight };
-const KEYS: AmountKey[] = ["1", "2", "3", "÷", "4", "5", "6", "×", "7", "8", "9", "−", ".", "0", "backspace", "+"];
+const KEYS: AmountKey[] = ["1", "2", "3", "÷", "4", "5", "6", "×", "7", "8", "9", "−", ".", "0", "backspace", "+", "="];
 const KEY_LABELS: Partial<Record<AmountKey, string>> = {
   backspace: "Delete last digit",
   "+": "Add",
   "−": "Subtract",
   "×": "Multiply",
   "÷": "Divide",
+  "=": "Equals: work out the sum",
 };
-/** What a computer keyboard types for each operator. */
+/** What a computer keyboard types for each operator ("=" is handled on its own). */
 const KEYBOARD_OPERATORS: Record<string, AmountOperator> = { "+": "+", "-": "−", "−": "−", "*": "×", x: "×", X: "×", "×": "×", "/": "÷", "÷": "÷" };
 const ROW = "flex w-full items-center gap-3 rounded-lg border bg-surface px-3.5 py-3 text-left text-body-sm transition-colors";
 
@@ -449,6 +450,9 @@ function AmountStep({
       if (/^[0-9.]$/.test(e.key)) {
         e.preventDefault();
         onAmount((prev) => pressAmountKey(prev, e.key as AmountKey));
+      } else if (e.key === "=") {
+        e.preventDefault();
+        onAmount((prev) => pressAmountKey(prev, "="));
       } else if (KEYBOARD_OPERATORS[e.key]) {
         e.preventDefault();
         onAmount((prev) => pressAmountKey(prev, KEYBOARD_OPERATORS[e.key]));
@@ -562,10 +566,13 @@ function AmountStep({
               key={key}
               type="button"
               aria-label={KEY_LABELS[key]}
+              // "=" has a sum to work out only once there is an operator in it.
+              disabled={key === "=" && !isSum}
               onClick={() => onAmount((prev) => pressAmountKey(prev, key))}
               className={cn(
-                "flex h-[60px] items-center justify-center rounded-lg border border-border/20 text-headline-md text-fg transition-colors active:bg-brand-soft",
-                key === "backspace" ? "bg-surface-2" : (OPERATORS as readonly string[]).includes(key) ? "bg-brand-soft/60" : "bg-surface",
+                "flex h-[60px] items-center justify-center rounded-lg border border-border/20 text-headline-md text-fg transition-colors active:bg-brand-soft disabled:opacity-40",
+                key === "=" && "col-span-4",
+                key === "backspace" ? "bg-surface-2" : key === "=" || (OPERATORS as readonly string[]).includes(key) ? "bg-brand-soft/60" : "bg-surface",
               )}
             >
               {key === "backspace" ? <Delete className="h-6 w-6" /> : key}
