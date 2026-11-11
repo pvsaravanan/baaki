@@ -1,6 +1,7 @@
 export const SWATCHES = [
-  "#0d9488", "#6366f1", "#f97316", "#84cc16", "#06b6d4",
-  "#ef4444", "#ec4899", "#a855f7", "#f59e0b", "#64748b",
+  // The same warm, muted tones the categories use (see lib/category-colors).
+  "#d88060", "#8c5a3c", "#c9942f", "#7d8c4a", "#3f7d6e",
+  "#4a6785", "#6d5b8c", "#a4566e", "#b84b3a", "#6b6b63",
 ];
 
 // Sentinel for "my bank isn't in the list" — falls back to a plain, manually

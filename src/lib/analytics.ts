@@ -76,7 +76,7 @@ function toRows(txns: CalcTxn[], categories: Map<string, CategoryDTO>): Category
     return {
       categoryId: c.categoryId,
       name: meta?.name ?? "Uncategorized",
-      color: meta?.color ?? "#94a3b8",
+      color: meta?.color ?? "#8a8578",
       icon: meta?.icon ?? DEFAULT_CATEGORY_ICON,
       expense: c.expense,
       net: c.net,
@@ -180,7 +180,7 @@ export async function getMonthlyAnalytics(
     return {
       categoryId: bc.categoryId,
       name: meta?.name ?? "Category",
-      color: meta?.color ?? "#94a3b8",
+      color: meta?.color ?? "#8a8578",
       icon: meta?.icon ?? DEFAULT_CATEGORY_ICON,
       limit: bc.limit,
       spent,

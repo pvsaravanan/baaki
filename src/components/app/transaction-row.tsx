@@ -90,8 +90,8 @@ export function TransactionRow({
   ].filter(Boolean);
 
   const badgeColor = isTransfer
-    ? "#64748b"
-    : cat?.color ?? (txn.type === "income" ? "#2c6b4f" : "#64748b");
+    ? "#8a8578"
+    : cat?.color ?? (txn.type === "income" ? "#2c6b4f" : "#8a8578");
 
   // Transfers keep a plain ⇆ symbol (money moving between your own accounts);
   // everything else shows an illustration — its category's, or one for its

@@ -74,10 +74,10 @@ export async function provisionUserProfile(input: { email: string; name: string 
     });
 
     const bank = await db.account.create({
-      data: { userId: user.id, name: "Primary Bank", type: "bank", icon: "payment", color: "#0d9488", sortOrder: 0 },
+      data: { userId: user.id, name: "Primary Bank", type: "bank", icon: "payment", color: "#3f7d6e", sortOrder: 0 },
     });
     await db.account.create({
-      data: { userId: user.id, name: "Cash", type: "cash", icon: "dollars", color: "#f59e0b", sortOrder: 1 },
+      data: { userId: user.id, name: "Cash", type: "cash", icon: "dollars", color: "#c9942f", sortOrder: 1 },
     });
 
     await db.userPreference.create({

@@ -110,7 +110,7 @@ export const accountSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(80),
   type: z.string().trim().min(1, "Type is required").max(60),
   openingBalance: paise.default(0),
-  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default("#0d9488"),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default("#3f7d6e"),
   icon: z.string().max(40).default("wallet"),
   /** Only sent to bring an archived account back (deleting one that has transactions archives it). */
   isArchived: z.boolean().optional(),
