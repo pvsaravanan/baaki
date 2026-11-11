@@ -149,8 +149,8 @@ export function CategoriesView({
         open={formOpen}
         onClose={() => setFormOpen(false)}
         title={editing ? "Edit category" : "Add category"}
-        description={editing ? undefined : "Name it, pick a kind, and optionally set a monthly budget."}
         busy={busy}
+        fullScreen
       >
         <CategoryForm
           key={editing?.id ?? "new"}

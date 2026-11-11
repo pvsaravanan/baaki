@@ -70,7 +70,7 @@ export function CategoryActions({ category }: { category: CategoryDTO }) {
         </Button>
       </div>
 
-      <Modal open={editOpen} onClose={() => setEditOpen(false)} title="Edit category" busy={busy}>
+      <Modal open={editOpen} onClose={() => setEditOpen(false)} title="Edit category" busy={busy} fullScreen>
         <CategoryForm
           key={category.id}
           initial={category}

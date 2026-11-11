@@ -99,7 +99,7 @@ export function QuickCategoryModal({
     >
       <form onSubmit={handleCreate} className="space-y-4">
         {error && (
-          <div className="rounded-none border border-expense/30 bg-expense/10 px-3 py-2 text-xs text-expense">
+          <div className="rounded-xl border border-expense/30 bg-expense/10 px-3 py-2 text-xs text-expense">
             {error}
           </div>
         )}
@@ -125,14 +125,14 @@ export function QuickCategoryModal({
         </Field>
 
         <div>
-          <label className="block text-label-sm uppercase text-muted">Icon</label>
+          <label className="block text-sm font-bold text-fg">Icon</label>
           <div className="mt-1.5">
             <CategoryIconPicker value={icon} onChange={setIcon} />
           </div>
         </div>
 
         <div>
-          <label className="block text-label-sm uppercase text-muted">Colour</label>
+          <label className="block text-sm font-bold text-fg">Colour</label>
           <div className="mt-1.5">
             <CategoryColorPicker value={color} onChange={setColor} />
           </div>

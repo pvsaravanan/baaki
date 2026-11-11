@@ -1,8 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
+import { ArrowLeft, Power, Tag, Target } from "lucide-react";
+import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui/button";
-import { Field, Input } from "@/components/ui/field";
-import { SelectMenu } from "@/components/ui/select-menu";
 import { Switch } from "@/components/ui/switch";
 import { useAppData } from "./app-data";
 import { ApiError, apiPatch, apiPost } from "@/lib/http";
@@ -13,6 +13,8 @@ import { CategoryColorPicker } from "./category-color-picker";
 import type { CategoryDTO } from "@/lib/types";
 import { resolveCategoryIcon } from "@/lib/category-icons";
 import { CategoryIconPicker } from "./category-icon-picker";
+
+const CARD = "rounded-xl border";
 
 const KIND_LABELS: Record<CategoryKind, string> = {
   expense: "Expense",
@@ -92,80 +94,131 @@ export function CategoryForm({
     }
   }
 
+  const heading = editing ? "Edit Category" : "Add Category";
+
   return (
-    <form onSubmit={onSubmit} className="space-y-4" noValidate>
-      {formError && (
-        <div className="rounded-none border border-expense/30 bg-expense/10 px-3 py-2 text-sm text-expense">
-          {formError}
+    <form onSubmit={onSubmit} className="flex min-h-full flex-col" noValidate>
+      <div className="flex-1 space-y-3 px-4 pb-4 pt-[calc(0.75rem+env(safe-area-inset-top))] sm:pt-4">
+        <header>
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={saving}
+            aria-label="Back"
+            className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl border border-border text-fg transition-colors active:bg-surface-2 disabled:opacity-50"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <h2 className="text-headline-md text-fg">{heading}</h2>
+          <p className="mt-1 text-body-sm text-muted">
+            {editing ? "Change its name, icon, colour or budget." : "Name it, pick a kind, and optionally set a monthly budget."}
+          </p>
+        </header>
+
+        {formError && (
+          <p role="alert" className="rounded-lg border border-expense/30 bg-expense/10 px-3 py-2 text-body-sm text-expense">
+            {formError}
+          </p>
+        )}
+
+        <div role="radiogroup" aria-label="Kind" className="flex gap-2">
+          {CATEGORY_KINDS.map((k) => (
+            <button
+              key={k}
+              type="button"
+              role="radio"
+              aria-checked={kind === k}
+              onClick={() => setKind(k)}
+              className={cn(
+                "flex h-11 min-w-0 flex-1 items-center justify-center rounded-full border border-border text-[13px] font-bold transition-colors",
+                kind === k ? "bg-brand text-brand-fg" : "text-fg",
+              )}
+            >
+              {KIND_LABELS[k]}
+            </button>
+          ))}
         </div>
-      )}
 
-      <Field
-        label="Name"
-        htmlFor="cat-name"
-        error={errors.name}
-        required
-      >
-        <Input
-          id="cat-name"
-          value={name}
-          invalid={!!errors.name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Groceries, Freelance"
-        />
-      </Field>
+        <div>
+          <label className={cn(CARD, "flex items-center gap-2.5 px-3 py-2.5 focus-within:border-brand", errors.name ? "border-expense" : "border-border")}>
+            <span className="flex w-8 shrink-0 justify-center text-fg">
+              <Tag aria-hidden className="h-6 w-6" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-bold text-fg">
+                Name<span aria-hidden className="ml-0.5 text-expense">*</span>
+              </span>
+              <input
+                id="cat-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                maxLength={60}
+                aria-invalid={!!errors.name}
+                placeholder="e.g. Groceries, Freelance"
+                className="w-full bg-transparent text-body-sm text-fg placeholder:text-muted focus:outline-none"
+              />
+            </span>
+          </label>
+          {errors.name && <p className="mt-1 text-xs text-expense">{errors.name}</p>}
+        </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Field label="Kind" htmlFor="cat-kind">
-          <SelectMenu
-            id="cat-kind"
-            value={kind}
-            onChange={(v) => setKind(v as CategoryKind)}
-            options={CATEGORY_KINDS.map((k) => ({ value: k, label: KIND_LABELS[k] }))}
-          />
-        </Field>
+        <div>
+          <label className={cn(CARD, "flex items-center gap-2.5 px-3 py-2.5 focus-within:border-brand", errors.monthlyBudget ? "border-expense" : "border-border")}>
+            <span className="flex w-8 shrink-0 justify-center text-fg">
+              <Target aria-hidden className="h-6 w-6" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-bold text-fg">
+                Monthly budget <span className="font-medium text-muted">(optional)</span>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span aria-hidden className="text-body-sm text-fg">₹</span>
+                <input
+                  id="cat-budget"
+                  inputMode="decimal"
+                  value={budget}
+                  onChange={(e) => setBudget(e.target.value.replace(/[^0-9.]/g, ""))}
+                  aria-invalid={!!errors.monthlyBudget}
+                  placeholder="None"
+                  className="tnum w-full min-w-0 bg-transparent text-body-sm text-fg placeholder:text-muted focus:outline-none"
+                />
+              </span>
+            </span>
+          </label>
+          {errors.monthlyBudget && <p className="mt-1 text-xs text-expense">{errors.monthlyBudget}</p>}
+        </div>
 
-        <Field
-          label="Monthly budget (₹)"
-          htmlFor="cat-budget"
-          error={errors.monthlyBudget}
-          hint={errors.monthlyBudget ? undefined : "Optional"}
-        >
-          <Input
-            id="cat-budget"
-            inputMode="decimal"
-            value={budget}
-            invalid={!!errors.monthlyBudget}
-            onChange={(e) => setBudget(e.target.value.replace(/[^0-9.]/g, ""))}
-            placeholder="None"
-          />
-        </Field>
+        <section className={cn(CARD, "border-border p-3")}>
+          <h3 className="mb-2 text-sm font-bold tracking-normal text-fg">Icon</h3>
+          <CategoryIconPicker value={icon} onChange={setIcon} />
+        </section>
+
+        <section className={cn(CARD, "border-border p-3")}>
+          <h3 className="mb-0.5 text-sm font-bold tracking-normal text-fg">Colour</h3>
+          <p className="mb-2 text-xs text-muted">Used for this category in every chart and list.</p>
+          <CategoryColorPicker value={color} onChange={setColor} />
+        </section>
+
+        <label className={cn(CARD, "flex items-start gap-2.5 border-border px-3 py-3")}>
+          <span className="flex w-8 shrink-0 justify-center text-fg">
+            <Power aria-hidden className="h-6 w-6" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-bold text-fg">Active</span>
+            <span className="mt-0.5 block text-xs text-muted">Inactive categories are hidden when adding transactions.</span>
+          </span>
+          <Switch checked={isActive} onChange={setIsActive} label="Active" />
+        </label>
       </div>
 
-      <Field label="Icon">
-        <CategoryIconPicker value={icon} onChange={setIcon} />
-      </Field>
-
-      <Field label="Colour" hint="Used for this category in every chart and list.">
-        <CategoryColorPicker value={color} onChange={setColor} />
-      </Field>
-
-      <label className="flex items-center justify-between gap-3 rounded-none border border-border bg-surface px-3 py-2.5">
-        <span className="text-sm text-fg">
-          Active
-          <span className="mt-0.5 block text-xs text-muted">Inactive categories are hidden when adding transactions.</span>
-        </span>
-        <Switch checked={isActive} onChange={setIsActive} label="Active" />
-      </label>
-
-      <div className="flex gap-2 pt-1">
-        <Button type="button" variant="secondary" onClick={onCancel} disabled={saving} className="flex-1">
+      <footer className="sticky bottom-0 grid grid-cols-2 gap-3 border-t border-border/20 bg-surface px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 sm:pb-4">
+        <Button type="button" size="lg" variant="outline" onClick={onCancel} disabled={saving} className="w-full !rounded-lg !px-2">
           Cancel
         </Button>
-        <Button type="submit" loading={saving} className="flex-1">
-          {editing ? "Save changes" : "Add category"}
+        <Button type="submit" size="lg" loading={saving} className="w-full !rounded-lg !px-2">
+          {editing ? "Save Changes" : "Add Category"}
         </Button>
-      </div>
+      </footer>
     </form>
   );
 }

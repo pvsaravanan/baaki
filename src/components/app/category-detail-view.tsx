@@ -1,8 +1,7 @@
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/misc";
 import { CategoryIcon } from "@/components/app/category-icon";
+import { BackButton } from "@/components/app/back-button";
 import { CategoryActions } from "@/components/app/category-actions";
 import { Money } from "@/components/money";
 import { SpendBars, CategoryDonut, BudgetGauge } from "@/components/charts/chart-kit";
@@ -25,26 +24,20 @@ export function CategoryDetailView({ category, detail }: { category: CategoryDTO
 
   return (
     <div className="space-y-5">
-      <div>
-        <Link
-          href="/categories"
-          className="inline-flex items-center gap-1.5 text-label-sm uppercase text-muted hover:text-fg"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Categories
-        </Link>
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-3 border-b border-border pb-md">
+      <header>
+        <div className="flex items-center gap-1">
+          <BackButton />
           <CategoryIcon icon={category.icon} size={40} />
-          <div className="min-w-0 flex-1">
-            <h1 className="text-headline-md text-fg sm:text-headline-lg">{category.name}</h1>
-            <p className="mt-1 text-body-sm text-muted">
-              {!category.isActive && "Inactive · "}
-              How this category&apos;s {income ? "income" : "spend"} has moved over time.
-            </p>
-          </div>
+          <h1 className="min-w-0 flex-1 truncate pl-1 text-headline-md text-fg sm:text-headline-lg">{category.name}</h1>
+        </div>
+        <p className="mt-2 text-body-sm text-muted">
+          {!category.isActive && "Inactive · "}
+          How this category&apos;s {income ? "income" : "spend"} has moved over time.
+        </p>
+        <div className="mt-3">
           <CategoryActions category={category} />
         </div>
-      </div>
+      </header>
 
       {/* KPI row */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -154,9 +147,9 @@ export function CategoryDetailView({ category, detail }: { category: CategoryDTO
                     <span className="min-w-0 truncate text-fg">{m.label}</span>
                     <span className="tnum shrink-0 font-medium text-fg">{formatINR(m.total)}</span>
                   </div>
-                  <div className="h-1.5 w-full bg-surface-2">
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-surface-2">
                     <div
-                      className="h-1.5"
+                      className="h-2 rounded-full"
                       style={{
                         width: `${maxMerchant > 0 ? (m.total / maxMerchant) * 100 : 0}%`,
                         backgroundColor: category.color,
@@ -179,8 +172,8 @@ export function CategoryDetailView({ category, detail }: { category: CategoryDTO
 
 function Stat({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-none border border-border bg-surface p-4 [container-type:inline-size]">
-      <p className="text-label-sm uppercase text-muted">{label}</p>
+    <div className="rounded-xl border border-border/15 bg-brand-soft/40 p-4 [container-type:inline-size]">
+      <p className="text-body-sm text-fg">{label}</p>
       <p className="mt-1 whitespace-nowrap text-[clamp(1rem,9cqi,1.5rem)]">{children}</p>
     </div>
   );
