@@ -18,15 +18,15 @@
 
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@color/splash_background</item>
-        <!-- The launch animation's opening: the logo on parchment, and the app
-             (LaunchVideo.java) takes it over in the same place. -->
+        <!-- The launch animation's opening: parchment, with the logo on it
+             except on a fresh install, where the video draws the logo
+             (LaunchVideo.java takes over in the same place). -->
         <item name="windowSplashScreenBackground">@color/splash_background</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/launch_logo</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/launch_splash_icon</item>
         <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
     </style>
 
-    <!-- Launches after the first (Android 13+, set by LaunchVideo.java). The
-         same logo as the first launch's. -->
+    <!-- Launches after the first (Android 13+, set by LaunchVideo.java): the logo at rest. -->
     <style name="AppTheme.NoActionBarLaunch.Still">
         <item name="windowSplashScreenAnimatedIcon">@drawable/launch_logo</item>
     </style>

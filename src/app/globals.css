@@ -187,3 +187,10 @@ input[type="number"] {
 .recharts-wrapper *:focus-visible {
   outline: none;
 }
+
+/* While the Android launch animation is still up, the app's own copy of the logo
+   (marked data-launch-logo) stays hidden: the launch logo glides onto its place
+   and the copy appears as it lands (see SplashHandoff). */
+html[data-launching] [data-launch-logo] {
+  visibility: hidden;
+}

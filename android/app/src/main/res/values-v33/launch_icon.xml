@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 13+ can switch the splash theme after the first launch
+         (LaunchVideo.useStillLaunchScreen), so the first launch's splash is
+         blank and later ones show the logo (the Still theme). -->
+    <item name="launch_splash_icon" type="drawable">@drawable/launch_blank</item>
+</resources>

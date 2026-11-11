@@ -1,20 +1,24 @@
 "use client";
+import Image from "next/image";
 import { ArrowRight } from "lucide-react";
-import { Wordmark } from "@/components/logo";
 import { Button } from "@/components/ui/button";
+import logo from "@/assets/baaki_logo.png";
 
 /**
- * The first screen a new install shows: the wordmark, the house on a coral
+ * The first screen a new install shows: the logo, the house on a coral
  * wash, the tagline and one way in. Laid out on a 390 × 780 phone screen —
  * the proportions are in dvh/px so it holds on taller and shorter phones.
  */
 export function WelcomeScreen({ onStart }: { onStart: () => void }) {
   return (
     <main className="flex h-dvh flex-col items-center bg-bg px-10 pb-[max(env(safe-area-inset-bottom),24px)] pt-[env(safe-area-inset-top)]">
-      <Wordmark className="mt-[23dvh] h-[54px] text-fg animate-enter" />
+      {/* The full-size logo (not the small in-app one), so it stays sharp at this size.
+          On Android the launch logo glides onto it (data-launch-logo, see SplashHandoff),
+          so it doesn't animate in itself. */}
+      <Image src={logo} alt="baaki" priority data-launch-logo className="mt-[20dvh] h-[92px] w-auto shrink-0" />
 
       {/* The house: line art on a hand-drawn coral wash. */}
-      <div className="relative mt-[7dvh] h-[154px] w-[253px] shrink-0 animate-enter">
+      <div className="relative mt-[5dvh] h-[154px] w-[253px] shrink-0 animate-enter">
         <svg viewBox="0 0 253 154" aria-hidden className="h-full w-full" strokeLinecap="round" strokeLinejoin="round">
           <path
             d="M6 70C-6 38 34 8 78 4C112 1 128 26 160 28C190 30 208 38 228 58C250 82 256 118 218 140C190 156 150 150 120 148C84 146 56 154 34 140C16 128 12 90 6 70Z"

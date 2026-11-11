@@ -5,6 +5,8 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.res.Configuration;
+import android.graphics.Color;
+import android.graphics.drawable.Drawable;
 import android.graphics.Region;
 import android.media.MediaPlayer;
 import android.net.Uri;
@@ -33,14 +35,15 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 /**
- * The launch animation, after the system splash: Android's launch screen
- * shows the logo (launch_logo.png); this cover then shows the
- * same logo in the same place, glides it up to its place, and plays
- * the video beneath it (res/raw/splash.mp4: the glow and the wordmark, rendered
- * from baaki-splash/, composition "SplashLaunch"). It all plays over the
- * WebView while the app loads, and leaves, fading out, once the video has
- * ended and the app has said it's ready (LaunchVideoPlugin.finish); until then
- * it holds the last frame.
+ * The launch animation, after the system splash. On a fresh install it is only
+ * the video (res/raw/splash.mp4: the logo drawing itself in, then the wordmark):
+ * the system splash is blank (Android 13+, see values-v33/launch_icon.xml) and
+ * this cover is plain parchment until the video's first frame is ready. Every
+ * launch after the first, Android's launch screen shows the logo
+ * (launch_logo.png) and this cover holds it at rest in the same place. It all
+ * plays over the WebView while the app loads, and leaves, fading out, once the
+ * video has ended and the app has said it's ready (LaunchVideoPlugin.finish);
+ * until then it holds the last frame.
  *
  * Start-up keeps the main thread busy for seconds (the WebView, the app's
  * scripts, the database), so the animation stays off it: the video plays on a
@@ -62,18 +65,41 @@ final class LaunchVideo {
     private static final float EXIT_SCALE = 1.04f;
     // The system splash normally hands over soon after the app starts.
     private static final long SYSTEM_SPLASH_TIMEOUT_MS = 4000;
-    private static final long GLIDE_MS = 450;
+    // The video's motion is over by about 3.5 s; the rest of the file is the
+    // finished logo held still. The animation moves on to its last frame (the
+    // same picture) this long after it starts, rather than sitting through that.
+    // Set to the video's full length (7317) to play all of it.
+    private static final long VIDEO_PLAY_MS = 4400;
+    // Leaving onto a screen with a logo of its own: the launch logo glides onto
+    // it this long, while the rest dissolves. The screen's own copy takes over
+    // behind it, and the cover goes this much later (they're the same picture).
+    private static final long GLIDE_OUT_MS = 560;
+    private static final long GLIDE_HANDOVER_MS = 60;
+    // The finished logo in the video's last frame, as its dark "B", in video
+    // pixels: centre and width.
+    private static final float END_B_X = 219.5f;
+    private static final float END_B_Y = 1210.5f;
+    private static final float END_B_W = 227f;
+    // The same dark "B" in launch_logo.png, as fractions of its square canvas
+    // (centre and width), and the artwork's whole width, sparks included.
+    private static final float ART_B_CX = 561.5f / 1152f;
+    private static final float ART_B_CY = 596.5f / 1152f;
+    private static final float ART_B_W = 363f / 1152f;
+    private static final float ART_W = 391f / 1152f;
+    // Later launches have no video, only the logo at rest. However fast the app
+    // is ready, the logo stays up at least this long (counted from when the cover
+    // goes up) so it can be seen, not just flashed.
+    private static final long MIN_STILL_MS = 1800;
 
     // Android draws a splash icon without a background at 288dp.
     private static final int SPLASH_ICON_DP = 288;
     // launch_logo.png: the logo is 340 of its 1000-wide canvas, centred in it.
     private static final float LOGO_TILE = 0.34f;
-    // The logo's place in the launch video (baaki-splash/src/SplashLaunch.tsx),
-    // in video pixels: the logo, 200px wide, centred at y = 825.
+    // The launch video's size, in pixels; its logo is centred on the screen.
     private static final int VIDEO_WIDTH = 1080;
-    private static final int VIDEO_HEIGHT = 1920;
+    private static final int VIDEO_HEIGHT = 2400;
     private static final float VIDEO_TILE = 200f;
-    private static final float VIDEO_LOGO_Y = 825f;
+    private static final float VIDEO_LOGO_Y = VIDEO_HEIGHT / 2f;
 
     private static LaunchVideo current;
 
@@ -82,10 +108,18 @@ final class LaunchVideo {
     private final Cover root;
     private final SurfaceView video;
     private final ImageView still;
+    // The same last frame without its logo, for leaving onto a screen that has one
+    // (the logo glides there on its own; see leaveOnto). Loaded off the main thread.
+    private final ImageView stillBare;
     private final View veil;
+    private final View backdrop;
     private final ImageView logo;
     private final int splashIconSize;
-    private boolean glided;
+    private boolean videoShown;
+    // Where the screen beneath has a logo of its own (left, top, width, height in
+    // window pixels), once the app has said it's ready.
+    private float[] logoTarget;
+    private boolean videoDone;
     private boolean freshInstall;
     private final List<Runnable> onGone = new ArrayList<>();
     private boolean ended;
@@ -148,9 +182,9 @@ final class LaunchVideo {
     }
 
     /** The app beneath is ready; `gone` runs once the animation has left. */
-    static void appReady(Runnable gone) {
+    static void appReady(Runnable gone, float[] logoTarget) {
         if (current == null) gone.run();
-        else current.ready(gone);
+        else current.ready(gone, logoTarget);
     }
 
     private LaunchVideo(Activity activity, SplashScreen splash) {
@@ -159,6 +193,11 @@ final class LaunchVideo {
         root.setBackgroundColor(background);
         // Swallow taps meant for the app beneath while it's covered.
         root.setClickable(true);
+        // The parchment, as a view of its own so it can fade while the logo stays
+        // (see leaveOnto). Drawn first, like the root's own background.
+        backdrop = new View(activity);
+        backdrop.setBackgroundColor(background);
+        root.addView(backdrop, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         video = new SurfaceView(activity);
         root.addView(video, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT, Gravity.CENTER));
         // The video's last frame, fitted as the video is (see videoEnded).
@@ -168,6 +207,10 @@ final class LaunchVideo {
         still.setScaleType(landscape ? ImageView.ScaleType.FIT_CENTER : ImageView.ScaleType.CENTER_CROP);
         still.setVisibility(View.GONE);
         root.addView(still, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        stillBare = new ImageView(activity);
+        stillBare.setScaleType(landscape ? ImageView.ScaleType.FIT_CENTER : ImageView.ScaleType.CENTER_CROP);
+        stillBare.setVisibility(View.GONE);
+        root.addView(stillBare, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         veil = new View(activity);
         veil.setBackgroundColor(background);
         root.addView(veil, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
@@ -221,7 +264,8 @@ final class LaunchVideo {
         main.postDelayed(this::systemSplashRemoved, SYSTEM_SPLASH_TIMEOUT_MS);
 
         // Every launch after the first, or with "Remove animations" on: no
-        // video and no glide, just the logo at rest until the app is ready.
+        // video, just the logo at rest until the app is ready
+        // (and, unless animations are off, for at least MIN_STILL_MS).
         freshInstall = isFreshInstall(activity);
         if (freshInstall) prefs(activity).edit().putBoolean(KEY_PLAYED, true).apply();
         // Later launches show the logo at rest from the start (Android 13+).
@@ -229,9 +273,16 @@ final class LaunchVideo {
         float animations = Settings.Global.getFloat(activity.getContentResolver(), Settings.Global.ANIMATOR_DURATION_SCALE, 1f);
         if (!freshInstall || animations == 0f) {
             video.setVisibility(View.GONE);
-            ended = true;
+            if (animations == 0f) {
+                ended = true;
+            } else {
+                main.postDelayed(this::finished, MIN_STILL_MS);
+            }
             return;
         }
+        // The video draws the logo itself, so the one that stands in for the
+        // system splash's stays hidden (finished() brings it back if the video never plays).
+        logo.setVisibility(View.GONE);
 
         main.postDelayed(() -> {
             if (!started) finished();
@@ -270,6 +321,10 @@ final class LaunchVideo {
 
         Context context = activity.getApplicationContext();
         playerThread.post(() -> load(context));
+        playerThread.post(() -> {
+            Drawable bare = ContextCompat.getDrawable(context, R.drawable.splash_last_frame_wordmark);
+            main.post(() -> stillBare.setImageDrawable(bare));
+        });
     }
 
     // ---- The player's thread ----
@@ -336,18 +391,19 @@ final class LaunchVideo {
         if (!videoWaiting || !systemSplashGone || leaving) return;
         videoWaiting = false;
         veil.setVisibility(View.GONE);
-        glideLogo();
+        videoShown = true;
         video.postOnAnimation(() -> playerThread.post(() -> {
             if (player != null) player.start();
         }));
+        main.postDelayed(this::videoEnded, VIDEO_PLAY_MS);
     }
 
     /**
-     * Lay the logo out at its place in the video (above the wordmark), then
-     * shrink and move it, by its transform, to where the system splash's icon
-     * is: the screen's centre, at the splash icon's size. The glide just undoes
-     * that transform, so the logo never draws outside its own bounds (drawn
-     * outside them, over the video's surface, it shows cut off).
+     * Lay the logo out at its place in the video, then shrink and move it, by
+     * its transform, to where the system splash's icon is: the screen's centre,
+     * at the splash icon's size. Transforming it, rather than laying it out
+     * small, keeps it from ever drawing outside its own bounds (drawn outside
+     * them, over the video's surface, it shows cut off).
      * Runs before every draw; returns whether the layout was already right.
      */
     private boolean placeLogo() {
@@ -365,29 +421,11 @@ final class LaunchVideo {
         params.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
         params.topMargin = top;
         logo.setLayoutParams(params);
-        if (!glided) {
-            float atSplash = splashIconSize / (float) size;
-            logo.setScaleX(atSplash);
-            logo.setScaleY(atSplash);
-            logo.setTranslationY(h / 2f - (top + size / 2f));
-        }
+        float atSplash = splashIconSize / (float) size;
+        logo.setScaleX(atSplash);
+        logo.setScaleY(atSplash);
+        logo.setTranslationY(h / 2f - (top + size / 2f));
         return false;
-    }
-
-    /**
-     * Move the logo from the splash icon's place up to its place in the video,
-     * as the wordmark comes in. Run by the render thread (no listeners, so
-     * ViewPropertyAnimator hands it over): the app's start-up keeps the main
-     * thread busy for most of a second just then, which froze the glide.
-     */
-    private void glideLogo() {
-        glided = true;
-        logo.animate()
-            .translationY(0f)
-            .scaleX(1f)
-            .scaleY(1f)
-            .setDuration(GLIDE_MS)
-            .setInterpolator(new PathInterpolator(0.16f, 1f, 0.3f, 1f));
     }
 
     private float videoScale(int vw, int vh, float w, float h) {
@@ -417,12 +455,15 @@ final class LaunchVideo {
     }
 
     private void finished() {
+        // The video never played (no decoder, a broken file): show the logo while the app loads.
+        if (!videoShown) logo.setVisibility(View.VISIBLE);
         ended = true;
         maybeLeave();
     }
 
-    private void ready(Runnable gone) {
+    private void ready(Runnable gone, float[] target) {
         ready = true;
+        logoTarget = target;
         onGone.add(gone);
         maybeLeave();
     }
@@ -438,7 +479,8 @@ final class LaunchVideo {
      * after the still is up, so there's never a gap between them.
      */
     private void videoEnded() {
-        if (leaving) return;
+        if (leaving || videoDone) return;
+        videoDone = true;
         still.setVisibility(View.VISIBLE);
         still.postOnAnimation(() -> still.postOnAnimation(() -> {
             video.setVisibility(View.GONE);
@@ -470,6 +512,7 @@ final class LaunchVideo {
         video.setVisibility(View.GONE);
         // Taps go through to the app as it comes into view.
         root.setClickable(false);
+        if (logoTarget != null && leaveOnto(logoTarget)) return;
         root.animate()
             .alpha(0f)
             .scaleX(EXIT_SCALE)
@@ -477,6 +520,83 @@ final class LaunchVideo {
             .setDuration(FADE_MS)
             .setInterpolator(new PathInterpolator(0.4f, 0f, 0.2f, 1f));
         main.postDelayed(this::remove, FADE_MS + 50);
+    }
+
+    /**
+     * Leave onto a screen that has a logo of its own: carry the logo there while
+     * everything else (the parchment, the wordmark) dissolves, so the one logo
+     * moves into place instead of two fading past each other. The screen hides
+     * its copy until this is done, then shows it as this one lands. Returns
+     * false (nothing done) if it can't: the video is still on screen.
+     */
+    private boolean leaveOnto(float[] target) {
+        float w = root.getWidth();
+        float h = root.getHeight();
+        if (w == 0 || h == 0 || (videoShown && !videoDone)) return false;
+        FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) logo.getLayoutParams();
+        float size = params.width;
+        if (size <= 0) return false;
+        float cx = w / 2f;
+        float cy = params.topMargin + size / 2f;
+        if (videoShown) {
+            // Over the logo in the video's last frame (its dark "B" on the video's).
+            float scale = videoScale(VIDEO_WIDTH, VIDEO_HEIGHT, w, h);
+            float bx = w / 2f + (END_B_X - VIDEO_WIDTH / 2f) * scale;
+            float by = h / 2f + (END_B_Y - VIDEO_HEIGHT / 2f) * scale;
+            float s = END_B_W * scale / (ART_B_W * size);
+            logo.setScaleX(s);
+            logo.setScaleY(s);
+            logo.setTranslationX(bx - cx - s * size * (ART_B_CX - 0.5f));
+            logo.setTranslationY(by - cy - s * size * (ART_B_CY - 0.5f));
+            logo.setAlpha(1f);
+            logo.setVisibility(View.VISIBLE);
+            // The last frame's own logo goes (the wordmark stays): this one takes its place.
+            if (stillBare.getDrawable() != null) {
+                stillBare.setVisibility(View.VISIBLE);
+                still.setVisibility(View.GONE);
+            }
+        }
+        // The target is in window pixels; this cover's own origin may differ.
+        int[] origin = new int[2];
+        root.getLocationInWindow(origin);
+        float target_s = target[2] / (ART_W * size);
+        float tx = target[0] - origin[0] + target[2] / 2f - cx;
+        float ty = target[1] - origin[1] + target[3] / 2f - cy;
+        // The parchment comes from the backdrop from here on, so the root's own can go.
+        root.setBackgroundColor(Color.TRANSPARENT);
+        // (The veil is still up when there was no video: it is parchment too.)
+        for (View parchment : new View[] {backdrop, veil}) {
+            parchment.animate()
+                .alpha(0f)
+                .setDuration(GLIDE_OUT_MS)
+                .setInterpolator(new PathInterpolator(0.4f, 0f, 0.2f, 1f));
+        }
+        for (ImageView lastFrame : new ImageView[] {still, stillBare}) {
+            lastFrame.animate()
+                .alpha(0f)
+                .setDuration(GLIDE_OUT_MS / 2)
+                .setInterpolator(new PathInterpolator(0.4f, 0f, 0.2f, 1f));
+        }
+        logo.animate()
+            .translationX(tx)
+            .translationY(ty)
+            .scaleX(target_s)
+            .scaleY(target_s)
+            .setDuration(GLIDE_OUT_MS)
+            .setInterpolator(new PathInterpolator(0.22f, 1f, 0.36f, 1f));
+        // Near the end the screen shows its own logo beneath (the app is told now)
+        // and this one fades into it, which also hides any difference between them.
+        long near = Math.round(GLIDE_OUT_MS * 0.55);
+        main.postDelayed(() -> {
+            for (Runnable gone : onGone) gone.run();
+            onGone.clear();
+            logo.animate()
+                .alpha(0f)
+                .setDuration(GLIDE_OUT_MS - near)
+                .setInterpolator(new PathInterpolator(0.4f, 0f, 0.2f, 1f));
+            main.postDelayed(this::remove, GLIDE_OUT_MS - near + GLIDE_HANDOVER_MS);
+        }, near);
+        return true;
     }
 
     private void remove() {
@@ -498,7 +618,7 @@ final class LaunchVideo {
      * The cover reports all of itself as drawn. With a SurfaceView in it, the
      * window asks its views which parts they draw and the compositor crops the
      * window to those; that's worked out from their laid-out bounds, so the
-     * logo, scaled and moved by its glide, gets cut off. The window still has
+     * logo, scaled and moved by its transform, gets cut off. The window still has
      * per-pixel alpha, so the video shows through wherever nothing's drawn.
      */
     private static final class Cover extends FrameLayout {

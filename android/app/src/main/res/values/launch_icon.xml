@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The system splash's icon on a fresh install. The first launch plays a
+         video that draws the logo itself, so on Android 13+ (see values-v33)
+         the system splash shows nothing and the logo isn't there twice. -->
+    <item name="launch_splash_icon" type="drawable">@drawable/launch_logo</item>
+</resources>

@@ -14,7 +14,15 @@ import { registerPlugin } from "@capacitor/core";
  * also the launch video's background. */
 export const SPLASH_BACKGROUND = "#f8f2e9";
 
-const LaunchVideo = registerPlugin<{ finish(): Promise<void> }>("LaunchVideo");
+/** Where the app's own copy of the logo is, in CSS pixels: the launch logo glides there. */
+interface LogoTarget {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+const LaunchVideo = registerPlugin<{ finish(target?: LogoTarget): Promise<void> }>("LaunchVideo");
 
 let resolveGone: () => void;
 /** Settles once the splash has left the screen (straight away if there's none). */
@@ -23,6 +31,18 @@ export const markSplashGone = () => resolveGone();
 
 /** `hideNative` is the fallback for an install without the launch animation. */
 export function SplashHandoff({ hideNative, ready }: { hideNative: () => Promise<unknown>; ready: boolean }) {
+  // The app's own logo (data-launch-logo) stays hidden until the launch logo has
+  // glided onto it. If that never happens, don't leave it hidden for good.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.dataset.launching = "1";
+    const failsafe = setTimeout(() => delete root.dataset.launching, 15000);
+    return () => {
+      clearTimeout(failsafe);
+      delete root.dataset.launching;
+    };
+  }, []);
+
   useEffect(() => {
     if (!ready) return;
     let cancelled = false;
@@ -32,10 +52,16 @@ export function SplashHandoff({ hideNative, ready }: { hideNative: () => Promise
       frame = requestAnimationFrame(() => {
         const finish = () => {
           if (cancelled) return;
-          LaunchVideo.finish()
+          // A screen with a logo of its own (the welcome screen) gets the launch
+          // logo carried onto it; any other screen is just dissolved into.
+          const r = document.querySelector<HTMLElement>("[data-launch-logo]")?.getBoundingClientRect();
+          LaunchVideo.finish(r && r.width > 0 ? { x: r.left, y: r.top, width: r.width, height: r.height } : undefined)
             .catch(() => hideNative())
             .catch(() => {})
-            .finally(markSplashGone);
+            .finally(() => {
+              delete document.documentElement.dataset.launching;
+              markSplashGone();
+            });
         };
         if ("requestIdleCallback" in window) requestIdleCallback(finish, { timeout: 600 });
         else finish();
