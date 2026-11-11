@@ -10,6 +10,7 @@ import { useConfirm } from "@/components/ui/confirm";
 import { SwipeActions } from "@/components/ui/swipe-actions";
 import { apiDelete, apiPost } from "@/lib/http";
 import { fromISODate, formatRelativeDay } from "@/lib/dates";
+import { formatINR } from "@/lib/money";
 import type { TransactionDTO } from "@/lib/types";
 import { cn } from "@/lib/cn";
 
@@ -142,6 +143,11 @@ export function TransactionRow({
           <p className={cn("min-w-0 truncate font-medium text-fg", compact ? "text-[13px] leading-[18px]" : "text-[13px] font-semibold leading-[18px] md:text-sm")}>{txn.description}</p>
           {txn.recurringId && (
             <span className="shrink-0 rounded bg-brand-soft px-1.5 py-0.5 text-2xs font-medium text-brand-hover">auto</span>
+          )}
+          {txn.splits.length > 0 && (
+            <span className="shrink-0 rounded bg-surface-2 px-1.5 py-0.5 text-2xs font-medium text-muted">
+              split · yours {formatINR(Math.max(0, txn.amount - txn.splits.reduce((sum, s) => sum + s.amount, 0)))}
+            </span>
           )}
         </div>
         <p className={cn("truncate text-muted", compact ? "text-[11px] leading-[14px]" : "text-[11px] leading-4 md:text-xs")}>

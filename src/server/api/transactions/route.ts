@@ -3,11 +3,9 @@ import { prisma } from "@/lib/db";
 import { json, withUser } from "@/lib/api";
 import { createTransaction } from "@/lib/tx-service";
 import { transactionSchema } from "@/lib/validation";
-import { serializeTransaction } from "@/lib/serialize";
+import { serializeTransaction, TXN_INCLUDE } from "@/lib/serialize";
 import { buildWhere, toFiniteInt } from "@/lib/query";
-import { loadMonthTotals } from "@/lib/queries";
-
-const INCLUDE = { tags: { include: { tag: true } } } as const;
+import { loadMonthTotals, loadTotals } from "@/lib/queries";
 
 export const GET = withUser(async (user, req: NextRequest) => {
   const params = req.nextUrl.searchParams;
@@ -21,29 +19,19 @@ export const GET = withUser(async (user, req: NextRequest) => {
   // Income/expense totals must cover every row matching the filter, not just
   // the page that's loaded — a client-side sum over `rows` would silently
   // understate the real totals once a filter matches more than `take`.
-  const [rows, total, sums, months] = await Promise.all([
+  const [rows, total, totals, months] = await Promise.all([
     prisma.transaction.findMany({
       where,
-      include: INCLUDE,
+      include: TXN_INCLUDE,
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
       take,
       skip,
     }),
     prisma.transaction.count({ where }),
-    prisma.transaction.groupBy({ by: ["type"], where, _sum: { amount: true } }),
+    loadTotals(where),
     // Only the first page needs them: they cover every matching row.
     skip === 0 ? loadMonthTotals(where) : undefined,
   ]);
-
-  const totals = sums.reduce(
-    (acc, s) => {
-      const amount = s._sum.amount ?? 0;
-      if (s.type === "income") acc.income += amount;
-      else if (s.type === "expense") acc.expense += amount;
-      return acc;
-    },
-    { income: 0, expense: 0 },
-  );
 
   return json({ transactions: rows.map(serializeTransaction), total, totals, months });
 });
@@ -55,7 +43,7 @@ export const POST = withUser(async (user, req: NextRequest) => {
   const id = await createTransaction(user.id, input);
   const row = await prisma.transaction.findUnique({
     where: { id },
-    include: INCLUDE,
+    include: TXN_INCLUDE,
   });
   return json({ transaction: serializeTransaction(row!) }, { status: 201 });
 });

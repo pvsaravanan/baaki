@@ -10,6 +10,8 @@
  *  - Savings = income − expenses
  *  - Savings rate = (income − expenses) / income × 100  (0 when income = 0)
  *  - Category spending counts the expenses in that category.
+ *  - A split expense counts only your own share as spending; a share paid
+ *    back raises the balance of the account it came into (not income).
  */
 
 import type { TransactionType } from "./constants";
@@ -26,6 +28,20 @@ export interface CalcTxn {
   accountId: string;
   transferAccountId?: string | null;
   deletedAt?: Date | null;
+  /** Other people's parts of a split expense, settled or not (paise). */
+  sharedAmount?: number;
+  /** Split shares paid back, and the account each one came back into. */
+  received?: { accountId: string; amount: number }[];
+}
+
+/**
+ * What a transaction counts as for you: an expense without other people's
+ * splits (never below 0); anything else in full. Spending, budgets and
+ * reports use this. Balances use the full amount, since that's what left the
+ * account.
+ */
+export function ownAmount(t: Pick<CalcTxn, "type" | "amount" | "sharedAmount">): number {
+  return t.type === "expense" ? Math.max(0, t.amount - (t.sharedAmount ?? 0)) : t.amount;
 }
 
 export interface CalcAccount {
@@ -76,6 +92,8 @@ export function accountBalance(account: CalcAccount, txns: CalcTxn[]): number {
     if (t.type === "transfer" && t.transferAccountId === account.id) {
       balance += t.amount; // money arriving in the destination account
     }
+    // Split shares paid back into this account.
+    for (const r of t.received ?? []) if (r.accountId === account.id) balance += r.amount;
   }
   return balance;
 }
@@ -121,7 +139,7 @@ export function summarize(txns: CalcTxn[]): PeriodSummary {
         income += t.amount;
         break;
       case "expense":
-        grossExpense += t.amount;
+        grossExpense += ownAmount(t);
         break;
       case "transfer":
         transfersOut += t.amount;
@@ -167,7 +185,7 @@ export function categoryTotals(txns: CalcTxn[]): CategoryTotal[] {
       entry = { categoryId: key, expense: 0, net: 0, count: 0 };
       map.set(key, entry);
     }
-    entry.expense += t.amount;
+    entry.expense += ownAmount(t);
     entry.net = entry.expense;
     entry.count += 1;
   }
@@ -179,7 +197,7 @@ export function categoryAmount(txns: CalcTxn[], categoryId: string, type: "expen
   let total = 0;
   for (const t of txns) {
     if (!isActive(t) || t.categoryId !== categoryId) continue;
-    if (t.type === type) total += t.amount;
+    if (t.type === type) total += ownAmount(t);
   }
   return total;
 }
@@ -211,7 +229,7 @@ export function dailySeries(txns: CalcTxn[], start: Date, end: Date): DailyPoint
     const point = byDay.get(key);
     if (!point) continue;
     point.count += 1;
-    if (t.type === "expense") point.expense += t.amount;
+    if (t.type === "expense") point.expense += ownAmount(t);
     else if (t.type === "income") point.income += t.amount;
   }
   return [...byDay.values()];

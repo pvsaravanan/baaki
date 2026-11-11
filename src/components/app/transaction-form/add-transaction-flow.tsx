@@ -50,7 +50,9 @@ import { QuickCategoryModal } from "../quick-category-modal";
 import { DatePickerSheet } from "../date-picker-sheet";
 import { Sheet } from "../sheet";
 import { CategoryPickerSheet } from "./category-picker-sheet";
+import { buildSplits, newPerson, SplitSection, type SplitPerson } from "./split-section";
 import { TYPE_OPTIONS } from "./types";
+import { equalShare, isEqualSplit, type SplitMode } from "@/lib/split";
 
 const TYPE_ICONS = { expense: ArrowDownRight, income: ArrowUpRight, transfer: ArrowLeftRight };
 const KEYS: AmountKey[] = ["1", "2", "3", "÷", "4", "5", "6", "×", "7", "8", "9", "−", ".", "0", "backspace", "+"];
@@ -104,6 +106,18 @@ export function AddTransactionFlow({
   const [frequency, setFrequency] = useState<Frequency>("monthly");
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const [tags, setTags] = useState<string[]>(initial?.tags ?? []);
+
+  // Splitting: shares already paid back can't change here; the open ones can.
+  const settledSplits = useMemo(() => initial?.splits.filter((s) => s.settledAt) ?? [], [initial]);
+  const [splitOn, setSplitOn] = useState(!!initial?.splits.length);
+  const [splitPeople, setSplitPeople] = useState<SplitPerson[]>(() =>
+    (initial?.splits ?? []).filter((s) => !s.settledAt).map((s) => newPerson(s.name, String(toRupees(s.amount)))),
+  );
+  const [splitMode, setSplitMode] = useState<SplitMode>(() => {
+    const open = (initial?.splits ?? []).filter((s) => !s.settledAt).map((s) => s.amount);
+    const settledSum = settledSplits.reduce((sum, s) => sum + s.amount, 0);
+    return initial && !isEqualSplit(initial.amount - settledSum, open) ? "custom" : "equal";
+  });
 
   const [picker, setPicker] = useState<Picker>(null);
   const [newCategoryOpen, setNewCategoryOpen] = useState(false);
@@ -175,6 +189,10 @@ export function AddTransactionFlow({
     if (isTransfer && (!transferAccountId || transferAccountId === accountId)) {
       found.transferAccountId = "Choose a different account";
     }
+    // A split with nobody in it is no split.
+    const splitting = type === "expense" && splitOn && splitPeople.length > 0;
+    const split = buildSplits(splitMode, paise, settledSplits, splitting ? splitPeople : []);
+    if (splitting && split.problem) found.splits = split.problem;
     setErrors(found);
     setFormError(null);
     if (Object.keys(found).length) return;
@@ -190,6 +208,7 @@ export function AddTransactionFlow({
       transferAccountId: isTransfer ? transferAccountId : null,
       notes: notes.trim() || null,
       tags,
+      splits: split.splits,
     };
     try {
       // Repeating is set up only when adding (an update leaves it alone).
@@ -285,6 +304,35 @@ export function AddTransactionFlow({
                 placeholder="Choose"
                 error={errors.transferAccountId}
                 onClick={() => setPicker("toAccount")}
+              />
+            )}
+
+            {type === "expense" && (
+              <SplitSection
+                total={paise}
+                on={splitOn}
+                onToggle={(on) => {
+                  setSplitOn(on);
+                  if (on && splitPeople.length === 0) setSplitPeople([newPerson()]);
+                  setErrors((e) => ({ ...e, splits: "" }));
+                }}
+                mode={splitMode}
+                onMode={(mode) => {
+                  // Going to custom amounts starts from the equal split, to adjust.
+                  if (mode === "custom") {
+                    const settledSum = settledSplits.reduce((sum, s) => sum + s.amount, 0);
+                    const each = toRupees(equalShare(paise - settledSum, splitPeople.length));
+                    setSplitPeople((list) => list.map((p) => (p.amount ? p : { ...p, amount: each ? String(each) : "" })));
+                  }
+                  setSplitMode(mode);
+                }}
+                people={splitPeople}
+                onPeople={(list) => {
+                  setSplitPeople(list);
+                  setErrors((e) => ({ ...e, splits: "" }));
+                }}
+                settled={settledSplits}
+                error={errors.splits}
               />
             )}
 

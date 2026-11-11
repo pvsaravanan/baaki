@@ -68,6 +68,19 @@ export const transactionSchema = z
     tags: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
     /** On create: also repeat this entry at this frequency, as a recurring rule. */
     repeat: z.enum(FREQUENCIES).optional().nullable(),
+    /**
+     * Other people's parts of an expense, still to collect. On an edit this
+     * replaces the ones not yet settled; settled ones are kept as they are.
+     */
+    splits: z
+      .array(
+        z.object({
+          name: z.string().trim().min(1, "Add a name").max(60),
+          amount: positivePaise,
+        }),
+      )
+      .max(20, "Split with up to 20 people")
+      .optional(),
   })
   .refine((d) => d.type !== "transfer" || (d.transferAccountId && d.transferAccountId !== d.accountId), {
     message: "Transfers need a different destination account",
@@ -80,6 +93,15 @@ export const transactionSchema = z
   .refine((d) => d.type === "transfer" || !!d.categoryId, {
     message: "Choose a category",
     path: ["categoryId"],
+  })
+  // Your own share can be ₹0 (you paid for someone), never less.
+  .refine((d) => (d.splits ?? []).reduce((sum, s) => sum + s.amount, 0) <= d.amount, {
+    message: "The split adds up to more than the amount",
+    path: ["splits"],
+  })
+  .refine((d) => d.type === "expense" || !d.splits?.length, {
+    message: "Only expenses can be split",
+    path: ["splits"],
   });
 
 export type TransactionInput = z.infer<typeof transactionSchema>;
@@ -143,6 +165,17 @@ export const recurringSchema = z
     message: "Choose a category",
     path: ["categoryId"],
   });
+
+/** Mark split shares as paid back, into an account. */
+export const settleSplitsSchema = z.object({
+  ids: z.array(z.string().min(1)).min(1).max(200),
+  accountId: z.string().min(1, "Choose an account"),
+});
+
+/** Undo marking split shares as paid back. */
+export const unsettleSplitsSchema = z.object({
+  ids: z.array(z.string().min(1)).min(1).max(200),
+});
 
 export const preferenceSchema = z.object({
   dashboardWidgets: z.array(z.string()).optional(),

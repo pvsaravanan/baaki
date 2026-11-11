@@ -1,5 +1,5 @@
 import {
-  ArrowLeftRight, Bookmark, CalendarClock, LayoutDashboard, PieChart,
+  ArrowLeftRight, Bookmark, CalendarClock, HandCoins, LayoutDashboard, PieChart,
   Settings, Sparkles, Upload, Wallet, type LucideIcon,
 } from "lucide-react";
 
@@ -13,6 +13,7 @@ const DASHBOARD: NavItem = { href: "/dashboard", label: "Dashboard", icon: Layou
 const TRANSACTIONS: NavItem = { href: "/transactions", label: "Transactions", icon: ArrowLeftRight };
 const BUDGETS: NavItem = { href: "/budgets", label: "Budgets", icon: PieChart };
 const RECURRING: NavItem = { href: "/recurring", label: "Recurring", icon: CalendarClock };
+const TO_COLLECT: NavItem = { href: "/splits", label: "To collect", icon: HandCoins };
 const REPORTS: NavItem = { href: "/reports", label: "Reports", icon: Sparkles };
 const ACCOUNTS: NavItem = { href: "/accounts", label: "Accounts", icon: Wallet };
 const CATEGORIES: NavItem = { href: "/categories", label: "Categories", icon: Bookmark };
@@ -20,7 +21,7 @@ const IMPORT: NavItem = { href: "/import", label: "Import", icon: Upload };
 const SETTINGS: NavItem = { href: "/settings", label: "Settings", icon: Settings };
 
 export const PRIMARY_NAV: NavItem[] = [
-  DASHBOARD, TRANSACTIONS, BUDGETS, RECURRING, REPORTS,
+  DASHBOARD, TRANSACTIONS, BUDGETS, RECURRING, TO_COLLECT, REPORTS,
 ];
 
 export const SECONDARY_NAV: NavItem[] = [ACCOUNTS, CATEGORIES, IMPORT, SETTINGS];
@@ -33,5 +34,5 @@ export const ALL_NAV = [...PRIMARY_NAV, ...SECONDARY_NAV];
  * aren't repeated here.
  */
 export const MORE_SHEET_GROUPS: { label: string; items: NavItem[] }[] = [
-  { label: "Manage", items: [BUDGETS, ACCOUNTS, CATEGORIES, RECURRING, IMPORT, SETTINGS] },
+  { label: "Manage", items: [BUDGETS, ACCOUNTS, CATEGORIES, RECURRING, TO_COLLECT, IMPORT, SETTINGS] },
 ];

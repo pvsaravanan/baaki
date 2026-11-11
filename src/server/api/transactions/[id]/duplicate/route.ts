@@ -2,7 +2,7 @@ import type { NextRequest } from "@/server/request";
 import { prisma } from "@/lib/db";
 import { json, withUser } from "@/lib/api";
 import { duplicateTransaction } from "@/lib/tx-service";
-import { serializeTransaction } from "@/lib/serialize";
+import { serializeTransaction, TXN_INCLUDE } from "@/lib/serialize";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -11,7 +11,7 @@ export const POST = withUser(async (user, _req: NextRequest, ctx: Ctx) => {
   const newId = await duplicateTransaction(user.id, id);
   const row = await prisma.transaction.findUnique({
     where: { id: newId },
-    include: { tags: { include: { tag: true } } },
+    include: TXN_INCLUDE,
   });
   return json({ transaction: serializeTransaction(row!) }, { status: 201 });
 });

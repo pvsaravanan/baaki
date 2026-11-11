@@ -3,6 +3,7 @@ import type {
   Account,
   Category,
   RecurringTransaction,
+  SplitShare,
   Tag,
   Transaction,
   TransactionTag,
@@ -12,6 +13,7 @@ import type {
   AccountDTO,
   CategoryDTO,
   RecurringDTO,
+  SplitDTO,
   TagDTO,
   TransactionDTO,
 } from "./types";
@@ -55,9 +57,26 @@ export function serializeTag(t: Tag): TagDTO {
   return { id: t.id, name: t.name, color: t.color };
 }
 
+/** What every transaction read includes, for serializeTransaction. */
+export const TXN_INCLUDE = {
+  tags: { include: { tag: true } },
+  splits: { orderBy: { createdAt: "asc" } },
+} as const;
+
 type TxnWithTags = Transaction & {
   tags?: (TransactionTag & { tag: Tag })[];
+  splits?: SplitShare[];
 };
+
+export function serializeSplit(s: SplitShare): SplitDTO {
+  return {
+    id: s.id,
+    name: s.name,
+    amount: s.amount,
+    settledAt: s.settledAt ? toISODate(s.settledAt) : null,
+    settledAccountId: s.settledAccountId,
+  };
+}
 
 export function serializeTransaction(t: TxnWithTags): TransactionDTO {
   return {
@@ -73,6 +92,7 @@ export function serializeTransaction(t: TxnWithTags): TransactionDTO {
     notes: t.notes,
     recurringId: t.recurringId,
     tags: t.tags?.map((tt) => tt.tag.name) ?? [],
+    splits: t.splits?.map(serializeSplit) ?? [],
   };
 }
 

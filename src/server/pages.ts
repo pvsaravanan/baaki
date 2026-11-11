@@ -11,6 +11,7 @@ import {
   loadMonthTotals,
   loadPreference,
   loadRecurring,
+  loadSplits,
   loadTags,
   loadTransactionTotals,
   loadTransactions,
@@ -79,6 +80,10 @@ export const PAGE_LOADERS = {
     const category = categories.find((c) => c.id === params.id) ?? null;
     if (!category) return { category: null, detail: null };
     return { category, detail: await getCategoryDetail(user.id, category.id) };
+  },
+
+  async splits(user: SessionUser) {
+    return loadSplits(user.id);
   },
 
   async recurring(user: SessionUser) {

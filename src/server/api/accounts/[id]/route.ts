@@ -78,11 +78,13 @@ export const DELETE = withUser(async (user, _req: NextRequest, ctx: Ctx) => {
       // Count references from ANY user, not just this one. Scoping this to
       // `userId` would hide foreign rows and let the hard-delete below cascade
       // through them.
-      const [usedByTxn, usedByRecurring] = await Promise.all([
+      const [usedByTxn, usedByRecurring, usedBySplits] = await Promise.all([
         db.transaction.count({ where: { OR: [{ accountId: id }, { transferAccountId: id }] } }),
         db.recurringTransaction.count({ where: { OR: [{ accountId: id }, { transferAccountId: id }] } }),
+        // Split shares paid back into it are part of its balance too.
+        db.splitShare.count({ where: { settledAccountId: id } }),
       ]);
-      const used = usedByTxn + usedByRecurring;
+      const used = usedByTxn + usedByRecurring + usedBySplits;
 
       if (used > 0) {
         // Preserve history: archive instead of deleting.

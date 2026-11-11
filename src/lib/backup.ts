@@ -11,7 +11,8 @@ import { LOCAL_EMAIL } from "./auth";
  * version 1 — the "Full backup" the baaki website exports — so an online
  * account can be brought onto the phone once; that format has no
  * preferences, which then start empty/default. A backup that still holds the
- * removed people, split-expense and goal tables restores fine without them.
+ * removed people, old split-expense and goal tables restores fine without
+ * them; one made before split shares existed simply has none.
  */
 
 export const BACKUP_VERSION = 2;
@@ -48,6 +49,9 @@ const SPECS = {
     createdAt: "d", updatedAt: "d", deletedAt: "d?",
   },
   transactionTags: { transactionId: "s", tagId: "s" },
+  splitShares: {
+    id: "s", transactionId: "s", name: "s", amount: "i", settledAt: "d?", settledAccountId: "s?", createdAt: "d",
+  },
   budgets: { id: "s", year: "i", month: "i", overallLimit: "i?", createdAt: "d", updatedAt: "d" },
   budgetCategories: { id: "s", budgetId: "s", categoryId: "s", limit: "i" },
   budgetAccounts: { budgetId: "s", accountId: "s" },
@@ -70,7 +74,7 @@ export async function buildBackup(userId: string) {
           tx.category.findMany({ where, orderBy: { sortOrder: "asc" } }),
           tx.tag.findMany({ where }),
           tx.recurringTransaction.findMany({ where }),
-          tx.transaction.findMany({ where, include: { tags: true }, orderBy: [{ date: "asc" }, { createdAt: "asc" }] }),
+          tx.transaction.findMany({ where, include: { tags: true, splits: true }, orderBy: [{ date: "asc" }, { createdAt: "asc" }] }),
           tx.budget.findMany({ where, include: { categories: true, accounts: true } }),
         ]),
       WHOLE_DATABASE,
@@ -94,8 +98,9 @@ export async function buildBackup(userId: string) {
     categories: categories.map((r) => omit(r, "userId")),
     tags: tags.map((r) => omit(r, "userId")),
     recurring: recurring.map((r) => omit(r, "userId")),
-    transactions: transactions.map((r) => omit(r, "userId", "tags")),
+    transactions: transactions.map((r) => omit(r, "userId", "tags", "splits")),
     transactionTags: transactions.flatMap((t) => t.tags),
+    splitShares: transactions.flatMap((t) => t.splits),
     budgets: budgets.map((r) => omit(r, "userId", "categories", "accounts")),
     budgetCategories: budgets.flatMap((b) => b.categories),
     budgetAccounts: budgets.flatMap((b) => b.accounts),
@@ -182,11 +187,13 @@ export async function restoreBackup(userId: string, input: unknown): Promise<Res
 
   let transactions: Row[];
   let transactionTags: Row[];
+  let splitShares: Row[] = [];
   let budgetCategories: Row[];
   let budgetAccounts: Row[];
   if (backup.version === 2) {
     transactions = rows(backup, "transactions");
     transactionTags = rows(backup, "transactionTags");
+    splitShares = rows(backup, "splitShares");
     budgetCategories = rows(backup, "budgetCategories");
     // Backups made before budgets could cover chosen accounts have none: all accounts.
     budgetAccounts = rows(backup, "budgetAccounts");
@@ -235,6 +242,7 @@ export async function restoreBackup(userId: string, input: unknown): Promise<Res
     await tx.recurringTransaction.createMany({ data: own(recurring) as never });
     await tx.transaction.createMany({ data: own(transactions) as never });
     await tx.transactionTag.createMany({ data: transactionTags as never });
+    await tx.splitShare.createMany({ data: splitShares as never });
     await tx.budget.createMany({ data: own(budgets) as never });
     await tx.budgetCategory.createMany({ data: budgetCategories as never });
     await tx.budgetAccount.createMany({ data: budgetAccounts as never });

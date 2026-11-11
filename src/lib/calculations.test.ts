@@ -8,6 +8,7 @@ import {
   categoryTotals,
   dailySeries,
   filterRange,
+  ownAmount,
   percentChange,
   summarize,
   totalBalance,
@@ -242,3 +243,36 @@ describe("averageDailySpend", () => {
   });
 });
 
+
+describe("split expenses", () => {
+  // ₹1,200 dinner paid from a1, split with two people for ₹400 each; one paid back into a2.
+  const dinner = tx({
+    type: "expense",
+    amount: rs(1200),
+    categoryId: "food",
+    sharedAmount: rs(800),
+    received: [{ accountId: "a2", amount: rs(400) }],
+  });
+
+  it("counts only your own share as spending", () => {
+    expect(ownAmount(dinner)).toBe(rs(400));
+    expect(summarize([dinner]).effectiveExpense).toBe(rs(400));
+    expect(categorySpend([dinner], "food")).toBe(rs(400));
+    expect(categoryTotals([dinner])[0].net).toBe(rs(400));
+    expect(dailySeries([dinner], new Date(2026, 7, 15), new Date(2026, 7, 16))[0].expense).toBe(rs(400));
+  });
+
+  it("takes the full amount from the account and adds money paid back to the account it came into", () => {
+    expect(accountBalance({ id: "a1", openingBalance: rs(2000) }, [dinner])).toBe(rs(800));
+    expect(accountBalance({ id: "a2", openingBalance: 0 }, [dinner])).toBe(rs(400));
+  });
+
+  it("doesn't count money paid back as income", () => {
+    expect(summarize([dinner]).income).toBe(0);
+  });
+
+  it("never counts a share below zero", () => {
+    expect(ownAmount(tx({ type: "expense", amount: 100, sharedAmount: 100 }))).toBe(0);
+    expect(ownAmount(tx({ type: "income", amount: 100, sharedAmount: 50 }))).toBe(100);
+  });
+});

@@ -6,14 +6,17 @@ import {
   serializeAccount,
   serializeCategory,
   serializeRecurring,
+  serializeSplit,
   serializeTag,
   serializeTransaction,
+  TXN_INCLUDE,
 } from "./serialize";
 import type {
   AccountDTO,
   BudgetDTO,
   CategoryDTO,
   MonthTotals,
+  OpenSplitDTO,
   PreferenceDTO,
   RecurringDTO,
   TagDTO,
@@ -75,9 +78,15 @@ export const loadCalcTxns = memo("calcTxns", async (userId: string): Promise<Cal
       accountId: true,
       transferAccountId: true,
       deletedAt: true,
+      splits: { select: { amount: true, settledAccountId: true } },
     },
   });
-  return rows.map((r) => ({ ...r, type: r.type as CalcTxn["type"] }));
+  return rows.map(({ splits, ...r }) => ({
+    ...r,
+    type: r.type as CalcTxn["type"],
+    sharedAmount: splits.reduce((sum, s) => sum + s.amount, 0),
+    received: splits.flatMap((s) => (s.settledAccountId ? [{ accountId: s.settledAccountId, amount: s.amount }] : [])),
+  }));
 });
 
 export async function loadAccounts(userId: string): Promise<AccountDTO[]> {
@@ -111,7 +120,7 @@ export async function loadTransactions(
 ): Promise<TransactionDTO[]> {
   const rows = await prisma.transaction.findMany({
     where: { userId, deletedAt: null },
-    include: { tags: { include: { tag: true } } },
+    include: TXN_INCLUDE,
     orderBy: [{ date: "desc" }, { createdAt: "desc" }],
     take: opts.take,
     skip: opts.skip,
@@ -127,40 +136,70 @@ export async function countTransactions(userId: string): Promise<number> {
 
 /** Income/expense totals across every (undeleted) transaction, not just a loaded page. */
 export async function loadTransactionTotals(userId: string): Promise<{ income: number; expense: number }> {
-  const sums = await prisma.transaction.groupBy({
-    by: ["type"],
-    where: { userId, deletedAt: null },
-    _sum: { amount: true },
-  });
-  return sums.reduce(
-    (acc, s) => {
-      const amount = s._sum.amount ?? 0;
-      if (s.type === "income") acc.income += amount;
-      else if (s.type === "expense") acc.expense += amount;
-      return acc;
-    },
-    { income: 0, expense: 0 },
-  );
+  return loadTotals({ userId, deletedAt: null });
 }
 
+/**
+ * Income and expense across every transaction matching `where`. Expense is
+ * your own share: other people's splits are left out, as everywhere else.
+ */
+export async function loadTotals(where: Prisma.TransactionWhereInput): Promise<{ income: number; expense: number }> {
+  const [sums, shared] = await Promise.all([
+    prisma.transaction.groupBy({ by: ["type"], where, _sum: { amount: true } }),
+    prisma.splitShare.aggregate({ where: { transaction: { AND: [where, { type: "expense" }] } }, _sum: { amount: true } }),
+  ]);
+  const totals = { income: 0, expense: -(shared._sum.amount ?? 0) };
+  for (const s of sums) {
+    const amount = s._sum.amount ?? 0;
+    if (s.type === "income") totals.income += amount;
+    else if (s.type === "expense") totals.expense += amount;
+  }
+  return totals;
+}
 
 /**
  * Income and expense per month ("2026-09") across every transaction matching
  * `where`, not just a loaded page. The list loads in pages, so a month's totals
  * can't be added up on the screen: they'd be short until the whole month loads.
+ * Expense is your own share, as in loadTotals.
  */
 export async function loadMonthTotals(where: Prisma.TransactionWhereInput): Promise<MonthTotals> {
   const rows = await prisma.transaction.findMany({
     where: { AND: [where, { type: { in: ["income", "expense"] } }] },
-    select: { date: true, type: true, amount: true },
+    select: { date: true, type: true, amount: true, splits: { select: { amount: true } } },
   });
   const months: MonthTotals = {};
   for (const r of rows) {
     const month = (months[toISODate(r.date).slice(0, 7)] ??= { income: 0, expense: 0 });
     if (r.type === "income") month.income += r.amount;
-    else month.expense += r.amount;
+    else month.expense += Math.max(0, r.amount - r.splits.reduce((sum, s) => sum + s.amount, 0));
   }
   return months;
+}
+
+/**
+ * Split shares still to collect (oldest first), and the last few paid back
+ * so they can be undone. Shares of deleted expenses are left out.
+ */
+export async function loadSplits(userId: string): Promise<{ open: OpenSplitDTO[]; settled: OpenSplitDTO[] }> {
+  const live = { transaction: { userId, deletedAt: null } };
+  const include = { transaction: { select: { description: true, date: true, accountId: true } } } as const;
+  const [open, settled] = await Promise.all([
+    prisma.splitShare.findMany({
+      where: { ...live, settledAt: null },
+      include,
+      orderBy: [{ transaction: { date: "asc" } }, { createdAt: "asc" }],
+    }),
+    prisma.splitShare.findMany({ where: { ...live, settledAt: { not: null } }, include, orderBy: { settledAt: "desc" }, take: 10 }),
+  ]);
+  const toDTO = (s: (typeof open)[number]): OpenSplitDTO => ({
+    ...serializeSplit(s),
+    transactionId: s.transactionId,
+    description: s.transaction.description,
+    date: toISODate(s.transaction.date),
+    accountId: s.transaction.accountId,
+  });
+  return { open: open.map(toDTO), settled: settled.map(toDTO) };
 }
 
 export const loadPreference = memo("preference", async (userId: string): Promise<PreferenceDTO> => {

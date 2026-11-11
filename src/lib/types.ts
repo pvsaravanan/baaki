@@ -54,6 +54,26 @@ export interface TransactionDTO {
   notes: string | null;
   recurringId: string | null;
   tags: string[];
+  /** Other people's parts of this expense (empty when it isn't split). */
+  splits: SplitDTO[];
+}
+
+/** One person's part of a split expense. */
+export interface SplitDTO {
+  id: string;
+  name: string;
+  amount: number;
+  /** When they paid it back (ISO date), or null while it's still to collect. */
+  settledAt: string | null;
+  settledAccountId: string | null;
+}
+
+/** A share still to collect, with the expense it came from (the To collect screen). */
+export interface OpenSplitDTO extends SplitDTO {
+  transactionId: string;
+  description: string;
+  date: string;
+  accountId: string;
 }
 
 /** Income and expense (paise) per month, keyed "YYYY-MM". */

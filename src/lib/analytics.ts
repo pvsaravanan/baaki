@@ -8,6 +8,7 @@ import {
   categoryTotals,
   dailySeries,
   filterRange,
+  ownAmount,
   percentChange,
   summarize,
   type BudgetStatus,
@@ -152,10 +153,11 @@ export async function getMonthlyAnalytics(
   let largestExpense: MonthlyAnalytics["largestExpense"] = null;
   const monthExpenses = monthTxns.filter((t) => t.type === "expense");
   if (monthExpenses.length > 0) {
-    const largest = monthExpenses.reduce((max, t) => (t.amount > max.amount ? t : max), monthExpenses[0]);
+    // Your own share: a big bill split four ways isn't your largest spend.
+    const largest = monthExpenses.reduce((max, t) => (ownAmount(t) > ownAmount(max) ? t : max), monthExpenses[0]);
     largestExpense = {
       description: largest.description ?? "Expense",
-      amount: largest.amount,
+      amount: ownAmount(largest),
       date: largest.date,
       categoryName: largest.categoryId ? categories.get(largest.categoryId)?.name ?? null : null,
     };
@@ -290,6 +292,7 @@ export async function getCategoryDetail(userId: string, categoryId: string): Pro
         merchant: true,
         description: true,
         amount: true,
+        splits: { select: { amount: true } },
       },
     }),
   ]);
@@ -336,7 +339,8 @@ export async function getCategoryDetail(userId: string, categoryId: string): Pro
     if (r.type !== kind) continue;
     const key = (r.merchant?.trim() || r.description?.trim() || "Other").slice(0, 60);
     const entry = byMerchant.get(key) ?? { total: 0, count: 0 };
-    entry.total += r.amount;
+    const sharedAmount = r.splits.reduce((sum, s) => sum + s.amount, 0);
+    entry.total += ownAmount({ type: r.type as CalcTxn["type"], amount: r.amount, sharedAmount });
     entry.count += 1;
     byMerchant.set(key, entry);
   }

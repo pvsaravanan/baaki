@@ -7,6 +7,7 @@ import { formatINR } from "./money";
 import { computeNextOccurrence } from "./recurring";
 import type { Frequency } from "./constants";
 import type { TransactionInput } from "./validation";
+import { TXN_INCLUDE } from "./serialize";
 
 /**
  * Refuse a change that would take an account below ₹0 (see balance-guard.ts).
@@ -17,11 +18,12 @@ export async function assertSufficientBalance(
   userId: string,
   before: Movement[],
   after: Movement[],
-  opts: { removing?: boolean } = {},
+  /** `removing`: the change takes money away; `action` names it in the message ("delete this"). */
+  opts: { removing?: boolean; action?: string } = {},
 ): Promise<void> {
   const ids = accountsLowered(before, after);
   if (ids.length === 0) return;
-  const [accounts, txns] = await Promise.all([
+  const [accounts, txns, received] = await Promise.all([
     prisma.account.findMany({
       where: { userId, id: { in: ids } },
       select: { id: true, name: true, type: true, openingBalance: true },
@@ -30,8 +32,13 @@ export async function assertSufficientBalance(
       where: { userId, deletedAt: null, OR: [{ accountId: { in: ids } }, { transferAccountId: { in: ids } }] },
       select: { type: true, amount: true, accountId: true, transferAccountId: true },
     }),
+    // Split shares paid back into these accounts count toward their balance.
+    prisma.splitShare.findMany({
+      where: { settledAccountId: { in: ids }, transaction: { userId, deletedAt: null } },
+      select: { amount: true, settledAccountId: true },
+    }),
   ]);
-  const recorded = accountDeltas(txns);
+  const recorded = accountDeltas([...txns, ...settledMovements(received)]);
   const shortfalls = balanceShortfalls(
     before,
     after,
@@ -40,7 +47,7 @@ export async function assertSufficientBalance(
   if (shortfalls.length > 0) {
     const { name, available } = shortfalls[0];
     const message = opts.removing
-      ? `Can't delete this: ${name} would go below ₹0 (it holds ${formatINR(available)} without it).`
+      ? `Can't ${opts.action ?? "delete this"}: ${name} would go below ₹0 (it holds ${formatINR(available)} without it).`
       : `Not enough balance in ${name}: only ${formatINR(available)} available.`;
     throw new BadRequestError(message, { amount: message });
   }
@@ -56,6 +63,25 @@ function movementOf(input: Pick<TransactionInput, "type" | "amount" | "accountId
 }
 
 const MOVEMENT_FIELDS = { type: true, amount: true, accountId: true, transferAccountId: true } as const;
+const SETTLED_SPLITS = { splits: { where: { settledAt: { not: null } }, select: { amount: true, settledAccountId: true } } } as const;
+
+/**
+ * Split shares paid back, as the money they brought into accounts. They're
+ * not income, but for the balance check they move money just like it.
+ */
+function settledMovements(splits: { amount: number; settledAccountId: string | null }[]): Movement[] {
+  return splits.flatMap((s) => (s.settledAccountId ? [{ type: "income", amount: s.amount, accountId: s.settledAccountId }] : []));
+}
+
+/** A recorded transaction's movements, with the split shares paid back for it. */
+function recordedMovements(t: Movement & { splits: { amount: number; settledAccountId: string | null }[] }): Movement[] {
+  return [t, ...settledMovements(t.splits)];
+}
+
+/** New split shares for an expense (other types are never split). */
+function newSplits(input: Pick<TransactionInput, "type" | "splits">) {
+  return input.type === "expense" ? (input.splits ?? []).map((s) => ({ name: s.name, amount: s.amount })) : [];
+}
 
 /** Ensure the referenced account(s) and category belong to the user. */
 async function assertOwnership(
@@ -142,6 +168,7 @@ export async function createTransaction(userId: string, input: TransactionInput)
   const data = {
     ...toData(userId, input),
     tags: { create: tagIds.map((tagId) => ({ tagId })) },
+    splits: { create: newSplits(input) },
   };
   if (!input.repeat) {
     const created = await prisma.transaction.create({ data });
@@ -190,32 +217,50 @@ function repeatingRuleFor(
 export async function updateTransaction(userId: string, id: string, input: TransactionInput) {
   const existing = await prisma.transaction.findFirst({
     where: { id, userId, deletedAt: null },
-    select: { id: true, categoryId: true, ...MOVEMENT_FIELDS },
+    select: { id: true, categoryId: true, ...MOVEMENT_FIELDS, ...SETTLED_SPLITS },
   });
   if (!existing) throw new NotFoundError("Transaction not found");
   await assertOwnership(userId, input, existing);
-  await assertSufficientBalance(userId, [existing], [movementOf(input)]);
+  // Shares already paid back stay as they are; the edit has to leave room for them.
+  const settled = existing.splits;
+  if (settled.length > 0 && input.type !== "expense") {
+    const message = "Someone already paid back part of this expense. Undo that on the To collect screen first.";
+    throw new BadRequestError(message, { type: message });
+  }
+  const settledSum = settled.reduce((sum, s) => sum + s.amount, 0);
+  const splitSum = (input.splits ?? []).reduce((sum, s) => sum + s.amount, 0);
+  if (settledSum + splitSum > input.amount) {
+    const message = `The split adds up to more than the amount (${formatINR(settledSum)} is already paid back).`;
+    throw new BadRequestError(message, { splits: message });
+  }
+  const paidBack = settledMovements(settled);
+  await assertSufficientBalance(userId, [existing, ...paidBack], [movementOf(input), ...paidBack]);
   const tagIds = await resolveTagIds(userId, input.tags ?? []);
-  // The edit and its tags commit together or not at all.
+  // The edit, its tags and its splits commit together or not at all.
   return prisma.$transaction(async (db) => {
     await db.transactionTag.deleteMany({ where: { transactionId: id } });
+    // Left out of the request, the open shares stay; otherwise they're replaced.
+    const replaceSplits = input.splits !== undefined || input.type !== "expense";
+    if (replaceSplits) await db.splitShare.deleteMany({ where: { transactionId: id, settledAt: null } });
     return db.transaction.update({
       where: { id },
       data: {
         ...toData(userId, input),
         tags: { create: tagIds.map((tagId) => ({ tagId })) },
+        ...(replaceSplits && { splits: { create: newSplits(input) } }),
       },
-      include: { tags: { include: { tag: true } } },
+      include: TXN_INCLUDE,
     });
   });
 }
 
 /** Soft-delete. Returns the id so the caller can offer undo. */
 export async function softDeleteTransaction(userId: string, id: string): Promise<void> {
-  const existing = await prisma.transaction.findFirst({ where: { id, userId, deletedAt: null } });
+  const existing = await prisma.transaction.findFirst({ where: { id, userId, deletedAt: null }, include: SETTLED_SPLITS });
   if (!existing) throw new NotFoundError("Transaction not found");
-  // Deleting income (or a transfer in) lowers a balance just as spending does.
-  await assertSufficientBalance(userId, [existing], [], { removing: true });
+  // Deleting income (or a transfer in) lowers a balance just as spending does,
+  // and so does the money paid back for a split expense, which goes with it.
+  await assertSufficientBalance(userId, recordedMovements(existing), [], { removing: true });
   await prisma.transaction.update({ where: { id }, data: { deletedAt: new Date() } });
 }
 
@@ -226,23 +271,23 @@ export async function bulkSoftDeleteTransactions(userId: string, ids: string[]):
   const where = { id: { in: unique }, userId, deletedAt: null };
   // The whole batch is checked together: removing some income may be fine
   // when the expenses it paid for go in the same batch.
-  const doomed = await prisma.transaction.findMany({ where, select: { id: true, ...MOVEMENT_FIELDS } });
-  await assertSufficientBalance(userId, doomed, [], { removing: true });
+  const doomed = await prisma.transaction.findMany({ where, select: { id: true, ...MOVEMENT_FIELDS, ...SETTLED_SPLITS } });
+  await assertSufficientBalance(userId, doomed.flatMap(recordedMovements), [], { removing: true });
   const result = await prisma.transaction.updateMany({ where: { id: { in: doomed.map((t) => t.id) } }, data: { deletedAt: new Date() } });
   return result.count;
 }
 
 export async function restoreTransaction(userId: string, id: string): Promise<void> {
-  const existing = await prisma.transaction.findFirst({ where: { id, userId } });
+  const existing = await prisma.transaction.findFirst({ where: { id, userId }, include: SETTLED_SPLITS });
   if (!existing) throw new NotFoundError("Transaction not found");
-  if (existing.deletedAt) await assertSufficientBalance(userId, [], [existing]);
+  if (existing.deletedAt) await assertSufficientBalance(userId, [], recordedMovements(existing));
   await prisma.transaction.update({ where: { id }, data: { deletedAt: null } });
 }
 
 /**
  * One-click copy of a transaction (see the "Duplicate" row menu item) — for
  * logging a similar purchase again, not for re-creating everything about the
- * original.
+ * original. Its splits aren't copied: who owes what is about that one bill.
  */
 export async function duplicateTransaction(userId: string, id: string): Promise<string> {
   const original = await prisma.transaction.findFirst({
@@ -267,4 +312,34 @@ export async function duplicateTransaction(userId: string, id: string): Promise<
     },
   });
   return copy.id;
+}
+
+/**
+ * Mark split shares as paid back into an account (the To collect screen).
+ * Adding money is never blocked, so there's no balance check.
+ */
+export async function settleSplits(userId: string, ids: string[], accountId: string): Promise<number> {
+  const account = await prisma.account.findFirst({ where: { id: accountId, userId, isArchived: false }, select: { id: true } });
+  if (!account) throw new NotFoundError("Account not found");
+  const result = await prisma.splitShare.updateMany({
+    where: { id: { in: [...new Set(ids)] }, settledAt: null, transaction: { userId, deletedAt: null } },
+    data: { settledAt: new Date(), settledAccountId: accountId },
+  });
+  if (result.count === 0) throw new NotFoundError("Nothing left to settle");
+  return result.count;
+}
+
+/** Undo settling: the shares are to collect again, and their money leaves the account. */
+export async function unsettleSplits(userId: string, ids: string[]): Promise<number> {
+  const shares = await prisma.splitShare.findMany({
+    where: { id: { in: [...new Set(ids)] }, settledAt: { not: null }, transaction: { userId } },
+    select: { id: true, amount: true, settledAccountId: true },
+  });
+  if (shares.length === 0) throw new NotFoundError("Nothing to undo");
+  await assertSufficientBalance(userId, settledMovements(shares), [], { removing: true, action: "undo this" });
+  const result = await prisma.splitShare.updateMany({
+    where: { id: { in: shares.map((s) => s.id) } },
+    data: { settledAt: null, settledAccountId: null },
+  });
+  return result.count;
 }
