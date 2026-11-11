@@ -15,6 +15,8 @@ import { ExportButton } from "@/components/app/reports/export-button";
 import { PeriodOverview } from "@/components/app/reports/period-overview";
 import { MonthChip, RangeChip } from "@/components/app/reports/period-picker";
 import { ScreenData } from "@/components/app/screen-data";
+import { PageBanner } from "@/components/app/page-banner";
+import { ReportsArt } from "@/components/app/page-illustrations";
 
 export default function ReportsPage() {
   return (
@@ -35,13 +37,11 @@ function Overview() {
   const { data, error, isStale } = usePageData("reportsOverview", { period });
   return (
     <MonthScope monthKey={period} loading={isStale}>
-      <div className="mb-3 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-headline-md text-fg sm:text-headline-lg">Reports</h1>
-          <p className="mt-1 text-body-sm text-muted">Understand your spending patterns.</p>
+      <PageBanner back={false} title="Reports" subtitle="Understand your spending patterns." art={<ReportsArt />}>
+        <div className="mt-3">
+          <ExportButton />
         </div>
-        <ExportButton />
-      </div>
+      </PageBanner>
       <div className="mb-4">
         <PeriodChips period={period} />
       </div>

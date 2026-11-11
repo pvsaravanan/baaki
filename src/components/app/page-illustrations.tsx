@@ -105,3 +105,31 @@ export function ImportArt() {
     </Art>
   );
 }
+
+/** Transactions: a statement with swapping arrows beside it. */
+export function TransactionsArt() {
+  return (
+    <Art>
+      <path d="M30 22 L26 15 M20 32 L13 29 M40 16 L39 9" />
+      <rect x="36" y="14" width="48" height="58" rx="6" fill={SURFACE} />
+      <path d="M46 28 H74 M46 38 H74 M46 48 H62" />
+      <circle cx="88" cy="64" r="17" fill={CORAL} />
+      <path d="M80 60 H96 M92 56 L96 60 L92 64 M96 69 H80 M84 65 L80 69 L84 73" stroke={SURFACE} strokeWidth="2.5" />
+    </Art>
+  );
+}
+
+/** Reports: a bar chart with a rising line. */
+export function ReportsArt() {
+  return (
+    <Art>
+      <path d="M30 22 L26 15 M20 32 L13 29 M40 16 L39 9" />
+      <rect x="32" y="18" width="62" height="56" rx="6" fill={SURFACE} />
+      <rect x="42" y="50" width="10" height="16" rx="2" fill={GOLD} />
+      <rect x="58" y="40" width="10" height="26" rx="2" fill={CORAL} />
+      <rect x="74" y="30" width="10" height="36" rx="2" fill={GOLD} />
+      <path d="M40 44 L58 32 L74 38 L100 20" stroke={CORAL} strokeWidth="2.5" />
+      <path d="M92 20 H100 V28" stroke={CORAL} strokeWidth="2.5" />
+    </Art>
+  );
+}

@@ -1,23 +1,29 @@
 "use client";
-import Image from "next/image";
-import Link from "next/link";
-import logo from "@/assets/baaki_logo_mark_with_background.png";
+import { cn } from "@/lib/cn";
 import { UserMenu } from "./user-menu";
-import { TopbarSlotTarget } from "./topbar-slot";
+import { TopbarSlotTarget, useBannerActive } from "./topbar-slot";
 
 export function Topbar() {
+  // A screen with its own banner (see PageBanner) stands in for this bar on a phone.
+  const banner = useBannerActive();
   return (
-    <header className="sticky top-0 z-30 flex h-[calc(4rem+env(safe-area-inset-top,0px))] items-center justify-between border-border bg-bg/95 md:border-b backdrop-blur-sm px-4 pt-[env(safe-area-inset-top,0px)] sm:px-6">
-      <div className="md:hidden">
-        <Link href="/dashboard" aria-label="baaki home">
-          <Image src={logo} alt="" width={48} height={48} priority className="h-12 w-12" />
-        </Link>
-      </div>
-      {/* Filled by the screen (the month picker); empty otherwise. */}
-      <TopbarSlotTarget className="flex min-w-0 flex-1 justify-center px-1" />
-      <div className="flex items-center gap-2 sm:gap-3">
-        <UserMenu />
-      </div>
-    </header>
+    <>
+      {/* Keeps the status bar's area solid while the page scrolls under it. */}
+      {banner && <div aria-hidden className="sticky top-0 z-30 h-[env(safe-area-inset-top,0px)] bg-bg md:hidden" />}
+      <header
+        className={cn(
+          "sticky top-0 z-30 grid h-[calc(4rem+env(safe-area-inset-top,0px))] grid-cols-[1fr_auto_1fr] items-center border-border bg-bg/95 md:border-b backdrop-blur-sm px-4 pt-[env(safe-area-inset-top,0px)] sm:px-6",
+          banner && "max-md:hidden",
+        )}
+      >
+        <div aria-hidden />
+        {/* Filled by the screen (the month picker); empty otherwise. Kept in the
+            middle column so it stays centred whatever sits at the edges. */}
+        <TopbarSlotTarget className="flex min-w-0 justify-center px-1" />
+        <div className="flex items-center justify-self-end gap-2 sm:gap-3">
+          <UserMenu />
+        </div>
+      </header>
+    </>
   );
 }
