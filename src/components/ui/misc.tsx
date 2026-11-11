@@ -10,7 +10,7 @@ export function Badge({
   tone?: "neutral" | "brand" | "income" | "expense" | "warning";
   className?: string;
 }) {
-  // Chips are tiny, square, uppercase markers — institutional system cues.
+  // Chips are small rounded markers.
   const tones: Record<string, string> = {
     neutral: "bg-surface-2 text-secondary border-border",
     brand: "bg-brand text-brand-fg border-border",
@@ -21,7 +21,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-none border px-2 py-0.5 text-label-sm uppercase",
+        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-bold",
         tones[tone],
         className,
       )}
@@ -47,11 +47,11 @@ export function Progress({
     expense: "bg-expense",
     warning: "bg-warning",
   };
-  // Square meter with an ink outline — a printed gauge, not a soft pill.
+  // A rounded meter with a light outline.
   return (
-    <div className={cn("h-2.5 w-full overflow-hidden rounded-none border border-border bg-surface-2", className)}>
+    <div className={cn("h-2.5 w-full overflow-hidden rounded-full border border-border/40 bg-surface-2", className)}>
       <div
-        className={cn("h-full rounded-none transition-all", tones[tone])}
+        className={cn("h-full rounded-full transition-all", tones[tone])}
         style={{ width: `${clamped}%` }}
       />
     </div>
@@ -96,5 +96,5 @@ export function EmptyState({
 }
 
 export function Skeleton({ className }: { className?: string }) {
-  return <div className={cn("animate-pulse rounded-none bg-surface-2", className)} />;
+  return <div className={cn("animate-pulse rounded-lg bg-surface-2", className)} />;
 }

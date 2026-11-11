@@ -31,7 +31,7 @@ export function BottomNav() {
             <button
               onClick={() => openAdd()}
               aria-label="Add transaction"
-              className="flex h-10 w-10 items-center justify-center rounded-none border-2 border-border bg-brand text-brand-fg shadow-stamp transition-all hover:shadow-stamp-lg active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-brand text-brand-fg transition-all active:translate-x-[3px] active:translate-y-[3px]"
             >
               <Plus className="h-6 w-6" strokeWidth={2.5} />
             </button>
@@ -40,7 +40,7 @@ export function BottomNav() {
           <button
             onClick={() => setMoreOpen(true)}
             className={cn(
-              "flex min-h-[44px] flex-col items-center justify-center gap-1 py-1.5 text-[10px] font-bold uppercase leading-[14px] tracking-[0.02em] active:opacity-70",
+              "flex min-h-[44px] flex-col items-center justify-center gap-1 py-1.5 text-[10px] font-bold leading-[14px] tracking-[0.02em] active:opacity-70",
               moreOpen ? "text-brand-hover" : "text-fg",
             )}
           >
@@ -54,7 +54,7 @@ export function BottomNav() {
         <div className="space-y-5 pb-2">
           {MORE_SHEET_GROUPS.map((group) => (
             <div key={group.label}>
-              <p className="mb-2 text-label-sm uppercase text-faint">{group.label}</p>
+              <p className="mb-2 text-label-sm text-faint">{group.label}</p>
               <div className="grid grid-cols-3 gap-2">
                 {group.items.map((item) => {
                   const Icon = item.icon;
@@ -65,8 +65,8 @@ export function BottomNav() {
                       href={item.href}
                       onClick={() => setMoreOpen(false)}
                       className={cn(
-                        "flex flex-col items-center gap-2 rounded-none border border-border p-4 text-label-sm uppercase transition-all active:translate-x-px active:translate-y-px active:shadow-none",
-                        active ? "bg-brand text-brand-fg shadow-stamp-sm" : "text-muted hover:bg-brand-soft hover:text-secondary",
+                        "flex flex-col items-center gap-2 rounded-xl border border-border p-4 text-label-sm transition-all",
+                        active ? "bg-brand text-brand-fg" : "text-muted hover:bg-brand-soft hover:text-secondary",
                       )}
                     >
                       <Icon className="h-5 w-5" />
@@ -87,7 +87,7 @@ function Tab({ href, label, icon: Icon, active }: { href: string; label: string;
   return (
     <Link
       href={href}
-      className={cn("flex flex-col items-center gap-1 py-1.5 text-[10px] font-bold uppercase leading-[14px] tracking-[0.02em]", active ? "text-brand-hover" : "text-fg")}
+      className={cn("flex flex-col items-center gap-1 py-1.5 text-[10px] font-bold leading-[14px] tracking-[0.02em]", active ? "text-brand-hover" : "text-fg")}
     >
       <Icon className="h-5 w-5" strokeWidth={active ? 2.4 : 2} />
       {label}

@@ -30,7 +30,7 @@ export function ScreenData<T>({
 /** Generic list placeholder. */
 export function ListSkeleton() {
   return (
-    <div className="space-y-3 rounded-none border border-border bg-surface p-4 animate-fade-in">
+    <div className="space-y-3 rounded-xl border border-border bg-surface p-4 animate-fade-in">
       <Skeleton className="h-12 w-full" />
       <Skeleton className="h-12 w-full" />
       <Skeleton className="h-12 w-full" />

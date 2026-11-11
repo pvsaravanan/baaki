@@ -159,21 +159,23 @@ export function Modal({
         ref={panelRef}
         className={cn(
           "relative z-10 flex w-full flex-col overflow-hidden bg-surface shadow-pop",
-          "rounded-none border-border animate-sheet-up",
-          "sm:rounded-none sm:shadow-stamp-lg sm:animate-scale-in",
-          fullScreen ? "h-full sm:h-[min(820px,92vh)] sm:max-w-md sm:border-2" : cn("max-h-[92vh] border-2", maxW),
+          "border-border/25 animate-sheet-up",
+          "sm:rounded-2xl sm:animate-scale-in",
+          fullScreen
+            ? "h-full sm:h-[min(820px,92vh)] sm:max-w-md sm:border"
+            : cn("max-h-[92vh] rounded-t-2xl border-t sm:border", maxW),
         )}
       >
         {!fullScreen && (title || description) && (
-          <div className={cn("flex items-start justify-between gap-3 px-5 py-4", hasContent && "border-b border-border")}>
+          <div className={cn("flex items-start justify-between gap-3 px-5 py-4", hasContent && "border-b border-border/20")}>
             <div className="min-w-0">
-              {title && <h2 className="text-base font-semibold text-fg">{title}</h2>}
+              {title && <h2 className="text-base font-bold tracking-normal text-fg">{title}</h2>}
               {description && <p className="mt-0.5 text-sm text-muted">{description}</p>}
             </div>
             <button
               onClick={onClose}
               disabled={busy}
-              className="rounded-none p-1 text-muted transition-colors hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-full p-1 text-muted transition-colors hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="Close"
             >
               <X className="h-5 w-5" />
@@ -194,7 +196,7 @@ export function Modal({
           </div>
         )}
         {footer && (
-          <div className="border-t border-border bg-surface-2/50 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-5 sm:pb-3">
+          <div className="border-t border-border/20 bg-surface px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-5 sm:pb-3">
             {footer}
           </div>
         )}

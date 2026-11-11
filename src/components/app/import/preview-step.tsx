@@ -34,7 +34,7 @@ export function PreviewStep({
       </div>
 
       {summary.willImport === 0 && (
-        <div className="flex items-start gap-2 rounded-none border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">
+        <div className="flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           <span>
             Nothing will be imported. This can happen if every row is invalid or a duplicate, or if no account
@@ -154,7 +154,7 @@ function StatTile({
     muted: "text-faint",
   };
   return (
-    <div className="rounded-none border border-border bg-surface p-4 shadow-card">
+    <div className="rounded-xl border border-border bg-surface p-4">
       <p className="text-xs font-medium text-muted">{label}</p>
       <p className={cn("mt-1.5 text-2xl font-semibold", colors[tone])}>{value}</p>
     </div>

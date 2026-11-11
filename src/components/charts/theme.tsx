@@ -46,7 +46,7 @@ export function TooltipBox({
   if (!active || !payload?.length) return null;
   return (
     <div
-      className="rounded-none border px-3 py-2 text-xs"
+      className="rounded-xl border px-3 py-2 text-xs"
       style={{ background: colors.surface, borderColor: colors.border, color: colors.fg }}
     >
       {label && <p className="mb-1 text-label-sm uppercase">{label}</p>}

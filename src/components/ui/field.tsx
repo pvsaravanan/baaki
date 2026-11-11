@@ -22,7 +22,7 @@ export function Field({
   return (
     <div className={cn("space-y-1.5", className)}>
       {label && (
-        <label htmlFor={htmlFor} className="block text-label-md uppercase text-muted">
+        <label htmlFor={htmlFor} className="block text-sm font-bold text-fg">
           {label}
           {required && <span className="ml-0.5 text-expense">*</span>}
         </label>
@@ -37,10 +37,10 @@ export function Field({
   );
 }
 
-// Flat, square, utilitarian — the same language as cards. 13px/16px padding.
+// Rounded, flat fields — the same language as the cards.
 // 16px minimum text size on mobile prevents iOS Safari auto-zooming the viewport on focus.
 export const INPUT_BASE =
-  "w-full rounded-none border bg-surface px-4 py-3 text-[16px] sm:text-body-md text-fg placeholder:text-faint transition-colors focus:outline-none focus:ring-2 focus:ring-ring/25 disabled:cursor-not-allowed disabled:opacity-60";
+  "w-full rounded-xl border bg-surface px-4 py-3 text-[16px] sm:text-body-md text-fg placeholder:text-faint transition-colors focus:outline-none focus:ring-2 focus:ring-ring/25 disabled:cursor-not-allowed disabled:opacity-60";
 
 export const Input = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean }>(
   function Input({ className, invalid, ...props }, ref) {
@@ -62,7 +62,7 @@ export const Textarea = forwardRef<
     <textarea
       ref={ref}
       className={cn(
-        "w-full rounded-none border bg-surface px-4 py-3 text-[16px] sm:text-body-md text-fg placeholder:text-faint transition-colors focus:outline-none focus:ring-2 focus:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60",
+        "w-full rounded-xl border bg-surface px-4 py-3 text-[16px] sm:text-body-md text-fg placeholder:text-faint transition-colors focus:outline-none focus:ring-2 focus:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60",
         "min-h-[80px] resize-y",
         invalid ? "border-expense" : "border-border focus:border-brand",
         className,

@@ -31,7 +31,7 @@ export function SummaryTile({
   deltaGood: "up" | "down";
 }) {
   return (
-    <div className="min-w-0 rounded-xl border border-border bg-surface p-2.5 shadow-stamp-sm [container-type:inline-size] md:p-3">
+    <div className="min-w-0 rounded-xl border border-border bg-surface p-2.5 [container-type:inline-size] md:p-3">
       <p className="truncate text-[12px] font-medium leading-4 text-fg md:text-body-sm">{label}</p>
       <Money
         paise={value}

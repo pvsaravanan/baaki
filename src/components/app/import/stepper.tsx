@@ -19,7 +19,7 @@ export function Stepper({ current }: { current: Step }) {
           >
             <span
               className={cn(
-                "flex h-6 w-6 shrink-0 items-center justify-center rounded-none text-2xs font-semibold transition-colors",
+                "flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-2xs font-semibold transition-colors",
                 state === "active" && "bg-brand text-brand-fg",
                 state === "done" && "bg-brand-soft text-brand-hover",
                 state === "todo" && "bg-surface-2 text-faint",

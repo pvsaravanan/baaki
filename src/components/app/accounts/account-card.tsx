@@ -19,7 +19,7 @@ export function AccountCard({
   onRestore?: () => void;
 }) {
   return (
-    <li className={cn("group relative rounded-none border border-border bg-surface p-4 shadow-card", account.isArchived && "opacity-70")}>
+    <li className={cn("group relative rounded-xl border border-border bg-surface p-4", account.isArchived && "opacity-70")}>
       <div className="flex items-start gap-3">
         <AccountIcon account={account} />
         <div className="min-w-0 flex-1">

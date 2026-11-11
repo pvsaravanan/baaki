@@ -114,7 +114,7 @@ export function AccountForm({
   return (
     <form onSubmit={onSubmit} className="space-y-4" noValidate>
       {formError && (
-        <div className="rounded-none border border-expense/30 bg-expense/10 px-3 py-2 text-sm text-expense">
+        <div className="rounded-xl border border-expense/30 bg-expense/10 px-3 py-2 text-sm text-expense">
           {formError}
         </div>
       )}

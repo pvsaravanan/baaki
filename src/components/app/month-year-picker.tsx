@@ -100,7 +100,7 @@ export function MonthYearPicker({
                 onClear();
                 onClose();
               }}
-              className="text-label-sm uppercase text-brand-hover hover:underline"
+              className="text-label-sm text-brand-hover hover:underline"
             >
               Clear
             </button>
@@ -117,7 +117,7 @@ export function MonthYearPicker({
             type="button"
             onClick={() => setViewYear((y) => y - 1)}
             disabled={viewYear <= minMonth.year}
-            className="flex h-9 w-9 items-center justify-center rounded-none text-muted transition-colors hover:text-fg disabled:opacity-30 active:text-fg"
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-muted transition-colors hover:text-fg disabled:opacity-30 active:text-fg"
             aria-label="Previous year"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -127,7 +127,7 @@ export function MonthYearPicker({
             type="button"
             onClick={() => setViewYear((y) => y + 1)}
             disabled={maxMonth !== undefined && viewYear >= maxMonth.year}
-            className="flex h-9 w-9 items-center justify-center rounded-none text-muted transition-colors hover:text-fg disabled:opacity-30 active:text-fg"
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-muted transition-colors hover:text-fg disabled:opacity-30 active:text-fg"
             aria-label="Next year"
           >
             <ChevronRight className="h-4 w-4" />
@@ -147,9 +147,9 @@ export function MonthYearPicker({
                 disabled={disabled}
                 aria-current={selected ? "date" : undefined}
                 className={cn(
-                  "rounded-none border p-2.5 text-sm font-medium uppercase transition-all active:translate-x-px active:translate-y-px active:shadow-none",
+                  "rounded-xl border p-2.5 text-sm font-medium transition-all",
                   selected
-                    ? "border-border bg-brand text-brand-fg shadow-stamp-sm"
+                    ? "border-border bg-brand text-brand-fg"
                     : "border-border text-muted hover:bg-brand-soft hover:text-secondary",
                   disabled && "cursor-not-allowed opacity-30 hover:bg-transparent hover:text-muted",
                 )}

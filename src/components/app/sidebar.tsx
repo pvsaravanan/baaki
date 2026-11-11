@@ -45,7 +45,7 @@ export function Sidebar() {
           title="Add transaction"
           aria-label="Add transaction"
           className={cn(
-            "flex h-[41px] w-full items-center justify-center gap-2 rounded-none border border-border bg-brand text-body-sm font-bold text-brand-fg shadow-stamp transition-all hover:bg-brand-hover hover:-translate-x-px hover:-translate-y-px hover:shadow-stamp-lg active:translate-x-[3px] active:translate-y-[3px] active:shadow-none",
+            "flex h-[41px] w-full items-center justify-center gap-2 rounded-xl border border-border bg-brand text-body-sm font-bold text-brand-fg transition-all hover:bg-brand-hover active:translate-x-[3px] active:translate-y-[3px]",
             collapsed ? "px-0" : "px-4",
           )}
         >
@@ -82,7 +82,7 @@ export function Sidebar() {
           collapsed ? "max-h-0 opacity-0 px-0 py-0" : "max-h-24 opacity-100 px-md py-sm",
         )}
       >
-        <p className="text-label-sm uppercase leading-relaxed text-faint">
+        <p className="text-label-sm leading-relaxed text-faint">
           Know where your
           <br />
           money goes.
@@ -104,7 +104,7 @@ function SectionLabel({ label, collapsed, className }: { label: string; collapse
   return (
     <p
       className={cn(
-        "mb-xs overflow-hidden whitespace-nowrap px-1 text-label-sm uppercase text-faint transition-[max-width,opacity,margin] duration-300 ease-out",
+        "mb-xs overflow-hidden whitespace-nowrap px-1 text-label-sm text-faint transition-[max-width,opacity,margin] duration-300 ease-out",
         collapsed ? "max-w-0 opacity-0 mb-0" : "max-w-[180px] opacity-100",
         className,
       )}
@@ -124,11 +124,11 @@ function NavLink({ item, collapsed }: { item: NavItem; collapsed: boolean }) {
       aria-current={active ? "page" : undefined}
       title={item.label}
       className={cn(
-        "flex items-center rounded-none border py-1.5 text-label-md uppercase transition-all active:translate-x-px active:translate-y-px active:shadow-none",
+        "flex items-center rounded-xl border py-1.5 text-label-md transition-all",
         collapsed ? "justify-center px-0" : "gap-2.5 px-2",
         active
           ? // The current page reads as a coral tile stamped onto the rail.
-            "border-border bg-brand text-brand-fg shadow-stamp-sm"
+            "border-border bg-brand text-brand-fg"
           : "border-transparent text-muted hover:border-border hover:bg-brand-soft hover:text-secondary",
       )}
     >

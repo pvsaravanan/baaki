@@ -77,13 +77,13 @@ export function Sheet({
         ref={panelRef}
         tabIndex={bare ? -1 : undefined}
         className={cn(
-          "relative z-10 w-full border-t-2 border-border bg-surface shadow-sheet animate-sheet-up",
+          "relative z-10 w-full border-t-2 border-border bg-surface animate-sheet-up",
           bare
-            ? "flex max-h-[92dvh] flex-col rounded-t-xl pt-2 outline-none md:max-w-lg md:rounded-xl md:border-2"
-            : "rounded-none p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]",
+            ? "flex max-h-[92dvh] flex-col rounded-t-xl pt-2 outline-none md:max-w-lg md:rounded-xl md:border"
+            : "rounded-xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]",
         )}
       >
-        <div className={cn("mx-auto h-1 w-10 shrink-0 rounded-none bg-border-strong", bare ? "mb-2 md:hidden" : "mb-3")} />
+        <div className={cn("mx-auto h-1 w-10 shrink-0 rounded-xl bg-border-strong", bare ? "mb-2 md:hidden" : "mb-3")} />
         {title && !bare && (
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-fg">{title}</h2>

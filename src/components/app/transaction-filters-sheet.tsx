@@ -68,7 +68,7 @@ export function TypePills({ value, onChange }: { value: string; onChange: (type:
             className={cn(
               "flex h-10 items-center justify-center gap-1 rounded-full border border-border px-2 text-[12px] font-medium leading-4 text-fg transition-colors md:flex-none md:px-3 md:text-sm",
               type ? "flex-1" : "shrink-0 px-3",
-              active ? "bg-brand font-bold text-brand-fg shadow-stamp-sm" : "bg-surface hover:bg-surface-2",
+              active ? "bg-brand font-bold text-brand-fg" : "bg-surface hover:bg-surface-2",
             )}
           >
             {Icon && <Icon className="h-3.5 w-3.5" />}

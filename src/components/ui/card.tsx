@@ -1,7 +1,7 @@
 import { cn } from "@/lib/cn";
 
 export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("rounded-md border border-border bg-surface shadow-card", className)} {...props} />;
+  return <div className={cn("rounded-xl border border-border/25 bg-surface", className)} {...props} />;
 }
 
 export function CardHeader({
@@ -18,7 +18,7 @@ export function CardHeader({
   return (
     <div className={cn("flex flex-wrap items-start justify-between gap-x-3 gap-y-2 px-5 pt-4", className)}>
       <div className="min-w-0">
-        <h3 className="text-label-lg uppercase tracking-[0.06em] text-fg">{title}</h3>
+        <h3 className="text-base font-bold tracking-normal text-fg">{title}</h3>
         {subtitle && <p className="mt-1 text-body-sm text-muted">{subtitle}</p>}
       </div>
       {action && <div className="shrink-0">{action}</div>}

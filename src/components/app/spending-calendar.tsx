@@ -159,14 +159,14 @@ export function SpendingCalendar({
               onBlur={() => setFocused((f) => (f === date ? null : f))}
               onClick={() => !isFuture && setPinned((p) => (p === date ? null : date))}
               className={cn(
-                "relative flex aspect-square min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-none border border-border-faint px-0.5 py-1 text-center text-label-sm sm:min-h-14 sm:gap-1 sm:py-1.5",
+                "relative flex aspect-square min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl border border-border-faint px-0.5 py-1 text-center text-label-sm sm:min-h-14 sm:gap-1 sm:py-1.5",
                 "transition-[transform,box-shadow] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
                 "focus:outline-none focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-ring/40",
-                isFuture ? "cursor-default" : "hover:z-10 hover:-translate-x-px hover:-translate-y-px hover:shadow-stamp-sm",
+                isFuture ? "cursor-default" : "hover:z-10",
                 spend > 0 ? "text-fg" : "text-faint",
                 isWeekend && spend === 0 && "bg-surface-2/50",
                 isToday && "ring-2 ring-fg ring-offset-1 ring-offset-surface",
-                isActive && "z-20 -translate-x-px -translate-y-px shadow-stamp-sm",
+                isActive && "z-20",
               )}
               // Heat wash scales with spend (--heat: coral in both themes) — no blur.
               style={spend > 0 ? { backgroundColor: `hsl(var(--heat) / ${intensity})` } : undefined}
@@ -182,7 +182,7 @@ export function SpendingCalendar({
           id={tooltipId}
           role="tooltip"
           aria-hidden={!visible}
-          className="pointer-events-none absolute left-0 top-0 z-30 whitespace-nowrap rounded-none border-2 border-border bg-surface px-2.5 py-1.5 text-left normal-case shadow-stamp motion-reduce:transition-none"
+          className="pointer-events-none absolute left-0 top-0 z-30 whitespace-nowrap rounded-xl border border-border bg-surface px-2.5 py-1.5 text-left normal-case motion-reduce:transition-none"
           style={{
             transform: pos ? `translate3d(${pos.x}px, ${pos.y}px, 0)` : undefined,
             opacity: visible && pos ? 1 : 0,

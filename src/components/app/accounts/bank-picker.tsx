@@ -30,7 +30,7 @@ export function BankPicker({
   return (
     <Field label="Bank" error={error} hint={error ? undefined : "Pick your bank — its name, color and logo are filled in automatically."}>
       {selected ? (
-        <div className="flex items-center gap-3 rounded-none border border-border bg-surface-2 px-3 py-2">
+        <div className="flex items-center gap-3 rounded-xl border border-border bg-surface-2 px-3 py-2">
           <BankLogo bank={selected} size={32} />
           <p className="flex-1 truncate text-sm text-fg">{selected.name}</p>
           <Button type="button" variant="ghost" size="sm" onClick={() => onPick(null)}>
@@ -38,7 +38,7 @@ export function BankPicker({
           </Button>
         </div>
       ) : isOther ? (
-        <div className="flex items-center gap-3 rounded-none border border-border bg-surface-2 px-3 py-2">
+        <div className="flex items-center gap-3 rounded-xl border border-border bg-surface-2 px-3 py-2">
           <CategoryIcon icon={DEFAULT_ACCOUNT_ICON} size={32} />
           <p className="flex-1 truncate text-sm text-fg">Other bank</p>
           <Button type="button" variant="ghost" size="sm" onClick={() => onPick(null)}>
@@ -53,7 +53,7 @@ export function BankPicker({
             placeholder="Search banks…"
             aria-label="Search banks"
           />
-          <ul className="max-h-48 overflow-y-auto rounded-none border border-border">
+          <ul className="max-h-48 overflow-y-auto rounded-xl border border-border">
             {matches.map((bank) => (
               <li key={bank.id}>
                 <button

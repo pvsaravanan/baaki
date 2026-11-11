@@ -29,7 +29,7 @@ export function Segmented<T extends string>({
       className={cn(
         wrap
           ? "grid gap-1.5"
-          : "inline-flex max-w-full items-center overflow-x-auto rounded-none border border-border bg-surface",
+          : "inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-full border border-border/20 bg-surface-2/60 p-1",
         className,
       )}
     >
@@ -53,11 +53,10 @@ export function Segmented<T extends string>({
             }}
             onClick={() => onChange(opt.value)}
             className={cn(
-              "inline-flex items-center justify-center gap-1.5 rounded-none uppercase transition-colors min-h-[38px] touch-manipulation",
+              "inline-flex items-center justify-center gap-1.5 rounded-full transition-colors min-h-[38px] touch-manipulation",
               wrap ? "border border-border" : "shrink-0 whitespace-nowrap",
-              !wrap && i > 0 && "border-l border-border",
-              size === "sm" ? "px-2.5 py-1.5 text-label-sm" : "px-3.5 py-2 text-label-md",
-              active ? "bg-brand text-brand-fg font-semibold" : "text-muted hover:bg-brand-soft hover:text-secondary",
+                            size === "sm" ? "px-3 py-1.5 text-[12px] font-bold" : "px-4 py-2 text-[13px] font-bold",
+              active ? "bg-brand text-brand-fg" : "text-fg hover:bg-brand-soft/60",
             )}
           >
             {opt.icon}

@@ -90,7 +90,7 @@ export function SelectMenu({
           "flex w-full items-center justify-between gap-2 border bg-surface text-left transition-colors focus:outline-none focus:ring-2 focus:ring-ring/25 disabled:cursor-not-allowed disabled:opacity-60",
           soft
             ? "h-11 rounded-xl px-3 text-xs font-medium"
-            : cn("rounded-none", size === "sm" ? "px-3 py-1.5 text-label-md uppercase" : "px-4 py-3 text-[16px] sm:text-body-md"),
+            : cn("rounded-xl", size === "sm" ? "px-3 py-1.5 text-[13px] font-bold" : "px-4 py-3 text-[16px] sm:text-body-md"),
           invalid ? "border-expense focus:border-expense" : soft ? "border-border/40 focus:border-brand" : "border-border focus:border-brand",
           selected ? "text-fg" : "text-faint",
         )}

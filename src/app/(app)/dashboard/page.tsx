@@ -216,7 +216,7 @@ function DashboardBody({ data, monthKey, fit }: { data: PageData<"dashboard">; m
 
 function SavingsRateCard({ rate, delta }: { rate: number; delta: number | null }) {
   return (
-    <div className="rounded-none border border-border bg-surface p-sm [container-type:inline-size]">
+    <div className="rounded-xl border border-border bg-surface p-sm [container-type:inline-size]">
       <p className="text-label-sm uppercase text-muted">Savings rate</p>
       <p className="mt-2 whitespace-nowrap font-bold tracking-tight text-fg text-[clamp(1rem,10.5cqi,1.55rem)]">
         {formatPercent(rate)}
@@ -228,7 +228,7 @@ function SavingsRateCard({ rate, delta }: { rate: number; delta: number | null }
 
 function BudgetRemainingCard({ remaining, limit }: { remaining: number; limit: number }) {
   return (
-    <div className="rounded-none border border-border bg-surface p-sm [container-type:inline-size]">
+    <div className="rounded-xl border border-border bg-surface p-sm [container-type:inline-size]">
       <p className="text-label-sm uppercase text-muted">Budget left</p>
       <div className="mt-2">
         {limit > 0 ? (

@@ -111,8 +111,8 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: number)
   return (
     <div
       className={cn(
-        "pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-none border border-border",
-        "bg-surface px-4 py-3 shadow-stamp animate-slide-up",
+        "pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-xl border border-border/40",
+        "bg-surface px-4 py-3 shadow-lg animate-slide-up",
       )}
       role="status"
     >

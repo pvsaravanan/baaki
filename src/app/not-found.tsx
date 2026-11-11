@@ -29,7 +29,7 @@ export default function NotFound() {
         </div>
 
         {/* Brand coral divider */}
-        <div className="mt-8 h-1 w-14 bg-brand shadow-stamp-sm" />
+        <div className="mt-8 h-1 w-14 bg-brand" />
 
         <p className="mt-6 text-headline-sm font-bold uppercase tracking-wide text-fg">
           Page not found
@@ -42,7 +42,7 @@ export default function NotFound() {
         <div className="mt-10 flex flex-col gap-3 sm:flex-row">
           <Link
             href="/dashboard"
-            className="flex h-[41px] items-center justify-center gap-2 rounded-none border border-border bg-brand px-6 text-body-sm font-bold text-brand-fg shadow-stamp transition-all hover:bg-brand-hover hover:-translate-x-px hover:-translate-y-px hover:shadow-stamp-lg active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
+            className="flex h-[41px] items-center justify-center gap-2 rounded-xl border border-border bg-brand px-6 text-body-sm font-bold text-brand-fg transition-all hover:bg-brand-hover active:translate-x-[3px] active:translate-y-[3px]"
           >
             <Home className="h-4 w-4" strokeWidth={2.5} />
             Dashboard

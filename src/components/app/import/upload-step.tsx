@@ -59,7 +59,7 @@ export function UploadStep({
           onDragLeave={onDragLeave}
           onDrop={onDrop}
           className={cn(
-            "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-none border-2 border-dashed px-6 py-12 text-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+            "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-12 text-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
             dragging ? "border-brand bg-brand-soft" : "border-border bg-surface-2/50 hover:border-border-strong",
           )}
         >
@@ -80,14 +80,14 @@ export function UploadStep({
         </div>
 
         {parseError && (
-          <div className="flex items-start gap-2 rounded-none border border-expense/30 bg-expense/10 px-3 py-2 text-sm text-expense">
+          <div className="flex items-start gap-2 rounded-xl border border-expense/30 bg-expense/10 px-3 py-2 text-sm text-expense">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
             <span>{parseError}</span>
           </div>
         )}
 
         {hasFile && (
-          <div className="flex flex-wrap items-center gap-3 rounded-none border border-border bg-surface-2 px-4 py-3">
+          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-surface-2 px-4 py-3">
             <FileText className="h-5 w-5 text-brand-hover" />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-fg">{fileName}</p>

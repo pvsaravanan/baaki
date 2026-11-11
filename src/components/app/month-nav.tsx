@@ -129,10 +129,10 @@ export function MonthNav({
   }
 
   return (
-    <div className={cn("relative inline-flex items-center justify-between gap-1 border border-border bg-surface", rounded ? "rounded-xl p-0.5" : "rounded-none p-1", className)}>
+    <div className={cn("relative inline-flex items-center justify-between gap-1 border border-border bg-surface", rounded ? "rounded-xl p-0.5" : "rounded-xl p-1", className)}>
       <button
         onClick={() => go(addMonths(shown, -1))}
-        className={cn("flex items-center justify-center rounded-none p-1.5 text-muted transition-colors hover:text-fg active:text-fg", rounded ? "h-8 w-8" : "h-9 w-9")}
+        className={cn("flex items-center justify-center rounded-xl p-1.5 text-muted transition-colors hover:text-fg active:text-fg", rounded ? "h-8 w-8" : "h-9 w-9")}
         aria-label="Previous month"
       >
         <ChevronLeft className="h-4 w-4" />
@@ -141,7 +141,7 @@ export function MonthNav({
         onClick={() => setPickerOpen((o) => !o)}
         // Fixed width, sized for the longest label ("September 2026"): a label
         // that resized with the month made the arrows — and the header — jump.
-        className={cn("w-[9.5rem] shrink-0 whitespace-nowrap px-2 py-1 text-center text-sm font-medium text-fg transition-colors hover:bg-surface-2 active:bg-surface-2", rounded ? "rounded-lg" : "rounded-none")}
+        className={cn("w-[9.5rem] shrink-0 whitespace-nowrap px-2 py-1 text-center text-sm font-medium text-fg transition-colors hover:bg-surface-2 active:bg-surface-2", rounded ? "rounded-lg" : "rounded-xl")}
         aria-haspopup="true"
         aria-expanded={pickerOpen}
       >
@@ -150,7 +150,7 @@ export function MonthNav({
       <button
         onClick={() => go(addMonths(shown, 1))}
         disabled={atLatest}
-        className={cn("flex items-center justify-center rounded-none p-1.5 text-muted transition-colors hover:text-fg disabled:opacity-30 active:text-fg", rounded ? "h-8 w-8" : "h-9 w-9")}
+        className={cn("flex items-center justify-center rounded-xl p-1.5 text-muted transition-colors hover:text-fg disabled:opacity-30 active:text-fg", rounded ? "h-8 w-8" : "h-9 w-9")}
         aria-label="Next month"
       >
         <ChevronRight className="h-4 w-4" />
