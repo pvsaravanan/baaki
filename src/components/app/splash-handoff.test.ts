@@ -17,13 +17,10 @@ it("ships the launch video", () => {
   expect(existsSync(join(res, "raw/splash.mp4"))).toBe(true);
 });
 
-// The system splash animates the logo in, for as long as the animation runs.
-it("animates the logo on the system splash", () => {
+// The system splash shows the logo that the app's launch cover then takes over.
+it("shows the launch logo on the system splash", () => {
   const styles = readFileSync(join(res, "values/styles.xml"), "utf8");
   const launch = /<style name="AppTheme\.NoActionBarLaunch"[\s\S]*?<\/style>/.exec(styles)?.[0] ?? "";
-  expect(launch).toMatch(/windowSplashScreenAnimatedIcon">@drawable\/launch_logo_animated</);
-  const duration = Number(/windowSplashScreenAnimationDuration">(\d+)</.exec(launch)?.[1]);
-  const animated = readFileSync(join(res, "drawable/launch_logo_animated.xml"), "utf8");
-  const longest = Math.max(...[...animated.matchAll(/android:duration="(\d+)"/g)].map((m) => Number(m[1])));
-  expect(longest).toBe(duration);
+  expect(launch).toMatch(/windowSplashScreenAnimatedIcon">@drawable\/launch_logo</);
+  expect(existsSync(join(res, "drawable-nodpi/launch_logo.png"))).toBe(true);
 });

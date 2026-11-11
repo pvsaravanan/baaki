@@ -12,8 +12,6 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
-import android.os.Process;
-import android.os.SystemClock;
 import android.provider.Settings;
 import android.view.Gravity;
 import android.view.SurfaceHolder;
@@ -36,8 +34,8 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * The launch animation, after the system splash: Android's launch screen
- * animates the logo in (launch_logo_animated.xml); this cover then shows the
- * same logo at rest in the same place, glides it up to its place, and plays
+ * shows the logo (launch_logo.png); this cover then shows the
+ * same logo in the same place, glides it up to its place, and plays
  * the video beneath it (res/raw/splash.mp4: the glow and the wordmark, rendered
  * from baaki-splash/, composition "SplashLaunch"). It all plays over the
  * WebView while the app loads, and leaves, fading out, once the video has
@@ -62,21 +60,16 @@ final class LaunchVideo {
     private static final String KEY_STILL_THEME = "stillLaunchScreen";
     private static final long FADE_MS = 420;
     private static final float EXIT_SCALE = 1.04f;
-    // launch_logo_animated.xml's length (and windowSplashScreenAnimationDuration),
-    // and a little more, since the animation starts just after the process.
-    private static final long SPLASH_ANIMATION_MS = 850;
-    private static final long SPLASH_MARGIN_MS = 150;
-    // The system splash normally hands over just after its logo animation.
+    // The system splash normally hands over soon after the app starts.
     private static final long SYSTEM_SPLASH_TIMEOUT_MS = 4000;
     private static final long GLIDE_MS = 450;
 
     // Android draws a splash icon without a background at 288dp.
     private static final int SPLASH_ICON_DP = 288;
-    // launch_logo.xml: the tile is 340 of its 1000-wide viewport, and the tile
-    // with its shadow is centred in it.
+    // launch_logo.png: the logo is 340 of its 1000-wide canvas, centred in it.
     private static final float LOGO_TILE = 0.34f;
     // The logo's place in the launch video (baaki-splash/src/SplashLaunch.tsx),
-    // in video pixels: a 200px tile, centred (with its shadow) at y = 825.
+    // in video pixels: the logo, 200px wide, centred at y = 825.
     private static final int VIDEO_WIDTH = 1080;
     private static final int VIDEO_HEIGHT = 1920;
     private static final float VIDEO_TILE = 200f;
@@ -154,11 +147,6 @@ final class LaunchVideo {
         prefs.edit().putBoolean(KEY_STILL_THEME, true).apply();
     }
 
-    /** Whether this launch's system splash animates the logo in. */
-    private static boolean launchScreenAnimates(Context context) {
-        return Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || !prefs(context).getBoolean(KEY_STILL_THEME, false);
-    }
-
     /** The app beneath is ready; `gone` runs once the animation has left. */
     static void appReady(Runnable gone) {
         if (current == null) gone.run();
@@ -186,7 +174,7 @@ final class LaunchVideo {
         // The logo, at rest exactly where (and as) the system splash's animated
         // icon ends: centred, at the splash icon's size.
         logo = new ImageView(activity);
-        logo.setImageResource(R.drawable.launch_logo_rest);
+        logo.setImageResource(R.drawable.launch_logo);
         splashIconSize = Math.round(SPLASH_ICON_DP * activity.getResources().getDisplayMetrics().density);
         root.addView(logo, new FrameLayout.LayoutParams(splashIconSize, splashIconSize, Gravity.CENTER));
         // Placed (see placeLogo) before anything is drawn, so it's never seen elsewhere.
@@ -215,15 +203,6 @@ final class LaunchVideo {
         playerThread = new Handler(thread.getLooper());
         main.postDelayed(this::leave, GIVE_UP_MS);
 
-        // Keep the system splash up until its logo animation has finished (it
-        // starts as the process does). Handed to the app any earlier, the logo
-        // freezes mid-animation. Then take it away at once: this cover, with
-        // the same logo at rest, is beneath.
-        // (A launch screen showing the logo at rest has nothing to wait for.)
-        if (launchScreenAnimates(activity)) {
-            long keepUntil = Process.getStartUptimeMillis() + SPLASH_ANIMATION_MS + SPLASH_MARGIN_MS;
-            splash.setKeepOnScreenCondition(() -> SystemClock.uptimeMillis() < keepUntil);
-        }
         // Removed as this window next draws, not at once: its logo vanishes the
         // moment it's removed, but the cover beneath only shows once the window
         // has redrawn, and with the main thread busy just then that left the

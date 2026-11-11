@@ -108,7 +108,7 @@ export function LockGate({
   return (
     <div className="flex h-dvh flex-col items-center justify-center gap-8 bg-bg px-6 text-center">
       <div className="flex items-center gap-3">
-        <Logo size="h-10 w-7" />
+        <Logo size="h-10 w-9" />
         <Wordmark className="h-7 text-fg" />
       </div>
       <p className="max-w-xs text-body-sm text-muted">baaki is locked. Use your fingerprint or screen lock to open it.</p>

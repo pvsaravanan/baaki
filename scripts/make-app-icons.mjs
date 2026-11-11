@@ -1,163 +1,142 @@
 /**
- * Draws the Android launcher icons from the baaki logo (src/assets/baaki_logo.svg):
- * the mark on the app's parchment colour; and the splash screens from the logo
- * on its background (src/assets/baaki_logo_with_background.svg).
- * Re-run after changing either:  node scripts/make-app-icons.mjs
+ * Draws every place the baaki logo appears as a picture, from one source image,
+ * src/assets/baaki_logo.png (the logo on a transparent background, cropped to
+ * its edges):
+ *   - the in-app logo (src/assets/baaki_logo_app.png)
+ *   - the website icons (src/app/icon.png, apple-icon.png, favicon.ico)
+ *   - the Android launcher icons (every density, square and round, plus the
+ *     adaptive-icon foreground)
+ *   - the splash screens of Android 11 and older
+ * Re-run after changing the logo:  node scripts/make-app-icons.mjs
+ *
+ * Not drawn here: the launch animation of newer Android versions (the
+ * animated logo in res/drawable/launch_logo*.xml and the video
+ * res/raw/splash.mp4, rendered from baaki-splash/).
  */
-import { readdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readdirSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import sharp from "sharp";
 
 const root = new URL("..", import.meta.url).pathname;
 const res = join(root, "android/app/src/main/res");
+const LOGO = join(root, "src/assets/baaki_logo.png");
 const PARCHMENT = "#f4f1ea";
-// Behind the splash logo: the logo tile's own cream, so the tile blends in and
-// the logo and wordmark sit directly on the screen. The app draws a copy of the
-// splash to see it out smoothly: change SPLASH_BACKGROUND in
-// src/components/app/splash-handoff.tsx with it (its test checks they agree).
+// Behind the splash logo. The app draws a copy of the splash to see it out
+// smoothly: change SPLASH_BACKGROUND in src/components/app/splash-handoff.tsx
+// with it (its test checks they agree).
 const SPLASH_BACKGROUND = "#f8f2e9";
 
-// The mark sits in x 395–918, y 214–962 of the logo's 1254 canvas.
-const logo = readFileSync(join(root, "src/assets/baaki_logo.svg"), "utf8");
-const MARK = { x: 395, y: 214, w: 523, h: 748 };
+const logoMeta = await sharp(LOGO).metadata();
+const ASPECT = logoMeta.width / logoMeta.height;
 
-/** The mark scaled so its height is `markHeight`, centred on a transparent canvas. */
-function markOn(width, height, markHeight) {
-  const scale = markHeight / MARK.h;
-  const vbW = width / scale;
-  const vbH = height / scale;
-  const cx = MARK.x + MARK.w / 2;
-  const cy = MARK.y + MARK.h / 2;
-  const svg = logo.replace(
-    /width="1254" height="1254" viewBox="0 0 1254 1254"/,
-    `width="${width}" height="${height}" viewBox="${cx - vbW / 2} ${cy - vbH / 2} ${vbW} ${vbH}"`,
-  );
-  if (svg === logo) throw new Error("make-app-icons: logo viewBox not found");
-  return sharp(Buffer.from(svg)).resize(width, height);
+/** The logo scaled to fit a box (width x height), as a PNG buffer. */
+const fit = (boxW, boxH) =>
+  sharp(LOGO)
+    .resize({ width: Math.round(boxW), height: Math.round(boxH), fit: "inside", kernel: "lanczos3" })
+    .png()
+    .toBuffer();
+
+/** The logo centred on a canvas, filling `share` of the shorter side. */
+async function logoOn(width, height, share, colour) {
+  const box = Math.min(width, height) * share;
+  const input = await fit(box, box);
+  const canvas = sharp({
+    create: { width, height, channels: 4, background: colour ?? { r: 0, g: 0, b: 0, alpha: 0 } },
+  });
+  return canvas.composite([{ input }]).png();
 }
 
-const background = (width, height, colour = PARCHMENT) =>
-  sharp({ create: { width, height, channels: 4, background: colour } });
+const write = async (file, image) => writeFileSync(file, await image.toBuffer());
 
-async function write(file, image) {
-  writeFileSync(file, await image.png().toBuffer());
+// The in-app logo: small, with a limited palette, as it is only ever drawn tiny.
+await sharp(LOGO)
+  .resize({ height: 288, kernel: "lanczos3" })
+  .png({ palette: true, quality: 90, compressionLevel: 9 })
+  .toFile(join(root, "src/assets/baaki_logo_app.png"));
+
+// Website icons.
+await write(join(root, "src/app/icon.png"), await logoOn(512, 512, 0.9));
+await write(join(root, "src/app/apple-icon.png"), await logoOn(180, 180, 0.7, PARCHMENT));
+{
+  // favicon.ico: PNG images in an ICO container (16, 32, 48).
+  const sizes = [16, 32, 48];
+  const images = await Promise.all(sizes.map(async (s) => (await logoOn(s, s, 0.94)).toBuffer()));
+  const header = Buffer.alloc(6 + 16 * sizes.length);
+  header.writeUInt16LE(0, 0); // reserved
+  header.writeUInt16LE(1, 2); // type: icon
+  header.writeUInt16LE(sizes.length, 4);
+  let offset = header.length;
+  sizes.forEach((s, i) => {
+    const e = 6 + 16 * i;
+    header.writeUInt8(s, e); // width
+    header.writeUInt8(s, e + 1); // height
+    header.writeUInt8(0, e + 2); // palette
+    header.writeUInt8(0, e + 3);
+    header.writeUInt16LE(1, e + 4); // colour planes
+    header.writeUInt16LE(32, e + 6); // bits per pixel
+    header.writeUInt32LE(images[i].length, e + 8);
+    header.writeUInt32LE(offset, e + 12);
+    offset += images[i].length;
+  });
+  writeFileSync(join(root, "src/app/favicon.ico"), Buffer.concat([header, ...images]));
 }
 
-// Launcher icons, per density: legacy square + round (the mark at ~58% on
-// parchment) and the adaptive-icon foreground (108dp canvas; the mark kept
+// Android launcher icons, per density: legacy square + round (the logo at ~66%
+// on parchment) and the adaptive-icon foreground (108dp canvas; the logo kept
 // inside the 66dp safe zone so any mask shape shows all of it).
 const DENSITIES = { mdpi: 1, hdpi: 1.5, xhdpi: 2, xxhdpi: 3, xxxhdpi: 4 };
 for (const [density, k] of Object.entries(DENSITIES)) {
   const dir = join(res, `mipmap-${density}`);
   const size = Math.round(48 * k);
-  const mark = await markOn(size, size, Math.round(size * 0.58)).png().toBuffer();
-  await write(join(dir, "ic_launcher.png"), background(size, size).composite([{ input: mark }]));
+  const mark = await fit(size * 0.66, size * 0.66);
+  const square = sharp({ create: { width: size, height: size, channels: 4, background: PARCHMENT } });
+  await write(join(dir, "ic_launcher.png"), square.composite([{ input: mark }]).png());
   const circle = Buffer.from(`<svg width="${size}" height="${size}"><circle cx="${size / 2}" cy="${size / 2}" r="${size / 2}"/></svg>`);
+  const round = sharp({ create: { width: size, height: size, channels: 4, background: PARCHMENT } });
   await write(
     join(dir, "ic_launcher_round.png"),
-    background(size, size).composite([{ input: mark }, { input: circle, blend: "dest-in" }]),
+    round.composite([{ input: mark }, { input: circle, blend: "dest-in" }]).png(),
   );
   const fg = Math.round(108 * k);
-  await write(join(dir, "ic_launcher_foreground.png"), markOn(fg, fg, Math.round(fg * 0.44)));
+  await write(join(dir, "ic_launcher_foreground.png"), await logoOn(fg, fg, 0.52));
 }
-
-// The mark as a vector drawable, laid out like an adaptive-icon foreground
-// (108dp canvas, the mark at 44% of its height, inside the safe zone). Used
-// for the adaptive launcher icon and the Android 12+ system splash, which
-// draws it at ~240dp — a bitmap would be stretched and blurry there; a vector
-// stays sharp at any size.
-{
-  const FOREGROUND_SHARE = 0.44;
-  const viewport = MARK.h / FOREGROUND_SHARE;
-  const dx = viewport / 2 - (MARK.x + MARK.w / 2);
-  const dy = viewport / 2 - (MARK.y + MARK.h / 2);
-  const paths = [...logo.matchAll(/<path\s+d="([^"]+)"\s+fill="(#[0-9A-Fa-f]{6})"\s*\/>/g)];
-  if (paths.length === 0) throw new Error("make-app-icons: no <path d fill> elements found in the logo");
-  const xml = `<?xml version="1.0" encoding="utf-8"?>
-<!-- Generated by scripts/make-app-icons.mjs from src/assets/baaki_logo.svg. Do not edit. -->
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="${viewport.toFixed(2)}"
-    android:viewportHeight="${viewport.toFixed(2)}">
-    <group android:translateX="${dx.toFixed(2)}" android:translateY="${dy.toFixed(2)}">
-${paths.map(([, d, fill]) => `        <path android:fillColor="${fill.toUpperCase()}" android:pathData="${d}" />`).join("\n")}
-    </group>
-</vector>
-`;
-  writeFileSync(join(res, "drawable/baaki_mark.xml"), xml);
-  for (const name of ["ic_launcher", "ic_launcher_round"]) {
-    writeFileSync(
-      join(res, `mipmap-anydpi-v26/${name}.xml`),
-      `<?xml version="1.0" encoding="utf-8"?>
+for (const name of ["ic_launcher", "ic_launcher_round"]) {
+  writeFileSync(
+    join(res, `mipmap-anydpi-v26/${name}.xml`),
+    `<?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@color/ic_launcher_background"/>
-    <foreground android:drawable="@drawable/baaki_mark"/>
+    <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
 </adaptive-icon>
 `,
-    );
-  }
+  );
 }
 
 writeFileSync(
   join(res, "values/ic_launcher_background.xml"),
-  `<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">#F4F1EA</color>\n</resources>\n`,
+  `<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">${PARCHMENT.toUpperCase()}</color>\n</resources>\n`,
 );
 writeFileSync(
   join(res, "values/splash_background.xml"),
   `<?xml version="1.0" encoding="utf-8"?>\n<!-- Generated by scripts/make-app-icons.mjs. Do not edit. -->\n<resources>\n    <color name="splash_background">${SPLASH_BACKGROUND.toUpperCase()}</color>\n</resources>\n`,
 );
 
-// The splash logo: the logo on its rounded tile (1254 square, corner radius 250).
-const tile = readFileSync(join(root, "src/assets/baaki_logo_with_background.svg"), "utf8");
-const TILE = { size: 1254, radius: 250 };
-if (!tile.includes(`<rect width="${TILE.size}" height="${TILE.size}" rx="${TILE.radius}"`)) {
-  throw new Error("make-app-icons: the splash logo's background tile isn't the expected 1254 square");
-}
-
-// Android 12+ system splash: a vector drawable, so it stays sharp at the splash's
-// size (Android draws a no-background icon at 288dp). The system crops that icon
-// to a circle two-thirds as wide, so the tile
-// is sized for its rounded corners to sit just inside the circle: the corner
-// farthest from the centre is sqrt(2)(h - r) + r from it (h half the side, r the
-// corner radius), and the circle's radius is a third of the canvas.
-{
-  const h = TILE.size / 2;
-  const farthest = Math.SQRT2 * (h - TILE.radius) + TILE.radius;
-  const viewport = Math.ceil(farthest * 3 * 1.03); // 3% clear of the edge
-  const offset = (viewport - TILE.size) / 2;
-  const r = TILE.radius;
-  const n = TILE.size;
-  const rounded = `M${r},0 H${n - r} A${r},${r} 0 0 1 ${n},${r} V${n - r} A${r},${r} 0 0 1 ${n - r},${n} H${r} A${r},${r} 0 0 1 0,${n - r} V${r} A${r},${r} 0 0 1 ${r},0 Z`;
-  const tileFill = /<rect [^>]*fill="(#[0-9A-Fa-f]{6})"/.exec(tile)[1];
-  const paths = [...tile.matchAll(/<path\s+d="([^"]+)"\s+fill="(#[0-9A-Fa-f]{6})"\s*\/>/g)];
-  if (paths.length === 0) throw new Error("make-app-icons: no <path d fill> elements found in the splash logo");
-  writeFileSync(
-    join(res, "drawable/baaki_splash.xml"),
-    `<?xml version="1.0" encoding="utf-8"?>
-<!-- Generated by scripts/make-app-icons.mjs from src/assets/baaki_logo_with_background.svg. Do not edit. -->
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="240dp"
-    android:height="240dp"
-    android:viewportWidth="${viewport}"
-    android:viewportHeight="${viewport}">
-    <group android:translateX="${offset.toFixed(2)}" android:translateY="${offset.toFixed(2)}">
-        <path android:fillColor="${tileFill.toUpperCase()}" android:pathData="${rounded}" />
-${paths.map(([, d, fill]) => `        <path android:fillColor="${fill.toUpperCase()}" android:pathData="${d}" />`).join("\n")}
-    </group>
-</vector>
-`,
-  );
-}
-
-// Splash screens (Android 11 and older): the logo on its tile, centred on the
-// splash background, at every size Capacitor's template ships.
+// Splash screens (Android 11 and older): the logo centred on the splash
+// background, at every size Capacitor's template ships.
 const splashDirs = readdirSync(res).filter((d) => d.startsWith("drawable") && existsSync(join(res, d, "splash.png")));
 for (const d of splashDirs) {
   const file = join(res, d, "splash.png");
   const { width, height } = await sharp(file).metadata();
-  const side = Math.round(Math.min(width, height) * 0.4);
-  const logo = await sharp(Buffer.from(tile)).resize(side, side).png().toBuffer();
-  await write(file, background(width, height, SPLASH_BACKGROUND).composite([{ input: logo }]));
+  const side = Math.round(Math.min(width, height) * 0.36);
+  const mark = await fit(side, side / Math.min(1, ASPECT));
+  const canvas = sharp({ create: { width, height, channels: 4, background: SPLASH_BACKGROUND } });
+  const { width: mw, height: mh } = await sharp(mark).metadata();
+  writeFileSync(
+    file,
+    await canvas
+      .composite([{ input: mark, left: Math.round((width - mw) / 2), top: Math.round((height - mh) / 2) }])
+      .png()
+      .toBuffer(),
+  );
 }
 console.log(`make-app-icons: ${Object.keys(DENSITIES).length} icon densities, ${splashDirs.length} splash screens`);
