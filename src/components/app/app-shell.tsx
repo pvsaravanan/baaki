@@ -15,6 +15,7 @@ import { useConfirm } from "@/components/ui/confirm";
 import { Logo } from "@/components/logo";
 import { LockGate } from "./lock-gate";
 import { NativeApp } from "./native-app";
+import { AppTour } from "./app-tour";
 
 /**
  * The app frame. Loads what every screen shares (accounts, categories,
@@ -113,6 +114,7 @@ function AppFrame({ data, children }: { data: Omit<AppData, "refresh">; children
       <TransactionModalProvider>
         <SidebarProvider>
           <RunDueRecurring />
+          <AppTour />
           {/* h-dvh, not h-screen: on phones 100vh is the height with the browser's
               toolbars hidden, so an h-screen frame is taller than what's visible —
               the whole page scrolls (dragging the top bar with it) and the end of

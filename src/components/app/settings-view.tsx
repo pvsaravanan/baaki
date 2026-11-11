@@ -7,6 +7,7 @@ import {
   DatabaseBackup,
   IndianRupee,
   Info,
+  Compass,
   Languages,
   Layers,
   LayoutDashboard,
@@ -22,6 +23,7 @@ import { useAppData } from "./app-data";
 import { UserAvatar } from "./user-avatar";
 import { BackButton } from "./back-button";
 import { SettingsArt } from "./page-illustrations";
+import { startAppTour } from "./app-tour";
 import { DashboardSection } from "./settings/dashboard-section";
 import { DataSection } from "./settings/data-section";
 import { DefaultAccountRow } from "./settings/preferences-section";
@@ -116,6 +118,7 @@ function Settings() {
           value={preference.appLock ? "App lock on" : "App lock off"}
           onClick={() => setPanel("security")}
         />
+        <NavRow icon={<Compass />} label="App tour" value="Replay" onClick={startAppTour} />
         <InfoRow icon={<Info />} label="About Baaki" value={`v${version}`} />
       </Group>
 

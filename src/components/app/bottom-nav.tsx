@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowLeftRight, LayoutDashboard, MoreHorizontal, PieChart, Plus } from "lucide-react";
@@ -7,6 +7,7 @@ import { Sheet } from "./sheet";
 import { MORE_SHEET_GROUPS } from "./nav-items";
 import { useTransactionModal } from "./add-transaction";
 import { cn } from "@/lib/cn";
+import { TOUR_MENU_EVENT } from "./app-tour";
 
 const TABS = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard },
@@ -18,6 +19,13 @@ export function BottomNav() {
   const pathname = usePathname();
   const { openAdd } = useTransactionModal();
   const [moreOpen, setMoreOpen] = useState(false);
+
+  // The app tour opens this menu to point at what's inside it.
+  useEffect(() => {
+    const onTour = (e: Event) => setMoreOpen(Boolean((e as CustomEvent<{ open: boolean }>).detail?.open));
+    window.addEventListener(TOUR_MENU_EVENT, onTour);
+    return () => window.removeEventListener(TOUR_MENU_EVENT, onTour);
+  }, []);
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/");
 
@@ -31,6 +39,7 @@ export function BottomNav() {
             <button
               onClick={() => openAdd()}
               aria-label="Add transaction"
+              data-tour="add"
               className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-brand text-brand-fg transition-all active:translate-x-[3px] active:translate-y-[3px]"
             >
               <Plus className="h-6 w-6" strokeWidth={2.5} />
@@ -39,6 +48,7 @@ export function BottomNav() {
           <Tab {...TABS[2]} active={isActive(TABS[2].href)} />
           <button
             onClick={() => setMoreOpen(true)}
+            data-tour="more"
             className={cn(
               "flex min-h-[44px] flex-col items-center justify-center gap-1 py-1.5 text-[10px] font-bold leading-[14px] tracking-[0.02em] active:opacity-70",
               moreOpen ? "text-brand-hover" : "text-fg",
@@ -55,7 +65,7 @@ export function BottomNav() {
           {MORE_SHEET_GROUPS.map((group) => (
             <div key={group.label}>
               <p className="mb-2 text-label-sm text-faint">{group.label}</p>
-              <div className="grid grid-cols-3 gap-2">
+              <div data-tour="menu" className="grid grid-cols-3 gap-2">
                 {group.items.map((item) => {
                   const Icon = item.icon;
                   const active = isActive(item.href);

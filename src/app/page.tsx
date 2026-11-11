@@ -7,6 +7,7 @@ import { splashGone } from "@/components/app/splash-handoff";
 import { ChooseAvatarScreen } from "@/components/app/choose-avatar-screen";
 import { OnboardingScreen } from "@/components/app/onboarding-screen";
 import { WelcomeScreen } from "@/components/app/welcome-screen";
+import { queueAppTour } from "@/components/app/app-tour";
 
 const WELCOMED_KEY = "baaki.welcomed";
 
@@ -54,6 +55,8 @@ export default function Home() {
     try {
       localStorage.setItem(WELCOMED_KEY, "1");
     } catch {}
+    // A new install gets the app tour when the dashboard opens.
+    queueAppTour();
     router.replace("/dashboard");
   }
 

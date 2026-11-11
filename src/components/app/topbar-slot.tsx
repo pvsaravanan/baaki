@@ -19,7 +19,7 @@ export function TopbarSlotProvider({ children }: { children: React.ReactNode }) 
 /** The empty spot in the top bar, which the screen's content portals into. */
 export function TopbarSlotTarget({ className }: { className?: string }) {
   const ctx = useContext(SlotContext);
-  return <div ref={ctx?.setEl} className={className} />;
+  return <div ref={ctx?.setEl} data-tour="month" className={className} />;
 }
 
 export function TopbarSlot({ children }: { children: React.ReactNode }) {

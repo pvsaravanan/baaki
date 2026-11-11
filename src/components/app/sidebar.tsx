@@ -44,6 +44,7 @@ export function Sidebar() {
           onClick={() => openAdd()}
           title="Add transaction"
           aria-label="Add transaction"
+          data-tour="add"
           className={cn(
             "flex h-[41px] w-full items-center justify-center gap-2 rounded-xl border border-border bg-brand text-body-sm font-bold text-brand-fg transition-all hover:bg-brand-hover active:translate-x-[3px] active:translate-y-[3px]",
             collapsed ? "px-0" : "px-4",
@@ -61,7 +62,7 @@ export function Sidebar() {
         </button>
       </div>
 
-      <nav className={cn("flex-1 overflow-y-auto py-md transition-all duration-300 ease-out", collapsed ? "px-2" : "px-sm")}>
+      <nav data-tour="more" className={cn("flex-1 overflow-y-auto py-md transition-all duration-300 ease-out", collapsed ? "px-2" : "px-sm")}>
         <SectionLabel label="Money" collapsed={collapsed} />
         <div className="space-y-0.5">
           {PRIMARY_NAV.map((item) => (

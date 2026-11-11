@@ -18,6 +18,7 @@ export function UserMenu() {
     <Link
       href={nudge ? CHOOSE_PICTURE_HREF : "/settings"}
       aria-label={nudge ? "Settings: choose a profile picture" : "Settings"}
+      data-tour="profile"
       className="flex items-center gap-2 rounded-full p-1 pr-2 transition-colors hover:bg-surface-2"
     >
       <span className="relative shrink-0">
