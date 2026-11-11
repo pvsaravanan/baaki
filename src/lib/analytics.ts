@@ -277,8 +277,13 @@ export interface CategoryDetail {
 }
 
 /** Everything the category detail page needs for one category. */
-export async function getCategoryDetail(userId: string, categoryId: string): Promise<CategoryDetail> {
-  const nowKey = monthKeyOf(new Date());
+export async function getCategoryDetail(
+  userId: string,
+  categoryId: string,
+  month: MonthKey = monthKeyOf(new Date()),
+): Promise<CategoryDetail> {
+  // "This month" below is the chosen month, and the 12-month trend ends on it.
+  const nowKey = month;
   const [txns, budget, category, merchantRows] = await Promise.all([
     loadCalcTxns(userId),
     loadBudget(userId, nowKey.year, nowKey.month),

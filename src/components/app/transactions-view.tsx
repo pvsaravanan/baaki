@@ -15,9 +15,10 @@ import { TransactionFiltersSheet, TypePills } from "./transaction-filters-sheet"
 import { useAppData } from "./app-data";
 import { ApiError, apiPost, swrFetcher } from "@/lib/http";
 import { toPaise } from "@/lib/money";
-import { fromISODate, formatDate, monthLabel } from "@/lib/dates";
+import { fromISODate, formatDate, monthLabel, parseMonthKey } from "@/lib/dates";
+import { getSelectedMonth } from "@/lib/selected-month";
 import type { MonthTotals, TransactionDTO } from "@/lib/types";
-import { categoryKindMatches, EMPTY_FILTERS, matchingPreset, wholeMonth, type TransactionFilters } from "@/lib/transaction-filters";
+import { categoryKindMatches, EMPTY_FILTERS, matchingPreset, monthDates, wholeMonth, type TransactionFilters } from "@/lib/transaction-filters";
 import { cn } from "@/lib/cn";
 
 const PAGE_SIZE = 50;
@@ -45,7 +46,10 @@ export function TransactionsView({
   // The Accounts page links here with one account already chosen.
   const [filters, setFilters] = useState<TransactionFilters>(() => {
     const accountId = new URLSearchParams(window.location.search).get("accountId");
-    return accountId ? { ...EMPTY_FILTERS, accountId } : EMPTY_FILTERS;
+    // A month chosen on another screen carries over as this list's date range.
+    const month = parseMonthKey(getSelectedMonth() ?? undefined);
+    const base = month ? { ...EMPTY_FILTERS, ...monthDates(month) } : EMPTY_FILTERS;
+    return accountId ? { ...base, accountId } : base;
   });
   const [debouncedQ, setDebouncedQ] = useState("");
   const [showFilters, setShowFilters] = useState(false);

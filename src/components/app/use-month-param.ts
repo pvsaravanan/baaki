@@ -1,15 +1,25 @@
 "use client";
+import { useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { monthKeyOf, monthKeyString, parseMonthKey } from "@/lib/dates";
+import { setSelectedMonth, useSelectedMonth } from "@/lib/selected-month";
 
 /**
- * The month a screen shows, from `?m=YYYY-MM` (default: this month). Screens
- * using it must sit inside <Suspense>, as useSearchParams requires.
+ * The month a screen shows: `?m=YYYY-MM` when the link has one, else the month
+ * last chosen on any screen, else this month. A month in the link becomes the
+ * chosen month, so every screen follows it. Screens using it must sit inside
+ * <Suspense>, as useSearchParams requires.
  */
 export function useMonthParam() {
   const param = useSearchParams().get("m");
+  const selected = useSelectedMonth();
   const nowKey = monthKeyOf(new Date());
-  const monthKey = parseMonthKey(param ?? undefined) ?? nowKey;
+  const fromParam = parseMonthKey(param ?? undefined);
+  const monthKey = fromParam ?? parseMonthKey(selected ?? undefined) ?? nowKey;
+  const m = monthKeyString(monthKey);
   const isCurrent = monthKey.year === nowKey.year && monthKey.month === nowKey.month;
-  return { m: monthKeyString(monthKey), monthKey, isCurrent };
+  useEffect(() => {
+    if (fromParam) setSelectedMonth(m);
+  }, [fromParam, m]);
+  return { m, monthKey, isCurrent };
 }

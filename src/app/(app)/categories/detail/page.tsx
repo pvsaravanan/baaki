@@ -2,6 +2,10 @@
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { usePageData } from "@/lib/local-api";
+import { useMonthParam } from "@/components/app/use-month-param";
+import { MonthNav } from "@/components/app/month-nav";
+import { TopbarSlot } from "@/components/app/topbar-slot";
+import { MonthContent, MonthScope } from "@/components/app/month-scope";
 import { CategoryDetailView } from "@/components/app/category-detail-view";
 import { ScreenData } from "@/components/app/screen-data";
 import { NotFoundScreen } from "@/components/app/not-found-screen";
@@ -17,16 +21,24 @@ export default function CategoryDetailPage() {
 
 function CategoryDetail() {
   const id = useSearchParams().get("id") ?? "";
-  const { data, error } = usePageData("category", { id });
+  const { m, monthKey, isCurrent } = useMonthParam();
+  const { data, error, isStale } = usePageData("category", { id, m });
   return (
-    <ScreenData data={data} error={error}>
-      {(d) =>
-        d.category && d.detail ? (
-          <CategoryDetailView category={d.category} detail={d.detail} />
-        ) : (
-          <NotFoundScreen what="category" backHref="/categories" />
-        )
-      }
-    </ScreenData>
+    <MonthScope monthKey={m} loading={isStale}>
+      <TopbarSlot>
+        <MonthNav monthKey={monthKey} isCurrent={isCurrent} bar />
+      </TopbarSlot>
+      <MonthContent>
+        <ScreenData data={data} error={error}>
+          {(d) =>
+            d.category && d.detail ? (
+              <CategoryDetailView category={d.category} detail={d.detail} monthKey={monthKey} />
+            ) : (
+              <NotFoundScreen what="category" backHref="/categories" />
+            )
+          }
+        </ScreenData>
+      </MonthContent>
+    </MonthScope>
   );
 }

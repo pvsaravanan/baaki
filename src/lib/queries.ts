@@ -1,6 +1,6 @@
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "./db";
-import { toISODate } from "./dates";
+import { monthRange, toISODate, type MonthKey } from "./dates";
 import { accountBalance, type CalcTxn } from "./calculations";
 import {
   serializeAccount,
@@ -95,10 +95,17 @@ export async function loadAccounts(userId: string): Promise<AccountDTO[]> {
 }
 
 /** How many transactions each category has, by id. Categories with none are left out. */
-export async function loadCategoryTransactionCounts(userId: string): Promise<Record<string, number>> {
+/** Transactions per category, for one month when given, else all time. */
+export async function loadCategoryTransactionCounts(userId: string, month?: MonthKey): Promise<Record<string, number>> {
+  const range = month ? monthRange(month) : null;
   const rows = await prisma.transaction.groupBy({
     by: ["categoryId"],
-    where: { userId, deletedAt: null, categoryId: { not: null } },
+    where: {
+      userId,
+      deletedAt: null,
+      categoryId: { not: null },
+      ...(range ? { date: { gte: range.start, lt: range.end } } : {}),
+    },
     _count: { _all: true },
   });
   return Object.fromEntries(rows.map((r) => [r.categoryId as string, r._count._all]));

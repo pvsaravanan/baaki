@@ -6,6 +6,7 @@ import { addMonths, monthKeyOf, monthKeyString, monthLabel, parseMonthKey, type 
 import { cn } from "@/lib/cn";
 import { MonthPickerSheet } from "./date-picker-sheet";
 import { useMonthScope } from "./month-scope";
+import { setSelectedMonth } from "@/lib/selected-month";
 
 // The floor budgetSchema and the budgets API enforce on `year`.
 const EARLIEST_MONTH: MonthKey = { year: 2000, month: 1 };
@@ -51,6 +52,7 @@ export function MonthNav({
   const go = (key: MonthKey) => {
     const next = new URLSearchParams(params);
     const keyString = monthKeyString(key);
+    setSelectedMonth(keyString);
     next.set("m", keyString);
     const href = `${pathname}?${next.toString()}`;
     if (!scope) {

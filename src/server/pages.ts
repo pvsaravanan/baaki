@@ -67,10 +67,10 @@ export const PAGE_LOADERS = {
     return { budget: analytics.budget, categories };
   },
 
-  async categories(user: SessionUser) {
+  async categories(user: SessionUser, params: Params) {
     const [categories, transactionCounts] = await Promise.all([
       loadCategories(user.id),
-      loadCategoryTransactionCounts(user.id),
+      loadCategoryTransactionCounts(user.id, monthOf(params)),
     ]);
     return { categories, transactionCounts };
   },
@@ -79,7 +79,7 @@ export const PAGE_LOADERS = {
     const categories = await loadCategories(user.id);
     const category = categories.find((c) => c.id === params.id) ?? null;
     if (!category) return { category: null, detail: null };
-    return { category, detail: await getCategoryDetail(user.id, category.id) };
+    return { category, detail: await getCategoryDetail(user.id, category.id, monthOf(params)) };
   },
 
   async splits(user: SessionUser) {

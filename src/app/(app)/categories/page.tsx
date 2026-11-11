@@ -1,5 +1,10 @@
 "use client";
+import { Suspense } from "react";
 import { usePageData } from "@/lib/local-api";
+import { useMonthParam } from "@/components/app/use-month-param";
+import { MonthNav } from "@/components/app/month-nav";
+import { TopbarSlot } from "@/components/app/topbar-slot";
+import { MonthContent, MonthScope } from "@/components/app/month-scope";
 import { BackButton } from "@/components/app/back-button";
 import { CategoriesView } from "@/components/app/categories-view";
 import { ScreenData } from "@/components/app/screen-data";
@@ -23,9 +28,21 @@ function CardStack() {
 }
 
 export default function CategoriesPage() {
-  const { data, error } = usePageData("categories");
   return (
-    <div>
+    <Suspense>
+      <Categories />
+    </Suspense>
+  );
+}
+
+function Categories() {
+  const { m, monthKey, isCurrent } = useMonthParam();
+  const { data, error, isStale } = usePageData("categories", { m });
+  return (
+    <MonthScope monthKey={m} loading={isStale}>
+      <TopbarSlot>
+        <MonthNav monthKey={monthKey} isCurrent={isCurrent} bar />
+      </TopbarSlot>
       <div className="mb-4 flex items-end justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-1">
@@ -36,9 +53,11 @@ export default function CategoriesPage() {
         </div>
         <CardStack />
       </div>
-      <ScreenData data={data} error={error}>
-        {(d) => <CategoriesView categories={d.categories} transactionCounts={d.transactionCounts} />}
-      </ScreenData>
-    </div>
+      <MonthContent>
+        <ScreenData data={data} error={error}>
+          {(d) => <CategoriesView categories={d.categories} transactionCounts={d.transactionCounts} />}
+        </ScreenData>
+      </MonthContent>
+    </MonthScope>
   );
 }

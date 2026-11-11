@@ -8,8 +8,14 @@ import { SpendBars, CategoryDonut, BudgetGauge } from "@/components/charts/chart
 import { formatDelta, formatINR } from "@/lib/money";
 import type { CategoryDTO } from "@/lib/types";
 import type { CategoryDetail } from "@/lib/analytics";
+import { addMonths, monthKeyOf, monthLabel, type MonthKey } from "@/lib/dates";
 
-export function CategoryDetailView({ category, detail }: { category: CategoryDTO; detail: CategoryDetail }) {
+export function CategoryDetailView({ category, detail, monthKey }: { category: CategoryDTO; detail: CategoryDetail; monthKey: MonthKey }) {
+  // The month the page follows: "This month" when it is, else its name.
+  const now = monthKeyOf(new Date());
+  const isNow = monthKey.year === now.year && monthKey.month === now.month;
+  const monthName = isNow ? "This month" : monthLabel(monthKey);
+  const prevName = isNow ? "last month" : monthLabel(addMonths(monthKey, -1));
   const {
     kind, monthly, currentMonthSpent, previousMonthSpent, deltaPct, avgPerMonth,
     totalSpent, transactionCount, shareOfMonthExpenses, monthTotalExpenses, budget, topMerchants,
@@ -41,10 +47,10 @@ export function CategoryDetailView({ category, detail }: { category: CategoryDTO
 
       {/* KPI row */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="This month">
+        <Stat label={monthName}>
           <Money paise={currentMonthSpent} tone={amountTone} className="text-headline-sm font-semibold" />
         </Stat>
-        <Stat label="vs last month">
+        <Stat label={`vs ${prevName}`}>
           <span
             className={
               deltaPct === null || deltaPct === 0
@@ -68,7 +74,7 @@ export function CategoryDetailView({ category, detail }: { category: CategoryDTO
       <div className="grid min-w-0 gap-5 lg:grid-cols-2">
         {/* Monthly trend — full width */}
         <Card className="min-w-0 lg:col-span-2">
-          <CardHeader title={income ? "Monthly income" : "Monthly spend"} subtitle="Last 12 months" />
+          <CardHeader title={income ? "Monthly income" : "Monthly spend"} subtitle={isNow ? "Last 12 months" : `12 months to ${monthName}`} />
           <CardBody className="pt-2">
             {totalSpent > 0 ? (
               <SpendBars data={monthly.map((m) => ({ label: m.label, value: m.net }))} color={category.color} />
@@ -84,7 +90,7 @@ export function CategoryDetailView({ category, detail }: { category: CategoryDTO
         {/* Budget utilization, when this category has a budget */}
         {budget && (
           <Card className="min-w-0">
-            <CardHeader title="Budget" subtitle="This month" />
+            <CardHeader title="Budget" subtitle={monthName} />
             <CardBody>
               <div className="flex flex-col items-center gap-2">
                 <BudgetGauge value={utilizationPct ?? 0} />
@@ -103,7 +109,7 @@ export function CategoryDetailView({ category, detail }: { category: CategoryDTO
         <Card className="min-w-0">
           <CardHeader
             title={income ? "Share of income" : "Share of spending"}
-            subtitle={income ? "This month, vs all other income" : "This month, vs everything else"}
+            subtitle={income ? `${monthName}, vs all other income` : `${monthName}, vs everything else`}
           />
           <CardBody className="pt-2">
             {shareOfMonthExpenses !== null ? (
@@ -121,7 +127,7 @@ export function CategoryDetailView({ category, detail }: { category: CategoryDTO
               </div>
             ) : (
               <EmptyState
-                title={income ? "No income this month" : "No spending this month"}
+                title={income ? `No income ${isNow ? "this month" : "in " + monthName}` : `No spending ${isNow ? "this month" : "in " + monthName}`}
                 description={`This category's share of ${income ? "income" : "spend"} will show up once you record something.`}
               />
             )}
@@ -164,7 +170,7 @@ export function CategoryDetailView({ category, detail }: { category: CategoryDTO
       </div>
 
       <p className="text-2xs text-faint">
-        {transactionCount} transaction{transactionCount === 1 ? "" : "s"} in this category, last month {formatINR(previousMonthSpent)}.
+        {transactionCount} transaction{transactionCount === 1 ? "" : "s"} in this category, {prevName} {formatINR(previousMonthSpent)}.
       </p>
     </div>
   );
