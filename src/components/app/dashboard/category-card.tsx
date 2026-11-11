@@ -73,12 +73,14 @@ export function SpendingCategoryCard({ categories, total }: { categories: Catego
       ) : (
         <div className="mt-2 flex items-center gap-4 md:mt-4">
           <Ring slices={slices} total={total} />
-          <ul className="grid min-w-0 flex-1 grid-cols-[auto_1fr_auto] items-center gap-x-2.5 gap-y-2 text-[12px] md:gap-y-3 md:text-body-sm">
+          {/* Plain flex rows, not a subgrid: older Android WebViews don't support
+              subgrid, and the rows then fall apart into stacked lines. */}
+          <ul className="flex min-w-0 flex-1 flex-col gap-y-2 text-[12px] md:gap-y-3 md:text-body-sm">
             {slices.map((s) => (
-              <li key={s.name} className="col-span-full grid grid-cols-subgrid items-center">
+              <li key={s.name} className="flex items-center gap-2.5">
                 <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: s.color }} />
-                <span className="min-w-0 truncate text-fg">{s.name}</span>
-                <span className="justify-self-end text-fg">{formatPercent((s.value / total) * 100)}</span>
+                <span className="min-w-0 flex-1 truncate text-fg">{s.name}</span>
+                <span className="shrink-0 text-fg">{formatPercent((s.value / total) * 100)}</span>
               </li>
             ))}
           </ul>
