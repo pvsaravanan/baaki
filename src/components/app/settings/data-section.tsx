@@ -1,11 +1,14 @@
 "use client";
 import { useRef, useState } from "react";
 import { Database, Download, FileSpreadsheet, History, Upload } from "lucide-react";
-import { apiPost, ApiError, downloadFile } from "@/lib/http";
+import { apiGet, apiPost, ApiError } from "@/lib/http";
+import { saveFile } from "@/lib/save-file";
+import { BackupOpenError, decryptBackup, encryptBackup, isEncryptedBackup } from "@/lib/backup-crypto";
 import { useAppData } from "@/components/app/app-data";
 import { useToast } from "@/components/ui/toast";
 import { useConfirm } from "@/components/ui/confirm";
 import { ExportModal } from "../export-modal";
+import { BackupPasswordModal } from "./backup-password-modal";
 import { ActionRow, Section } from "./layout";
 
 export function DataSection() {
@@ -14,31 +17,44 @@ export function DataSection() {
   const confirm = useConfirm();
 
   const [showExport, setShowExport] = useState(false);
-  const [downloadingBackup, setDownloadingBackup] = useState(false);
+  // The password box: making a backup (create) or opening a locked one (open, with its bytes).
+  const [passwordFor, setPasswordFor] = useState<{ kind: "create" } | { kind: "open"; bytes: Uint8Array } | null>(null);
+  const [working, setWorking] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
-  async function handleBackupDownload() {
-    setDownloadingBackup(true);
-    await downloadFile("/api/export?format=json", (message) => error(message));
-    setDownloadingBackup(false);
+  function closePassword() {
+    setPasswordFor(null);
+    setPasswordError(null);
+  }
+
+  /** Makes the backup file, locked with the password, and hands it to the share sheet. */
+  async function createBackup(password: string) {
+    setWorking(true);
+    setPasswordError(null);
+    try {
+      const backup = await apiGet<unknown>("/api/export?format=json");
+      const locked = await encryptBackup(JSON.stringify(backup), password);
+      const stamp = new Date().toISOString().slice(0, 10);
+      const saved = await saveFile(`baaki-backup-${stamp}.baaki`, new Blob([locked.slice().buffer as ArrayBuffer], { type: "application/octet-stream" }));
+      if (saved) closePassword();
+    } catch (e) {
+      setPasswordError(e instanceof ApiError ? e.message : "Could not create the backup. Please try again.");
+    } finally {
+      setWorking(false);
+    }
   }
 
   const restoreRef = useRef<HTMLInputElement>(null);
   const [restoring, setRestoring] = useState(false);
 
-  async function handleRestoreSelected(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = ""; // let the same file be picked again later
-    if (!file) return;
-    let backup: unknown;
-    try {
-      backup = JSON.parse(await file.text());
-    } catch {
-      error("That file isn't a baaki backup.");
-      return;
-    }
+  /** Asks to replace everything with this backup, then does it. `locked` backups were opened with a password. */
+  async function restoreBackup(backup: unknown, locked: boolean) {
     const ok = await confirm({
       title: "Restore this backup?",
       message:
+        (locked
+          ? ""
+          : "This file isn't password-protected, so anyone could have changed it. ") +
         "Everything in baaki on this phone will be replaced with the backup's contents. Make a backup first if you want to keep what's here now.",
       confirmLabel: "Restore",
       danger: true,
@@ -56,6 +72,40 @@ export function DataSection() {
     }
   }
 
+  async function handleRestoreSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // let the same file be picked again later
+    if (!file) return;
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    if (isEncryptedBackup(bytes)) {
+      setPasswordFor({ kind: "open", bytes });
+      return;
+    }
+    // Older backups (and the baaki website's) are plain JSON.
+    let backup: unknown;
+    try {
+      backup = JSON.parse(new TextDecoder().decode(bytes));
+    } catch {
+      error("That file isn't a baaki backup.");
+      return;
+    }
+    await restoreBackup(backup, false);
+  }
+
+  async function openBackup(bytes: Uint8Array, password: string) {
+    setWorking(true);
+    setPasswordError(null);
+    try {
+      const backup = JSON.parse(await decryptBackup(bytes, password));
+      closePassword();
+      await restoreBackup(backup, true);
+    } catch (e) {
+      setPasswordError(e instanceof BackupOpenError ? e.message : "That file isn't a baaki backup.");
+    } finally {
+      setWorking(false);
+    }
+  }
+
   return (
     <>
       <Section
@@ -66,15 +116,14 @@ export function DataSection() {
         <ActionRow
           icon={<Database className="h-5 w-5" aria-hidden />}
           title="Full backup"
-          description="Everything — accounts, transactions and budgets — as one JSON file."
-          onClick={handleBackupDownload}
-          busy={downloadingBackup}
+          description="Everything — accounts, transactions and budgets — in one file, locked with a password you choose."
+          onClick={() => setPasswordFor({ kind: "create" })}
           trailing={<Download className="h-4 w-4" aria-hidden />}
         />
         <ActionRow
           icon={<History className="h-5 w-5" aria-hidden />}
           title="Restore from backup"
-          description="Replace what's here with a baaki backup — from this app or the baaki website."
+          description="Replace what's here with a baaki backup. A locked one asks for its password."
           onClick={() => restoreRef.current?.click()}
           busy={restoring}
           trailing={<Upload className="h-4 w-4" aria-hidden />}
@@ -82,7 +131,7 @@ export function DataSection() {
         <input
           ref={restoreRef}
           type="file"
-          accept="application/json,.json"
+          accept=".baaki,.json,application/json,application/octet-stream"
           className="hidden"
           onChange={handleRestoreSelected}
         />
@@ -95,6 +144,13 @@ export function DataSection() {
         />
       </Section>
       <ExportModal open={showExport} onClose={() => setShowExport(false)} />
+      <BackupPasswordModal
+        mode={passwordFor?.kind ?? null}
+        busy={working}
+        error={passwordError}
+        onClose={closePassword}
+        onSubmit={(password) => (passwordFor?.kind === "open" ? openBackup(passwordFor.bytes, password) : createBackup(password))}
+      />
     </>
   );
 }
