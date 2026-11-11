@@ -37,8 +37,6 @@ export function startAppTour() {
 
 /** Tells the bottom bar to open or close its More menu: {detail: {open}}. */
 export const TOUR_MENU_EVENT = "baaki:tour-menu";
-/** The menu slides up in about this long: wait for it before measuring its tiles. */
-const MENU_SETTLE_MS = 340;
 
 interface Step {
   /** A CSS selector for what to light; missing, the card sits in the middle. */
@@ -46,8 +44,8 @@ interface Step {
   /** The target lives in the More menu, which the tour opens for it (on a phone). */
   menu?: boolean;
   /**
-   * Asks for the person's name, on Settings → Profile, and can't be passed
-   * without one. The card holds the field; the screen behind lights the real one.
+   * Asks for the person's name and can't be passed without one. The card holds
+   * the field; the dashboard behind lights the greeting the name appears in.
    */
   name?: boolean;
   title: string;
@@ -62,6 +60,12 @@ const STEPS: Step[] = [
   {
     title: "Welcome to baaki",
     body: "Here's a quick look at what you can do. It takes under a minute, and you can skip it any time.",
+  },
+  {
+    target: '[data-tour="greeting"]',
+    name: true,
+    title: "What should we call you?",
+    body: "It appears in your dashboard greeting.",
   },
   {
     target: '[data-tour="month"] > *',
@@ -130,12 +134,6 @@ const STEPS: Step[] = [
     body: "Change your picture, set an app lock, tidy the dashboard, or back up your data. It all stays on this phone.",
   },
   {
-    target: "#profile-name",
-    name: true,
-    title: "What should we call you?",
-    body: "Your name is used in your greeting on the dashboard. You can change it later in Profile.",
-  },
-  {
     title: "You're all set",
     body: "Start by adding your first transaction. You can replay this tour from Settings whenever you like.",
   },
@@ -146,6 +144,12 @@ const GAP = 12; // between the control and the card
 const EDGE = 12; // the card's distance from the screen edge
 const FADE_MS = 280; // the words crossfading, and the progress dots
 const CLOSE_MS = 240;
+/** How long to wait for a control that hasn't appeared before centring the card instead. */
+const HOLD_MS = 800;
+/** The lit hole's corner radius (rounded-xl). */
+const CORNER = 12;
+/** Where each corner piece's arc is centred: the opposite corner of its own box. */
+const CORNER_AT = ["100% 100%", "0 100%", "100% 0", "0 0"];
 /** Short hops are quick and long ones take longer, so every move feels the same speed. */
 const moveMs = (distance: number) => Math.min(640, Math.max(380, 300 + distance * 0.32));
 
@@ -164,12 +168,44 @@ interface Frame {
 }
 
 /** The first matching element that is actually on screen (a phone and a desktop control can share a selector). */
-function findTarget(selector: string): Rect | null {
+function findElement(selector: string): HTMLElement | null {
   for (const el of Array.from(document.querySelectorAll<HTMLElement>(selector))) {
     const r = el.getBoundingClientRect();
-    if (r.width > 0 && r.height > 0) return { top: r.top, left: r.left, width: r.width, height: r.height };
+    if (r.width > 0 && r.height > 0) return el;
   }
   return null;
+}
+
+/**
+ * Where the control is on screen. A control inside the scrolling page is cut
+ * to what that page actually shows, so the light never outlines a part that is
+ * scrolled out of sight.
+ */
+function findTarget(selector: string): Rect | null {
+  const el = findElement(selector);
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  const view = el.closest("main")?.getBoundingClientRect();
+  const top = view ? Math.max(r.top, view.top) : r.top;
+  const bottom = view ? Math.min(r.bottom, view.bottom) : r.bottom;
+  if (bottom <= top) return null;
+  return { top, left: r.left, width: r.width, height: bottom - top };
+}
+
+/**
+ * Scrolls the page so a control inside it is fully in view, with a little room
+ * around it. The keyboard opening or closing can leave the page scrolled a few
+ * pixels, which would hide the top of what the step is pointing at.
+ */
+function reveal(selector: string) {
+  const el = findElement(selector);
+  const main = el?.closest("main");
+  if (!el || !main) return;
+  const r = el.getBoundingClientRect();
+  const m = main.getBoundingClientRect();
+  const room = 16;
+  if (r.top < m.top + room) main.scrollTop -= m.top + room - r.top;
+  else if (r.bottom > m.bottom - room) main.scrollTop += r.bottom - (m.bottom - room);
 }
 
 /** Slow in at the start, long soft landing: reads as one continuous glide. */
@@ -194,7 +230,8 @@ export function AppTour() {
   const [saving, setSaving] = useState(false);
   const [nameError, setNameError] = useState("");
 
-  const lightRef = useRef<HTMLDivElement>(null);
+  /** The dimming: four edge panels (0-3) and four rounded corner pieces (4-7) around the lit control. */
+  const dimRefs = useRef<(HTMLDivElement | null)[]>([]);
   const ringRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
@@ -220,7 +257,6 @@ export function AppTour() {
       // The menu's tiles only exist once the menu is open, so a phone keeps
       // those steps whenever it has the More button to open it with.
       const hasMoreButton = Boolean(findTarget('button[data-tour="more"]'));
-      // The name step's field is on the Settings screen, which the tour opens for it.
       // Someone who already has a name (a replay) isn't asked again.
       setSteps(
         STEPS.filter((s) =>
@@ -268,7 +304,6 @@ export function AppTour() {
       localStorage.removeItem(PENDING_KEY);
     } catch {}
     setMenu(false);
-    if (window.location.pathname.replace(/\/$/, "") === "/settings") router.push("/dashboard");
     // Fade out, then go: it never just vanishes.
     setClosing(true);
     setTimeout(
@@ -280,7 +315,7 @@ export function AppTour() {
       },
       reducedMotion() ? 0 : CLOSE_MS,
     );
-  }, [setMenu, router]);
+  }, [setMenu]);
 
   const step = index === null ? null : steps[index];
 
@@ -298,15 +333,20 @@ export function AppTour() {
   /** Skip: finishes, unless a name is still needed, in which case it jumps to asking for it. */
   const skip = useCallback(() => (lockedAt < steps.length ? goTo(lockedAt) : finish()), [lockedAt, steps.length, goTo, finish]);
 
-  // Arriving at the name step: open Settings → Profile behind it, with the current name in the field.
+  // Arriving at the name step: the field starts with the current name, if there is one.
   useEffect(() => {
     if (!nameStep) return;
     setNameDraft(hasName ? user.name : "");
     setNameError("");
-    if (!window.location.pathname.replace(/\/$/, "").endsWith("/settings")) router.push("/settings?panel=profile");
     // Only when the step is entered.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nameStep]);
+
+  // Past the name step (a Back, or the closing card) the tour belongs on the dashboard again.
+  useEffect(() => {
+    if (index === null || nameStep) return;
+    if (pathname.replace(/\/$/, "") === "/settings") router.push("/dashboard");
+  }, [index, nameStep, pathname, router]);
 
   async function saveName() {
     const name = nameDraft.trim();
@@ -327,7 +367,9 @@ export function AppTour() {
   }
 
   // Where this step's light and card belong, measured from the page as it is now.
-  const measure = useCallback((): Frame | null => {
+  // With `fallback` off, a target that hasn't appeared yet (the menu is sliding
+  // up, a screen is opening) returns null, so the card waits instead of detouring.
+  const measure = useCallback((fallback: boolean): Frame | null => {
     const card = cardRef.current;
     if (!step || !card) return null;
     const vw = window.innerWidth;
@@ -336,8 +378,9 @@ export function AppTour() {
     const cardH = card.offsetHeight;
     const rect = step.target ? findTarget(step.target) : null;
     if (!rect) {
+      if (step.target && !fallback) return null;
       // Nothing to light: the hole closes to a point in the middle.
-      return { x: vw / 2, y: vh / 2, w: 1, h: 1, ring: 0, cx: (vw - cardW) / 2, cy: Math.max(EDGE, (vh - cardH) / 2) };
+      return { x: vw / 2, y: vh / 2, w: 0, h: 0, ring: 0, cx: (vw - cardW) / 2, cy: Math.max(EDGE, (vh - cardH) / 2) };
     }
     // The name step opens the keyboard, which would cover a card below the field: keep it at the top, when it fits there.
     const atTop = step.name && EDGE + cardH + GAP <= rect.top - PAD;
@@ -355,92 +398,128 @@ export function AppTour() {
     };
   }, [step]);
 
-  // Straight to the DOM, with transforms: no React render per frame, and the
-  // card moves on the compositor, so the glide stays smooth on a busy phone.
+  // Straight to the DOM, with transforms only: no React render per frame, and
+  // nothing here repaints a large area, so the glide stays smooth on a busy phone.
   const paint = useCallback((f: Frame) => {
-    const light = lightRef.current;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const hx = f.x;
+    const hy = f.y;
+    const hw = Math.max(0, f.w);
+    const hh = Math.max(0, f.h);
+    const move = (el: HTMLElement | null, x: number, y: number, k = 1) => {
+      if (el) el.style.transform = `translate3d(${x}px, ${y}px, 0)${k === 1 ? "" : ` scale(${Math.max(k, 0.0001)})`}`;
+    };
+    const d = dimRefs.current;
+    // Four screen-sized solid panels, only ever slid (never stretched: a stretched
+    // layer is smoothed by the GPU and bleeds into the hole). They overlap, and
+    // the group is dimmed as a whole, so no seams show.
+    move(d[0], 0, hy - vh);
+    move(d[1], 0, hy + hh);
+    move(d[2], hx - vw, 0);
+    move(d[3], hx + hw, 0);
+    const r = Math.max(0, Math.min(CORNER, hw / 2, hh / 2));
+    const k = r / CORNER;
+    move(d[4], hx, hy, k);
+    move(d[5], hx + hw - r, hy, k);
+    move(d[6], hx, hy + hh - r, k);
+    move(d[7], hx + hw - r, hy + hh - r, k);
     const ring = ringRef.current;
-    const card = cardRef.current;
-    if (light) {
-      light.style.width = `${f.w}px`;
-      light.style.height = `${f.h}px`;
-      light.style.transform = `translate3d(${f.x}px, ${f.y}px, 0)`;
+    if (ring) {
+      ring.style.width = `${hw}px`;
+      ring.style.height = `${hh}px`;
+      ring.style.transform = `translate3d(${hx}px, ${hy}px, 0)`;
+      ring.style.opacity = String(f.ring);
     }
-    if (ring) ring.style.opacity = String(f.ring);
+    const card = cardRef.current;
     if (card) card.style.transform = `translate3d(${f.cx}px, ${f.cy}px, 0)`;
   }, []);
 
-  const glideTo = useCallback(
-    (to: Frame, animate: boolean) => {
-      cancelAnimationFrame(raf.current);
-      const from = current.current;
-      if (!from || !animate || reducedMotion()) {
-        current.current = to;
-        paint(to);
-        return;
+  /**
+   * Carries the light and the card to this step's control. The control is
+   * re-measured every frame, so a menu still sliding up or a screen still
+   * opening is chased rather than waited for; if it lands somewhere new after
+   * the glide has finished, a fresh glide takes over from where things are.
+   */
+  const follow = useCallback(() => {
+    cancelAnimationFrame(raf.current);
+    const distance = (a: Frame, b: Frame) =>
+      Math.abs(a.x - b.x) + Math.abs(a.y - b.y) + Math.abs(a.w - b.w) + Math.abs(a.h - b.h) + Math.abs(a.cx - b.cx) + Math.abs(a.cy - b.cy);
+    const calm = reducedMotion();
+    let began: number | null = null;
+    let moved = 0;
+    let gliding = false;
+    let start = 0;
+    let duration = 0;
+    let from: Frame | null = null;
+    const tick = (now: number) => {
+      if (began === null) {
+        began = now;
+        moved = now;
       }
-      const duration = moveMs(Math.hypot(to.cx - from.cx, to.cy - from.cy) + Math.hypot(to.x - from.x, to.y - from.y) / 2);
-      // The clock starts on the first frame, not now: the first frame's own
-      // timestamp can be earlier than "now", which made it twitch.
-      let start: number | null = null;
-      const tick = (now: number) => {
-        if (start === null) start = now;
-        const t = Math.max(0, Math.min(1, (now - start) / duration));
-        const e = ease(t);
-        const f: Frame = {
-          x: lerp(from.x, to.x, e),
-          y: lerp(from.y, to.y, e),
-          w: lerp(from.w, to.w, e),
-          h: lerp(from.h, to.h, e),
-          ring: lerp(from.ring, to.ring, e),
-          cx: lerp(from.cx, to.cx, e),
-          cy: lerp(from.cy, to.cy, e),
-        };
+      const cur = current.current;
+      // The page may still be settling (a keyboard opening, a screen appearing): keep the control in view.
+      if (step?.target && now - began < 1500) reveal(step.target);
+      const to = measure(now - began > HOLD_MS);
+      if (to) {
+        let f = to;
+        if (cur && !calm) {
+          if (!gliding && distance(cur, to) > 3) {
+            gliding = true;
+            from = cur;
+            start = now;
+            duration = moveMs(Math.hypot(to.cx - cur.cx, to.cy - cur.cy) + Math.hypot(to.x - cur.x, to.y - cur.y) / 2);
+          }
+          if (gliding && from) {
+            const t = Math.max(0, Math.min(1, (now - start) / duration));
+            const e = ease(t);
+            f = {
+              x: lerp(from.x, to.x, e),
+              y: lerp(from.y, to.y, e),
+              w: lerp(from.w, to.w, e),
+              h: lerp(from.h, to.h, e),
+              ring: lerp(from.ring, to.ring, e),
+              cx: lerp(from.cx, to.cx, e),
+              cy: lerp(from.cy, to.cy, e),
+            };
+            if (t >= 1) gliding = false;
+          }
+        }
+        if (!cur || distance(cur, f) > 0.5) moved = now;
         current.current = f;
         paint(f);
-        if (t < 1) raf.current = requestAnimationFrame(tick);
-      };
-      raf.current = requestAnimationFrame(tick);
-    },
-    [paint],
-  );
+      }
+      // Keep following until things have been still for a moment.
+      if (gliding || now - moved < 250 || !to) {
+        if (now - began < 3000) raf.current = requestAnimationFrame(tick);
+      }
+    };
+    raf.current = requestAnimationFrame(tick);
+  }, [measure, paint, step]);
 
   // A new step: the card already shows its text (this runs before the browser
-  // paints), so it is measured at its true size and the glide starts from the
-  // last position.
+  // paints), and the glide starts right away from wherever the last one left things.
   useLayoutEffect(() => {
     if (!step) return;
-    const go = () => {
-      const to = measure();
-      if (to) glideTo(to, current.current !== null);
-    };
-    if (step.menu) {
-      // The menu has to be open, and finished sliding up, before its tiles can be lit.
-      if (setMenu(true)) {
-        const t = setTimeout(go, MENU_SETTLE_MS);
-        return () => clearTimeout(t);
-      }
-    } else {
-      setMenu(false);
-    }
-    go();
-    if (step.name) {
-      // Its field is on the Settings screen, which is still opening: measure again as it appears.
-      const timers = [350, 800, 1500].map((ms) => setTimeout(go, ms));
-      return () => timers.forEach(clearTimeout);
-    }
-  }, [step, measure, glideTo, setMenu]);
+    setMenu(Boolean(step.menu));
+    follow();
+    return () => cancelAnimationFrame(raf.current);
+  }, [step, follow, setMenu]);
 
   // A rotated or resized screen: snap to where things now belong.
   useEffect(() => {
     if (index === null) return;
     const onResize = () => {
-      const to = measure();
-      if (to) glideTo(to, false);
+      if (step?.target) reveal(step.target);
+      const to = measure(true);
+      if (!to) return;
+      cancelAnimationFrame(raf.current);
+      current.current = to;
+      paint(to);
     };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, [index, measure, glideTo]);
+  }, [index, measure, paint, step]);
 
   useEffect(() => () => cancelAnimationFrame(raf.current), []);
 
@@ -495,29 +574,43 @@ export function AppTour() {
       {/* Blocks taps on the app underneath while the tour is up. */}
       <div className="absolute inset-0" aria-hidden />
 
-      {/* The light: a hole in the dimming, which is its shadow. It only ever
-          moves by transform, and resizes, and never touches layout around it. */}
-      <div
-        ref={lightRef}
-        aria-hidden
-        className="pointer-events-none absolute left-0 top-0 rounded-xl"
-        style={{
-          width: 1,
-          height: 1,
-          transform: `translate3d(${window.innerWidth / 2}px, ${window.innerHeight / 2}px, 0)`,
-          boxShadow: "0 0 0 9999px hsl(var(--overlay) / 0.6)",
-          willChange: "transform, width, height",
-        }}
-      >
-        <div ref={ringRef} className="absolute inset-0 rounded-xl border-2 border-brand" style={{ opacity: 0 }} />
+      {/* The dimming, with a hole where the control is lit: four solid edge
+          panels and four rounded corner pieces, all moved by transform alone, so
+          nothing large is repainted while it glides. The group is dimmed as a
+          whole, which keeps the overlaps from showing. */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden" style={{ opacity: 0.6 }}>
+        {Array.from({ length: 8 }, (_, i) => (
+          <div
+            key={i}
+            ref={(el) => {
+              dimRefs.current[i] = el;
+            }}
+            className="absolute left-0 top-0"
+            style={{
+              width: i < 4 ? "100%" : CORNER,
+              height: i < 4 ? "100%" : CORNER,
+              transformOrigin: "0 0",
+              // Starts fully dim (the first frame paints before anything is measured).
+              transform: i === 0 ? "translate3d(0, 0, 0)" : i < 4 ? "translate3d(0, 9999px, 0)" : "scale(0.0001)",
+              willChange: "transform",
+              background: i < 4 ? "hsl(var(--overlay))" : `radial-gradient(circle at ${CORNER_AT[i - 4]}, transparent ${CORNER - 0.5}px, hsl(var(--overlay)) ${CORNER}px)`,
+            }}
+          />
+        ))}
       </div>
+      <div
+        ref={ringRef}
+        aria-hidden
+        className="pointer-events-none absolute left-0 top-0 rounded-xl border-2 border-brand"
+        style={{ width: 0, height: 0, opacity: 0, willChange: "transform, width, height" }}
+      />
 
       <div
         ref={cardRef}
         className="absolute left-0 top-0"
         style={{
           width: cardWidth,
-          transform: `translate3d(${(window.innerWidth - cardWidth) / 2}px, ${window.innerHeight / 2}px, 0)`,
+          transform: "translate3d(0, 0, 0)",
           willChange: "transform",
         }}
       >
@@ -537,10 +630,13 @@ export function AppTour() {
                   {i + 1} of {steps.length}
                 </p>
                 <h2 className="mt-1 text-base font-bold tracking-normal text-fg">{st.title}</h2>
-                <p className="mt-1.5 text-body-sm text-muted">{st.body}</p>
+                {/* A save error takes the place of the line (no extra row), so the card keeps its height. */}
+                <p className={cn("mt-1.5 text-body-sm", st.name && i === index && nameError ? "text-expense" : "text-muted")}>
+                  {st.name && i === index && nameError ? nameError : st.body}
+                </p>
                 {st.name && (
                   // Always laid out (hidden when not shown) so the card keeps one height.
-                  <div className={cn("pointer-events-auto mt-3", i !== index && "invisible")}>
+                  <div className={cn("pointer-events-auto mt-2.5", i !== index && "invisible")}>
                     <Input
                       aria-label="Your name"
                       placeholder="Your name"
@@ -554,7 +650,6 @@ export function AppTour() {
                         if (e.key === "Enter" && draftOk && !saving) next();
                       }}
                     />
-                    <p className="mt-1 min-h-4 text-xs text-expense">{i === index ? nameError : ""}</p>
                   </div>
                 )}
               </div>
