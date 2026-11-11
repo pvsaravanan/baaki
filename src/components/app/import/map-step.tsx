@@ -43,7 +43,7 @@ export function MapStep({
     <Card>
       <CardHeader
         title="Map your columns"
-        subtitle={`Match your CSV headers to baaki fields. ${recordCount} row${recordCount === 1 ? "" : "s"} to import.`}
+        subtitle={`Match your file's column headings to baaki fields. ${recordCount} row${recordCount === 1 ? "" : "s"} to import.`}
       />
       <CardBody className="space-y-5">
         <div className="grid gap-4 sm:grid-cols-2">
@@ -64,7 +64,7 @@ export function MapStep({
           <Field
             label="Date format"
             htmlFor="date-format"
-            hint="How dates are written in your CSV."
+            hint="How dates are written in your file."
           >
             <SelectMenu
               id="date-format"

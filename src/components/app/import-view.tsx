@@ -133,7 +133,7 @@ export function ImportView() {
       // Large files parse off the main thread so the UI doesn't freeze.
       worker: true,
       complete: (results) => loadRows(results.data as string[][], file.name),
-      error: (err) => setParseError(err.message || "Failed to parse the CSV file."),
+      error: (err) => setParseError(err.message || "Failed to read the file."),
     });
   }
 

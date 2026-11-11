@@ -82,7 +82,7 @@ export function PreviewStep({
         <Card>
           <CardHeader
             title="Rows that won't import"
-            subtitle="Fix these in your CSV and re-upload to include them."
+            subtitle="Fix these in your file and re-upload to include them."
             action={<Badge tone="expense">{summary.invalid}</Badge>}
           />
           <CardBody className="p-0">

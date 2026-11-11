@@ -8,8 +8,8 @@ export default function ImportPage() {
   return (
     <div>
       <PageBanner
-        title="Import transactions"
-        subtitle="Bring in transactions from a CSV file."
+        title="Import"
+        subtitle="Bring in a bank statement as a CSV or Excel file."
         art={<ImportArt />}
       />
       <ImportView />
