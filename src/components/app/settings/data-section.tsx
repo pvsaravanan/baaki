@@ -1,6 +1,6 @@
 "use client";
 import { useRef, useState } from "react";
-import { ChevronRight, Database, Download, FileSpreadsheet, History, Upload } from "lucide-react";
+import { Database, Download, FileSpreadsheet, History, Upload } from "lucide-react";
 import { apiPost, ApiError, downloadFile } from "@/lib/http";
 import { useAppData } from "@/components/app/app-data";
 import { useToast } from "@/components/ui/toast";
@@ -92,13 +92,6 @@ export function DataSection() {
           description="A CSV for a date range, ready for a spreadsheet."
           onClick={() => setShowExport(true)}
           trailing={<Download className="h-4 w-4" aria-hidden />}
-        />
-        <ActionRow
-          icon={<Upload className="h-5 w-5" aria-hidden />}
-          title="Import transactions"
-          description="Bring in a bank statement (CSV or Excel)."
-          href="/import"
-          trailing={<ChevronRight className="h-4 w-4" aria-hidden />}
         />
       </Section>
       <ExportModal open={showExport} onClose={() => setShowExport(false)} />

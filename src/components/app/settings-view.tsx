@@ -9,13 +9,10 @@ import {
   Info,
   Compass,
   Languages,
-  Layers,
   LayoutDashboard,
   Lock,
   Moon,
   Smartphone,
-  Target,
-  Wallet,
 } from "lucide-react";
 import { version } from "../../../package.json";
 import { Modal } from "@/components/ui/modal";
@@ -99,10 +96,7 @@ function Settings() {
         <InfoRow icon={<Languages />} label="Language" value="English" />
       </Group>
 
-      <Group title="Money & Data">
-        <NavRow icon={<Wallet />} label="Accounts" href="/accounts" />
-        <NavRow icon={<Layers />} label="Categories" href="/categories" />
-        <NavRow icon={<Target />} label="Budgets" href="/budgets" />
+      <Group title="Data">
         <NavRow
           icon={<DatabaseBackup />}
           label="Backup & Data"
