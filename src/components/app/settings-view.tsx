@@ -59,6 +59,12 @@ function Settings() {
     if (choose === "picture") setPanel("profile");
   }, [choose]);
 
+  // The app tour asks for your name on the profile panel and opens it with ?panel=profile.
+  const panelQuery = useSearchParams().get("panel");
+  useEffect(() => {
+    if (panelQuery === "profile") setPanel("profile");
+  }, [panelQuery]);
+
   return (
     <div className="mx-auto max-w-2xl space-y-4">
       <header className="flex items-end justify-between gap-3">

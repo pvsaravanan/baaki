@@ -4,6 +4,9 @@ import { usePathname, useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/field";
+import { apiPatch, ApiError } from "@/lib/http";
+import { useAppData } from "@/components/app/app-data";
 import { cn } from "@/lib/cn";
 
 /**
@@ -42,6 +45,11 @@ interface Step {
   target?: string;
   /** The target lives in the More menu, which the tour opens for it (on a phone). */
   menu?: boolean;
+  /**
+   * Asks for the person's name, on Settings → Profile, and can't be passed
+   * without one. The card holds the field; the screen behind lights the real one.
+   */
+  name?: boolean;
   title: string;
   body: string;
 }
@@ -122,6 +130,12 @@ const STEPS: Step[] = [
     body: "Change your picture, set an app lock, tidy the dashboard, or back up your data. It all stays on this phone.",
   },
   {
+    target: "#profile-name",
+    name: true,
+    title: "What should we call you?",
+    body: "Your name is used in your greeting on the dashboard. You can change it later in Profile.",
+  },
+  {
     title: "You're all set",
     body: "Start by adding your first transaction. You can replay this tour from Settings whenever you like.",
   },
@@ -172,6 +186,13 @@ export function AppTour() {
   const [index, setIndex] = useState<number | null>(null);
   const [steps, setSteps] = useState<Step[]>(STEPS);
   const [closing, setClosing] = useState(false);
+  const { user, refresh } = useAppData();
+  // Read when the tour starts (begin is created once), so a replay can leave the name step out.
+  const hasNameRef = useRef(false);
+  hasNameRef.current = user.name.trim() !== "" && user.name.trim() !== "You";
+  const [nameDraft, setNameDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [nameError, setNameError] = useState("");
 
   const lightRef = useRef<HTMLDivElement>(null);
   const ringRef = useRef<HTMLDivElement>(null);
@@ -199,7 +220,13 @@ export function AppTour() {
       // The menu's tiles only exist once the menu is open, so a phone keeps
       // those steps whenever it has the More button to open it with.
       const hasMoreButton = Boolean(findTarget('button[data-tour="more"]'));
-      setSteps(STEPS.filter((s) => !s.target || (s.menu && hasMoreButton) || findTarget(s.target)));
+      // The name step's field is on the Settings screen, which the tour opens for it.
+      // Someone who already has a name (a replay) isn't asked again.
+      setSteps(
+        STEPS.filter((s) =>
+          s.name ? !hasNameRef.current : !s.target || (s.menu && hasMoreButton) || findTarget(s.target),
+        ),
+      );
       setIndex(0);
     };
     attempt();
@@ -241,6 +268,7 @@ export function AppTour() {
       localStorage.removeItem(PENDING_KEY);
     } catch {}
     setMenu(false);
+    if (window.location.pathname.replace(/\/$/, "") === "/settings") router.push("/dashboard");
     // Fade out, then go: it never just vanishes.
     setClosing(true);
     setTimeout(
@@ -252,9 +280,51 @@ export function AppTour() {
       },
       reducedMotion() ? 0 : CLOSE_MS,
     );
-  }, [setMenu]);
+  }, [setMenu, router]);
 
   const step = index === null ? null : steps[index];
+
+  // A name is required until the person has set one of their own ("You" is what an install starts with).
+  const hasName = user.name.trim() !== "" && user.name.trim() !== "You";
+  const nameIndex = steps.findIndex((s) => s.name);
+  const nameStep = step?.name === true;
+  const draftOk = nameDraft.trim().length > 0;
+  // Until the name is set, nothing past its step can be reached.
+  const lockedAt = !hasName && nameIndex >= 0 ? nameIndex : steps.length;
+  const goTo = useCallback(
+    (i: number) => setIndex(() => Math.max(0, Math.min(i, lockedAt))),
+    [lockedAt],
+  );
+  /** Skip: finishes, unless a name is still needed, in which case it jumps to asking for it. */
+  const skip = useCallback(() => (lockedAt < steps.length ? goTo(lockedAt) : finish()), [lockedAt, steps.length, goTo, finish]);
+
+  // Arriving at the name step: open Settings → Profile behind it, with the current name in the field.
+  useEffect(() => {
+    if (!nameStep) return;
+    setNameDraft(hasName ? user.name : "");
+    setNameError("");
+    if (!window.location.pathname.replace(/\/$/, "").endsWith("/settings")) router.push("/settings?panel=profile");
+    // Only when the step is entered.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nameStep]);
+
+  async function saveName() {
+    const name = nameDraft.trim();
+    if (!name) return false;
+    if (name === user.name) return true;
+    setSaving(true);
+    setNameError("");
+    try {
+      await apiPatch("/api/user", { name });
+      refresh();
+      return true;
+    } catch (e) {
+      setNameError(e instanceof ApiError ? e.message : "Could not save your name");
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }
 
   // Where this step's light and card belong, measured from the page as it is now.
   const measure = useCallback((): Frame | null => {
@@ -269,8 +339,10 @@ export function AppTour() {
       // Nothing to light: the hole closes to a point in the middle.
       return { x: vw / 2, y: vh / 2, w: 1, h: 1, ring: 0, cx: (vw - cardW) / 2, cy: Math.max(EDGE, (vh - cardH) / 2) };
     }
-    const below = vh - (rect.top + rect.height) >= rect.top;
-    const cy = below ? rect.top + rect.height + PAD + GAP : Math.max(EDGE, rect.top - PAD - GAP - cardH);
+    // The name step opens the keyboard, which would cover a card below the field: keep it at the top, when it fits there.
+    const atTop = step.name && EDGE + cardH + GAP <= rect.top - PAD;
+    const below = !atTop && vh - (rect.top + rect.height) >= rect.top;
+    const cy = atTop ? EDGE : below ? rect.top + rect.height + PAD + GAP : Math.max(EDGE, rect.top - PAD - GAP - cardH);
     const cx = Math.min(Math.max(EDGE, rect.left + rect.width / 2 - cardW / 2), vw - cardW - EDGE);
     return {
       x: rect.left - PAD,
@@ -352,6 +424,11 @@ export function AppTour() {
       setMenu(false);
     }
     go();
+    if (step.name) {
+      // Its field is on the Settings screen, which is still opening: measure again as it appears.
+      const timers = [350, 800, 1500].map((ms) => setTimeout(go, ms));
+      return () => timers.forEach(clearTimeout);
+    }
   }, [step, measure, glideTo, setMenu]);
 
   // A rotated or resized screen: snap to where things now belong.
@@ -372,20 +449,35 @@ export function AppTour() {
     if (open) nextRef.current?.focus({ preventScroll: true });
   }, [open]);
 
+  // On the name step the cursor belongs in the field, not on Next.
+  useEffect(() => {
+    if (!nameStep) return;
+    const t = setTimeout(() => document.querySelector<HTMLInputElement>('input[aria-label="Your name"]:not([tabindex="-1"])')?.focus({ preventScroll: true }), 450);
+    return () => clearTimeout(t);
+  }, [nameStep]);
+
   useEffect(() => {
     if (index === null) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") finish();
-      if (e.key === "ArrowRight") setIndex((i) => (i === null ? i : Math.min(i + 1, steps.length - 1)));
+      if (e.key === "Escape") skip();
+      // Not from the name field: there the arrows move the caret.
+      if (e.target instanceof HTMLInputElement) return;
+      if (e.key === "ArrowRight") setIndex((i) => (i === null ? i : Math.min(i + 1, lockedAt, steps.length - 1)));
       if (e.key === "ArrowLeft") setIndex((i) => (i === null ? i : Math.max(i - 1, 0)));
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [index, steps.length, finish]);
+  }, [index, steps.length, lockedAt, skip]);
 
   if (index === null || !step || typeof document === "undefined") return null;
 
   const last = index === steps.length - 1;
+  const needsName = nameStep && !hasName;
+  async function next() {
+    if (nameStep && !(await saveName())) return;
+    if (last) finish();
+    else setIndex(index! + 1);
+  }
   const cardWidth = Math.min(340, window.innerWidth - EDGE * 2);
 
   return createPortal(
@@ -446,6 +538,25 @@ export function AppTour() {
                 </p>
                 <h2 className="mt-1 text-base font-bold tracking-normal text-fg">{st.title}</h2>
                 <p className="mt-1.5 text-body-sm text-muted">{st.body}</p>
+                {st.name && (
+                  // Always laid out (hidden when not shown) so the card keeps one height.
+                  <div className={cn("pointer-events-auto mt-3", i !== index && "invisible")}>
+                    <Input
+                      aria-label="Your name"
+                      placeholder="Your name"
+                      value={nameDraft}
+                      maxLength={80}
+                      tabIndex={i === index ? 0 : -1}
+                      autoComplete="given-name"
+                      invalid={Boolean(nameError)}
+                      onChange={(e) => setNameDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && draftOk && !saving) next();
+                      }}
+                    />
+                    <p className="mt-1 min-h-4 text-xs text-expense">{i === index ? nameError : ""}</p>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -466,9 +577,9 @@ export function AppTour() {
           <div className="mt-4 flex items-center gap-2">
             <button
               type="button"
-              onClick={finish}
-              tabIndex={last ? -1 : 0}
-              className={cn("h-10 px-2 text-sm font-bold text-muted hover:text-fg", last && "invisible")}
+              onClick={skip}
+              tabIndex={last || needsName ? -1 : 0}
+              className={cn("h-10 px-2 text-sm font-bold text-muted hover:text-fg", (last || needsName) && "invisible")}
             >
               Skip
             </button>
@@ -476,13 +587,13 @@ export function AppTour() {
             <Button
               size="sm"
               variant="outline"
-              onClick={() => setIndex(index - 1)}
+              onClick={() => goTo(index - 1)}
               tabIndex={index === 0 ? -1 : 0}
               className={cn(index === 0 && "invisible")}
             >
               Back
             </Button>
-            <Button ref={nextRef} size="sm" onClick={() => (last ? finish() : setIndex(index + 1))}>
+            <Button ref={nextRef} size="sm" onClick={next} loading={saving} disabled={nameStep && !draftOk}>
               {last ? "Get started" : "Next"}
               {!last && <ArrowRight aria-hidden className="h-4 w-4" />}
             </Button>
