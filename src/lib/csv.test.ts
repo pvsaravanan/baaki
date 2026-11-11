@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCSV, dedupeKey, detectDateFormat, findHeaderRow, normalizeDate, parseAmount, recordsFromRows, validateImportRows } from "./csv";
+import { buildCSV, dedupeKey, detectDateFormat, findHeaderRow, normalizeDate, parseAmount, planImport, recordsFromRows, validateImportRows } from "./csv";
 import { toPaise } from "./money";
 
 describe("buildCSV", () => {
@@ -259,5 +259,33 @@ describe("validateImportRows amounts", () => {
     expect(result.valid).toHaveLength(0);
     expect(result.invalid[0].errors.join(" ")).toMatch(/Both/);
     expect(result.invalid[1].errors.join(" ")).toMatch(/No amount/);
+  });
+});
+
+describe("planImport", () => {
+  const row = (key: string, n = 0) => ({ key, n });
+  it("imports two identical rows in a file as two purchases", () => {
+    const r = planImport([row("a", 1), row("a", 2)], new Map(), true);
+    expect(r.toCreate).toHaveLength(2);
+    expect(r.duplicates).toBe(0);
+  });
+  it("skips a row already saved, once per saved copy", () => {
+    const r = planImport([row("a", 1), row("a", 2), row("a", 3)], new Map([["a", 2]]), true);
+    expect(r.toCreate.map((x) => x.n)).toEqual([3]);
+    expect(r.duplicates).toBe(2);
+  });
+  it("skips everything when the same file is imported again", () => {
+    const rows = [row("a", 1), row("a", 2), row("b", 3)];
+    const first = planImport(rows, new Map(), true);
+    const saved = new Map([["a", 2], ["b", 1]]);
+    const again = planImport(rows, saved, true);
+    expect(first.toCreate).toHaveLength(3);
+    expect(again.toCreate).toHaveLength(0);
+    expect(again.duplicates).toBe(3);
+  });
+  it("inserts everything but still counts duplicates when skipping is off", () => {
+    const r = planImport([row("a"), row("a")], new Map([["a", 1]]), false);
+    expect(r.toCreate).toHaveLength(2);
+    expect(r.duplicates).toBe(1);
   });
 });

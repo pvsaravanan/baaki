@@ -439,3 +439,35 @@ export function dedupeKey(input: {
 }): string {
   return `${input.date}|${input.type}|${input.amount}|${input.description.trim().toLowerCase()}|${input.accountId ?? ""}`;
 }
+
+/**
+ * Splits a batch of rows into the ones to insert and the duplicates.
+ *
+ * A row is a duplicate of something already saved, and each saved transaction
+ * can cancel out only one row. Two identical rows in a file (two ₹30 metro
+ * rides on one day) are therefore two purchases, not one purchase and a copy;
+ * importing the same file twice still skips every row, because the first
+ * import saved both. `existing` maps a dedupe key to how many saved
+ * transactions have it.
+ *
+ * With `skipDuplicates` off, every row is inserted and duplicates are only counted.
+ */
+export function planImport<T extends { key: string }>(
+  rows: T[],
+  existing: Map<string, number>,
+  skipDuplicates: boolean,
+): { toCreate: T[]; duplicates: number } {
+  const left = new Map(existing);
+  const toCreate: T[] = [];
+  let duplicates = 0;
+  for (const row of rows) {
+    const available = left.get(row.key) ?? 0;
+    if (available > 0) {
+      left.set(row.key, available - 1);
+      duplicates += 1;
+      if (skipDuplicates) continue;
+    }
+    toCreate.push(row);
+  }
+  return { toCreate, duplicates };
+}

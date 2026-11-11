@@ -2,7 +2,7 @@ import type { NextRequest } from "@/server/request";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { json, NotFoundError, withUser } from "@/lib/api";
-import { dedupeKey, validateImportRows, type ColumnMapping, type InvalidImportRow } from "@/lib/csv";
+import { dedupeKey, planImport, validateImportRows, type ColumnMapping, type InvalidImportRow } from "@/lib/csv";
 import { endOfDayExclusive, fromISODate, startOfDay, toISODate } from "@/lib/dates";
 import { suggestCategoryKey } from "@/lib/categorize";
 
@@ -30,12 +30,13 @@ interface Resolved {
  */
 function keysFrom(
   rows: { date: Date; amount: number; description: string; type: string; accountId: string }[],
-): Set<string> {
-  return new Set(
-    rows.map((t) =>
-      dedupeKey({ date: toISODate(t.date), amount: t.amount, description: t.description, type: t.type, accountId: t.accountId }),
-    ),
-  );
+): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const t of rows) {
+    const key = dedupeKey({ date: toISODate(t.date), amount: t.amount, description: t.description, type: t.type, accountId: t.accountId });
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return counts;
 }
 
 export const POST = withUser(async (user, req: NextRequest) => {
@@ -127,19 +128,8 @@ export const POST = withUser(async (user, req: NextRequest) => {
       where: dedupeWhere,
       select: { date: true, amount: true, description: true, type: true, accountId: true },
     });
-    const existingKeys = keysFrom(existing);
-    const seenInBatch = new Set<string>();
-    let duplicates = 0;
-    let willImport = 0;
-    for (const r of resolved) {
-      const isDup = existingKeys.has(r.key) || seenInBatch.has(r.key);
-      if (isDup) {
-        duplicates += 1;
-        if (input.skipDuplicates) continue;
-      }
-      seenInBatch.add(r.key);
-      willImport += 1;
-    }
+    const { toCreate: planned, duplicates } = planImport(resolved, keysFrom(existing), input.skipDuplicates);
+    const willImport = planned.length;
     return json({
       preview: true,
       summary: {
@@ -168,17 +158,7 @@ export const POST = withUser(async (user, req: NextRequest) => {
       where: dedupeWhere,
       select: { date: true, amount: true, description: true, type: true, accountId: true },
     });
-    const existingKeys = keysFrom(existing);
-    const seenInBatch = new Set<string>();
-    const toCreate: Resolved[] = [];
-    for (const r of resolved) {
-      const isDup = existingKeys.has(r.key) || seenInBatch.has(r.key);
-      if (isDup) {
-        if (input.skipDuplicates) continue;
-      }
-      seenInBatch.add(r.key);
-      toCreate.push(r);
-    }
+    const { toCreate } = planImport(resolved, keysFrom(existing), input.skipDuplicates);
     if (toCreate.length) {
       await db.transaction.createMany({
         data: toCreate.map((t) => ({
