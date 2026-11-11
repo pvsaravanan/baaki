@@ -21,6 +21,7 @@ import { Modal } from "@/components/ui/modal";
 import { useAppData } from "./app-data";
 import { UserAvatar } from "./user-avatar";
 import { BackButton } from "./back-button";
+import { SettingsArt } from "./page-illustrations";
 import { DashboardSection } from "./settings/dashboard-section";
 import { DataSection } from "./settings/data-section";
 import { DefaultAccountRow } from "./settings/preferences-section";
@@ -58,9 +59,15 @@ function Settings() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
-      <header className="flex items-center gap-1">
-        <BackButton />
-        <h1 className="text-headline-md text-fg sm:text-headline-lg">Settings</h1>
+      <header className="flex items-end justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-1">
+            <BackButton />
+            <h1 className="text-headline-md text-fg sm:text-headline-lg">Settings</h1>
+          </div>
+          <p className="mt-1 text-body-sm text-muted">Your profile, preferences and data.</p>
+        </div>
+        <SettingsArt />
       </header>
 
       <button

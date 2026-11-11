@@ -7,6 +7,8 @@ import { TopbarSlot } from "@/components/app/topbar-slot";
 import { MonthContent, MonthScope } from "@/components/app/month-scope";
 import { BudgetsView } from "@/components/app/budgets-view";
 import { ScreenData } from "@/components/app/screen-data";
+import { BackButton } from "@/components/app/back-button";
+import { BudgetArt } from "@/components/app/page-illustrations";
 
 export default function BudgetsPage() {
   return (
@@ -23,9 +25,15 @@ function Budgets() {
   return (
     <MonthScope monthKey={m} loading={isStale}>
       {/* Editing lives in the view: "Set a budget" when empty, "Manage" otherwise. */}
-      <div className="mb-4 min-w-0">
-        <h1 className="text-headline-md text-fg sm:text-headline-lg">Budget</h1>
-        <p className="mt-1 text-body-sm text-muted">Plan, track and stay in control.</p>
+      <div className="mb-4 flex items-end justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-1">
+            <BackButton />
+            <h1 className="text-headline-md text-fg sm:text-headline-lg">Budget</h1>
+          </div>
+          <p className="mt-1 text-body-sm text-muted">Plan, track and stay in control.</p>
+        </div>
+        <BudgetArt />
       </div>
       <TopbarSlot>
         <MonthNav monthKey={monthKey} isCurrent={isCurrent} monthsAhead={12} bar />
