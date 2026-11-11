@@ -46,9 +46,12 @@ export function formatINR(
 ): string {
   const { showSign = false, decimals = "auto", symbol = true } = opts;
   const abs = Math.abs(Math.round(paise));
-  const negative = paise < 0 && abs > 0; // a sub-paisa amount shows as ₹0, not −₹0
-  const rupees = Math.floor(abs / 100);
+  // Without paise the amount is rounded to the nearest rupee, not cut off:
+  // ₹60,918.75 is ₹60,919, so a row of such amounts still adds up the way the eye expects.
+  const rupees = decimals === "never" ? Math.round(abs / 100) : Math.floor(abs / 100);
   const paisePart = abs % 100;
+  // Nothing at all to show (under half a paisa, or under 50 paise rounded to rupees) is ₹0, not −₹0.
+  const negative = paise < 0 && (decimals === "never" ? rupees > 0 : abs > 0);
 
   const grouped = groupIndian(rupees);
   let out: string;
