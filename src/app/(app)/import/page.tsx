@@ -9,7 +9,7 @@ export default function ImportPage() {
     <div>
       <PageBanner
         title="Import"
-        subtitle="Bring in a bank statement as a CSV or Excel file."
+        subtitle="Bring in a bank statement, or restore a baaki backup."
         art={<ImportArt />}
       />
       <ImportView />
