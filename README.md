@@ -1,9 +1,9 @@
-# <img src="docs/baaki-mark.svg" alt="" height="32"> baaki
+<p align="center"><img src="docs/baaki-logo.png" alt="baaki" width="96"></p>
 
-**Know where your money goes.**
+<h1 align="center">baaki</h1>
 
-A personal finance app for everyday money in India. It runs entirely on your Android
-phone: no account, no server, nothing uploaded, and it can't reach the internet.
+<p align="center"><b>Know where your money goes.</b><br>
+A personal finance app for India. It runs entirely on your phone: no account, no server, no internet.</p>
 
 <p align="center">
   <img src="UI/phone-framed/01-dashboard.png" width="32%" alt="Dashboard">
@@ -11,35 +11,8 @@ phone: no account, no server, nothing uploaded, and it can't reach the internet.
   <img src="UI/phone-framed/04-budgets.png" width="32%" alt="Budgets">
 </p>
 
-Every screen, and a [walkthrough video](UI/walkthrough.mp4), are in [UI/](UI/README.md).
-
-Amounts are stored in whole paise, so totals never drift. Everything is computed on the
-phone; the database is Postgres compiled to WebAssembly (PGlite).
-
-Built with Next.js (static export), TypeScript, Prisma, PGlite, Capacitor and Tailwind CSS.
-
-## Download
-
-**[Download the latest baaki APK](https://github.com/pvsaravanan/baaki/releases/latest)** —
-for Android 7.0 or newer. Open the file on your phone to install it; Android may ask
-you to allow installs from your browser or files app. Your data stays on the phone, so
-take a backup from Settings now and then. Each release lists its checksum, and all
-versions are on the [Releases](https://github.com/pvsaravanan/baaki/releases) page.
-
-## Run it
-
-```bash
-npm install
-npm run dev        # in a browser: http://localhost:3000
-npm run android    # build and run on a connected phone or emulator
-npm run ios        # build and run on an iPhone or the iOS simulator (needs Xcode)
-```
-
-See [docs/SETUP.md](docs/SETUP.md) for the Android and iOS builds, schema changes and testing.
+**[Download the APK](https://github.com/pvsaravanan/baaki/releases/latest)** (Android 7.0+) · [All screens and walkthrough](UI/README.md)
 
 ## License
 
-MIT — see [LICENSE](./LICENSE).
-
-The profile pictures are [Open Peeps](https://www.openpeeps.com) by Pablo Stanley (CC0),
-drawn with [DiceBear](https://www.dicebear.com).
+MIT — see [LICENSE](./LICENSE). Profile pictures are [Open Peeps](https://www.openpeeps.com) by Pablo Stanley (CC0), drawn with [DiceBear](https://www.dicebear.com).
