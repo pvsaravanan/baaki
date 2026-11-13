@@ -2,7 +2,7 @@
 import { PGlite } from "@electric-sql/pglite";
 import { OpfsAhpFS } from "@electric-sql/pglite/opfs-ahp";
 import { worker } from "@electric-sql/pglite/worker";
-import { DATA_DIR } from "./db-storage";
+import { DATA_DIR, DB_RELEASED, RELEASE_DB } from "./db-storage";
 
 /**
  * The on-device database runs in this worker, stored in the app's private
@@ -41,9 +41,31 @@ function patchAccessHandle() {
 }
 patchAccessHandle();
 
+let fs: OpfsAhpFS | undefined;
+
+/**
+ * Close the database's files now, before the app reloads its page or erases
+ * the database (see releaseDb in ./db.ts). WebKit (iOS) keeps the sync access handles of a
+ * worker that's terminated with them open locked until the app restarts, so
+ * the next page's worker could never open the database; it waited until the
+ * open timed out. Closing them is all that's needed: Postgres isn't shut down
+ * first, and on the next open it recovers from its write-ahead log, as it
+ * does when the app is killed. Messages are handled between tasks, so no
+ * query is cut off mid-write.
+ */
+addEventListener("message", (event: MessageEvent) => {
+  if (event.data?.type !== RELEASE_DB) return;
+  const open = fs;
+  fs = undefined;
+  void Promise.resolve(open?.closeFs())
+    .catch(() => undefined)
+    .finally(() => postMessage({ type: DB_RELEASED }));
+});
+
 worker({
   async init() {
-    const pg = new PGlite({ fs: new OpfsAhpFS(DATA_DIR) });
+    fs = new OpfsAhpFS(DATA_DIR);
+    const pg = new PGlite({ fs });
     await pg.waitReady;
     return pg;
   },

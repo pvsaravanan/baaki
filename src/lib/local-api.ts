@@ -9,7 +9,8 @@ import type { PageData, PageName } from "@/server/pages";
  * first use, so it stays out of the initial page load and never runs during
  * the static build.
  */
-const server = () => import("@/server/local-server");
+let serverModule: Promise<typeof import("@/server/local-server")> | undefined;
+const server = () => (serverModule ??= import("@/server/local-server"));
 
 /**
  * Opening the on-device database and running the first queries takes a few
@@ -94,6 +95,22 @@ export function usePageData<K extends PageName>(name: K, params: Params = {}) {
     mutate,
     key,
   };
+}
+
+/**
+ * Load `path` as a new page. The database's files are closed first: on iOS a
+ * reload that left them open could keep the next page from opening the
+ * database (see releaseDb in src/lib/db.ts).
+ */
+export async function reloadApp(path: string): Promise<void> {
+  if (serverModule) {
+    try {
+      await (await serverModule).releaseDatabase();
+    } catch {
+      // Reload anyway: the page's own pagehide release is the fallback.
+    }
+  }
+  window.location.href = path;
 }
 
 /** Delete the on-device database so the app can start over (see eraseEverything). */

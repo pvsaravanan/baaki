@@ -1,7 +1,7 @@
 import { requireUser } from "@/lib/auth";
 import { ensureDb } from "@/lib/local-db";
 import { clearQueryCache } from "@/lib/queries";
-import { pglite } from "@/lib/db";
+import { pglite, releaseDb } from "@/lib/db";
 import { removeStoredData } from "@/lib/db-storage";
 import { localRequest, type NextRequest } from "./request";
 import { PAGE_LOADERS, type PageData, type PageName } from "./pages";
@@ -80,6 +80,11 @@ export async function loadPage<K extends PageName>(name: K, params: Record<strin
   return loader(user, params);
 }
 
+/** Close the database's files before the app reloads (see releaseDb). */
+export async function releaseDatabase(): Promise<void> {
+  await releaseDb();
+}
+
 /**
  * Last resort when the database can't be opened: close it and delete its
  * files, so the app starts over with a fresh one (a backup file can then be
@@ -87,6 +92,7 @@ export async function loadPage<K extends PageName>(name: K, params: Record<strin
  */
 export async function eraseEverything(): Promise<void> {
   clearQueryCache();
+  await releaseDb();
   await pglite.close().catch(() => undefined);
   await removeStoredData();
 }

@@ -2,6 +2,7 @@
 import { useEffect } from "react";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { reloadApp } from "@/lib/local-api";
 
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
@@ -19,7 +20,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
       </p>
       <div className="mt-5 flex gap-2">
         <Button onClick={reset}>Try again</Button>
-        <Button variant="secondary" onClick={() => (window.location.href = "/dashboard")}>
+        <Button variant="secondary" onClick={() => void reloadApp("/dashboard")}>
           Back to dashboard
         </Button>
       </div>

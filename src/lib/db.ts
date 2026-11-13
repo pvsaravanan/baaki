@@ -1,6 +1,7 @@
 import { PGliteWorker } from "@electric-sql/pglite/worker";
 import { PrismaPGlite } from "pglite-prisma-adapter";
 import { PrismaClient } from "@/generated/prisma/client";
+import { DB_RELEASED, RELEASE_DB } from "./db-storage";
 
 /**
  * The app's database lives on the device: PGlite is Postgres compiled to
@@ -17,6 +18,28 @@ import { PrismaClient } from "@/generated/prisma/client";
 const dbWorker = new Worker(new URL("./db-worker.ts", import.meta.url), { type: "module" });
 
 export const pglite = new PGliteWorker(dbWorker);
+
+/**
+ * Have the worker close the database's files, resolving once it has (or
+ * after `waitMs`, if it doesn't answer). Needed before the worker goes:
+ * WebKit (iOS) keeps the files of a terminated worker locked until the app
+ * restarts, which left the next page unable to open the database. The app's
+ * own reloads go through reloadApp (src/lib/local-api.ts), which calls this.
+ * (Doing it on pagehide doesn't work: by then WebKit has stopped the worker.)
+ */
+export function releaseDb(waitMs = 1000): Promise<void> {
+  return new Promise((resolve) => {
+    const done = () => {
+      clearTimeout(timer);
+      dbWorker.removeEventListener("message", onMessage);
+      resolve();
+    };
+    const onMessage = (e: MessageEvent) => e.data?.type === DB_RELEASED && done();
+    const timer = setTimeout(done, waitMs);
+    dbWorker.addEventListener("message", onMessage);
+    dbWorker.postMessage({ type: RELEASE_DB });
+  });
+}
 
 /**
  * Rejects if the worker itself fails (e.g. the engine can't load). PGlite's

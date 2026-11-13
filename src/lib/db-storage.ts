@@ -6,6 +6,10 @@
 /** Folder in the app's private file system (OPFS). */
 export const DATA_DIR = "baaki";
 
+/** Asks the database worker to close its files (see db-worker.ts), and its reply. */
+export const RELEASE_DB = "baaki:release-db";
+export const DB_RELEASED = "baaki:db-released";
+
 /** The IndexedDB store early (pre-release) builds used; removed with the rest when erasing. */
 export const LEGACY_IDB_NAME = "/pglite/baaki";
 

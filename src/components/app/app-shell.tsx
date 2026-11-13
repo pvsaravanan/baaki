@@ -95,9 +95,18 @@ function RecoveryScreen({ error, onRetry }: { error: Error; onRetry: () => void 
           </p>
         ) : (
           <p className="text-sm text-muted">
-            Try again first. If it keeps failing, and updating{" "}
-            {ios ? <>iOS</> : <>&quot;Android System WebView&quot; in the Play Store</>} doesn&apos;t help, the data on
-            this phone may be damaged: erase it to start fresh, then restore your latest backup file from Settings.
+            {ios ? (
+              <>
+                Close baaki in the app switcher and open it again. If it still fails, the data on this phone may be
+                damaged: erase it to start fresh, then restore your latest backup file from Settings.
+              </>
+            ) : (
+              <>
+                Try again first. If it keeps failing, and updating &quot;Android System WebView&quot; in the Play
+                Store doesn&apos;t help, the data on this phone may be damaged: erase it to start fresh, then restore
+                your latest backup file from Settings.
+              </>
+            )}
           </p>
         )}
       </div>

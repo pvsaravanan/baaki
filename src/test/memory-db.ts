@@ -12,5 +12,6 @@ export function memoryDb() {
   const pglite = new PGlite();
   const prisma = new PrismaClient({ adapter: new PrismaPGlite(pglite) as never });
   const dbFailed = new Promise<never>(() => undefined); // an in-memory database doesn't fail to start
-  return { pglite, prisma, dbFailed };
+  const releaseDb = async () => undefined; // no files to let go of
+  return { pglite, prisma, dbFailed, releaseDb };
 }
