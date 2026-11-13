@@ -115,7 +115,7 @@ function DashboardBody({ data, monthKey, fit }: { data: PageData<"dashboard">; m
         <Card>
           <CardHeader
             title="Spending calendar"
-            subtitle="Daily spending amounts"
+            subtitle="Every day, sized by what you spent"
             action={<span className="text-label-sm uppercase text-muted">{a.transactionCount} txns</span>}
           />
           <CardBody className="pt-2">
