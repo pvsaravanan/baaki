@@ -7,13 +7,15 @@
  *   - the Android launcher icons (every density, square and round, plus the
  *     adaptive-icon foreground)
  *   - the splash screens of Android 11 and older
+ *   - the iOS app icon, and the iOS copies of the launch pictures (the resting
+ *     logo and the launch video's last frames, from the Android resources)
  * Re-run after changing the logo:  node scripts/make-app-icons.mjs
  *
  * Not drawn here: the launch animation of newer Android versions (the
  * animated logo in res/drawable/launch_logo*.xml and the video
  * res/raw/splash.mp4, rendered from baaki-splash/).
  */
-import { readdirSync, writeFileSync, existsSync } from "node:fs";
+import { readdirSync, writeFileSync, existsSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import sharp from "sharp";
 
@@ -139,4 +141,57 @@ for (const d of splashDirs) {
       .toBuffer(),
   );
 }
+// iOS (ios/App/App/Assets.xcassets): the app icon, one 1024px square that iOS
+// masks and scales (the logo at ~66% on parchment, like Android's; no
+// transparency, which the App Store refuses), and the launch animation's
+// pictures, as PNG (asset catalogs don't take WebP).
+const assets = join(root, "ios/App/App/Assets.xcassets");
+if (existsSync(assets)) {
+  const imageset = (name, file, image) => {
+    const dir = join(assets, `${name}.imageset`);
+    rmSync(dir, { recursive: true, force: true });
+    mkdirSync(dir);
+    writeFileSync(
+      join(dir, "Contents.json"),
+      JSON.stringify({ images: [{ filename: file, idiom: "universal" }], info: { author: "xcode", version: 1 } }, null, 2) + "\n",
+    );
+    return image.png({ compressionLevel: 9 }).toFile(join(dir, file));
+  };
+  const icon = sharp({ create: { width: 1024, height: 1024, channels: 3, background: PARCHMENT } });
+  await write(
+    join(assets, "AppIcon.appiconset/AppIcon-512@2x.png"),
+    icon.composite([{ input: await fit(1024 * 0.66, 1024 * 0.66) }]).flatten({ background: PARCHMENT }).removeAlpha().png(),
+  );
+  rmSync(join(assets, "Splash.imageset"), { recursive: true, force: true });
+  const drawables = join(res, "drawable-nodpi");
+  // The resting logo, at its 288pt launch-screen canvas (LaunchCover.logoCanvas),
+  // which it's never drawn larger than. Sized to the screen's scale rather than
+  // one large picture: the launch screen leaves out an image that big.
+  {
+    const dir = join(assets, "LaunchLogo.imageset");
+    rmSync(dir, { recursive: true, force: true });
+    mkdirSync(dir);
+    const scales = [2, 3];
+    writeFileSync(
+      join(dir, "Contents.json"),
+      JSON.stringify(
+        {
+          images: scales.map((k) => ({ filename: `launch_logo@${k}x.png`, idiom: "universal", scale: `${k}x` })),
+          info: { author: "xcode", version: 1 },
+        },
+        null,
+        2,
+      ) + "\n",
+    );
+    for (const k of scales) {
+      await sharp(join(drawables, "launch_logo.png"))
+        .resize({ width: 288 * k, kernel: "lanczos3" })
+        .png({ compressionLevel: 9 })
+        .toFile(join(dir, `launch_logo@${k}x.png`));
+    }
+  }
+  await imageset("SplashLastFrame", "splash_last_frame.png", sharp(join(drawables, "splash_last_frame.webp")));
+  await imageset("SplashLastFrameWordmark", "splash_last_frame_wordmark.png", sharp(join(drawables, "splash_last_frame_wordmark.webp")));
+}
+
 console.log(`make-app-icons: ${Object.keys(DENSITIES).length} icon densities, ${splashDirs.length} splash screens`);

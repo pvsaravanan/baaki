@@ -3,7 +3,7 @@ import { Capacitor } from "@capacitor/core";
 
 /**
  * Hand a generated file to the user. On the phone, a WebView can't "download"
- * a blob, so the file is written to the app's cache and opened in Android's
+ * a blob, so the file is written to the app's cache and opened in the phone's
  * share sheet (Drive, WhatsApp, Files, email…). In a browser it downloads as
  * usual. Returns false if the user dismissed the share sheet or it failed.
  */

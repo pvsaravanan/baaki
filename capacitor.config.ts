@@ -1,9 +1,10 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
 /**
- * The Android app: a native shell around the static build in `out/`
- * (`npm run build:app`). Everything — screens, calculations and the database —
- * runs on the phone; the app makes no network requests.
+ * The Android and iOS apps: native shells around the static build in `out/`
+ * (`npm run build:app`, `npm run build:ios`). Everything — screens,
+ * calculations and the database — runs on the phone; the app makes no network
+ * requests.
  */
 const config: CapacitorConfig = {
   appId: "app.baaki",
@@ -13,9 +14,18 @@ const config: CapacitorConfig = {
     // The parchment page colour behind the WebView while it starts.
     backgroundColor: "#f4f1ea",
   },
+  ios: {
+    backgroundColor: "#f4f1ea",
+    // The page pads itself with env(safe-area-inset-*) (top bar, bottom
+    // navigation), so the WebView fills the screen with no insets of its own.
+    contentInset: "never",
+    // Long-pressing a link would otherwise open a preview of the page.
+    allowsLinkPreview: false,
+  },
   plugins: {
     SplashScreen: {
-      // Not used at launch: the launch animation (LaunchVideo.java) covers the
+      // Not used at launch: the launch animation (LaunchVideo.java on Android,
+      // LaunchCover.swift on iOS) covers the
       // app while it loads, and the app dismisses it once its data is ready.
       launchShowDuration: 0,
       // No cross-fade into the app: during one, the splash logo hangs
@@ -25,6 +35,12 @@ const config: CapacitorConfig = {
       // As the Android splash (android/app/src/main/res/values/splash_background.xml).
       backgroundColor: "#f8f2e9",
       showSpinner: false,
+    },
+    // iOS: the keyboard shrinks the WebView, as Android does on its own, rather
+    // than sliding the whole page up (which pushed open sheets' headers under
+    // the status bar). Sheets and forms lay themselves out in what's left.
+    Keyboard: {
+      resize: "native",
     },
     // Edge-to-edge (Android 15+): the app draws behind the status and
     // navigation bars and pads itself with env(safe-area-inset-*), as the

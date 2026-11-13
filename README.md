@@ -32,9 +32,10 @@ versions are on the [Releases](https://github.com/pvsaravanan/baaki/releases) pa
 npm install
 npm run dev        # in a browser: http://localhost:3000
 npm run android    # build and run on a connected phone or emulator
+npm run ios        # build and run on an iPhone or the iOS simulator (needs Xcode)
 ```
 
-See [docs/SETUP.md](docs/SETUP.md) for the Android build, schema changes and testing.
+See [docs/SETUP.md](docs/SETUP.md) for the Android and iOS builds, schema changes and testing.
 
 ## License
 

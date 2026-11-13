@@ -9,6 +9,7 @@ import { BottomNav } from "./bottom-nav";
 import { RunDueRecurring } from "./run-due-recurring";
 import { PageTransition } from "./page-transition";
 import { useState } from "react";
+import { Capacitor } from "@capacitor/core";
 import { eraseLocalData, usePageData } from "@/lib/local-api";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
@@ -57,6 +58,8 @@ function RecoveryScreen({ error, onRetry }: { error: Error; onRetry: () => void 
   // baaki's database needs the WebView's private file system (OPFS). A WebView
   // that's too old lacks it, and erasing data can't fix that: updating can.
   const unsupported = typeof navigator === "undefined" || typeof navigator.storage?.getDirectory !== "function";
+  // On iPhone the web engine is part of iOS; on Android it's an app of its own.
+  const ios = Capacitor.getPlatform() === "ios";
 
   async function startOver() {
     const ok = await confirm({
@@ -82,14 +85,19 @@ function RecoveryScreen({ error, onRetry }: { error: Error; onRetry: () => void 
         <p className="text-body-md font-bold text-fg">baaki couldn&apos;t open its data</p>
         {unsupported ? (
           <p className="text-sm text-muted">
-            This phone&apos;s web engine is too old to run baaki&apos;s database. Update &quot;Android System WebView&quot; and
-            &quot;Google Chrome&quot; in the Play Store, then open baaki again. Your data hasn&apos;t been touched.
+            This phone&apos;s web engine is too old to run baaki&apos;s database.{" "}
+            {ios ? (
+              <>Update iOS in Settings → General → Software Update</>
+            ) : (
+              <>Update &quot;Android System WebView&quot; and &quot;Google Chrome&quot; in the Play Store</>
+            )}
+            , then open baaki again. Your data hasn&apos;t been touched.
           </p>
         ) : (
           <p className="text-sm text-muted">
-            Try again first. If it keeps failing, and updating &quot;Android System WebView&quot; in the Play Store
-            doesn&apos;t help, the data on this phone may be damaged: erase it to start fresh, then restore your latest
-            backup file from Settings.
+            Try again first. If it keeps failing, and updating{" "}
+            {ios ? <>iOS</> : <>&quot;Android System WebView&quot; in the Play Store</>} doesn&apos;t help, the data on
+            this phone may be damaged: erase it to start fresh, then restore your latest backup file from Settings.
           </p>
         )}
       </div>

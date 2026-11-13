@@ -13,7 +13,7 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
   return (
     <main className="flex h-dvh flex-col items-center bg-bg px-10 pb-[max(env(safe-area-inset-bottom),24px)] pt-[env(safe-area-inset-top)]">
       {/* The full-size logo (not the small in-app one), so it stays sharp at this size.
-          On Android the launch logo glides onto it (data-launch-logo, see SplashHandoff),
+          In the phone app the launch logo glides onto it (data-launch-logo, see SplashHandoff),
           so it doesn't animate in itself. */}
       <Image src={logo} alt="baaki" priority data-launch-logo className="mt-[20dvh] h-[92px] w-auto shrink-0" />
 

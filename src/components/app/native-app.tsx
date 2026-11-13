@@ -10,7 +10,7 @@ const hideNativeSplash = () => import("@capacitor/splash-screen").then(({ Splash
 let splashHandedOff = false;
 
 /**
- * Android integration, once the app has started: see the splash screen out
+ * Phone-app integration, once the app has started: see the splash screen out
  * smoothly (SplashHandoff), and make the system Back button behave like a
  * native app — close whatever is open on top (a form, sheet, picker or menu),
  * otherwise go back a screen, otherwise leave the app.

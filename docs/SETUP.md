@@ -56,6 +56,49 @@ The pictures offered after onboarding and in Settings are Open Peeps characters 
 Pablo Stanley). `npx tsx scripts/make-avatars.ts` draws them into `src/assets/avatars/` from
 the table in that script; the list and labels live in `src/lib/avatars.ts`.
 
+## The iOS app
+
+The iPhone app is the same Capacitor shell, in `ios/` (an Xcode project using Swift
+Package Manager; no CocoaPods). Everything above the native shell is shared with Android.
+
+### One-time setup
+
+- **Xcode** (16 or later) with an iOS simulator runtime, and **Node 22**.
+- To run on an iPhone or publish, an Apple developer account: open the project
+  (`npm run ios:open`), pick your team under *Signing & Capabilities*, and connect the phone.
+
+### Build and run
+
+| Command | What it does |
+| --- | --- |
+| `npm run build:ios` | Static build to `out/`, then copies it into `ios/` (`cap sync ios`) |
+| `npm run ios` | `build:ios`, then installs and starts it on a simulator or iPhone you pick |
+| `npm run ios:open` | Opens `ios/App/App.xcodeproj` in Xcode (to sign, archive, profile) |
+
+It needs iOS 16.4 or later (the first with the private file system sync access the
+database uses) and runs on iPhone only, in portrait.
+
+### What's native on iOS
+
+`ios/App/App/` holds the iOS counterparts of the Android code:
+
+- `LaunchCover.swift`: the launch animation (LaunchVideo.java on Android). The same
+  video, played from `android/.../res/raw/splash.mp4`, with the same timings and logo
+  glide. iOS launch screens can't change between launches, so `LaunchScreen.storyboard`
+  always shows the resting logo, which fades out as the video starts on a fresh install.
+  iOS caches the launch screen: after changing it, delete the app before testing.
+- `PrivacyScreenPlugin.swift`: covers the app in the app switcher while the app lock is on.
+- `AppDelegate.swift`: keeps the WebView's data (the database) out of iCloud and computer
+  backups, as `allowBackup="false"` does on Android.
+- `MainViewController.swift`: registers those plugins and shows the cover.
+
+The app lock uses Face ID / Touch ID with the passcode as the fallback
+(`NSFaceIDUsageDescription` in `Info.plist`). The Keyboard plugin (`resize: "native"`)
+shrinks the WebView for the keyboard, as Android does, so open sheets stay in place.
+
+`node scripts/make-app-icons.mjs` also draws the iOS app icon and the launch pictures
+into `ios/App/App/Assets.xcassets`.
+
 ## How it works offline
 
 Everything that used to run on a server now runs inside the app:

@@ -3,13 +3,13 @@ import { useEffect } from "react";
 import { registerPlugin } from "@capacitor/core";
 
 /**
- * The launch animation is played by Android itself the moment the app opens
- * (android/.../LaunchVideo.java, the video rendered from baaki-splash/), over
+ * The launch animation is played natively the moment the app opens
+ * (android/.../LaunchVideo.java, ios/App/App/LaunchCover.swift), over
  * the app while it loads. This tells it once the screen beneath is `ready`;
  * it then finishes playing (if it hasn't), fades away, and `splashGone`
  * settles.
  */
-/** The splash background, as Android draws it (SPLASH_BACKGROUND in
+/** The splash background, as the phone draws it (SPLASH_BACKGROUND in
  * scripts/make-app-icons.mjs; splash-handoff.test.ts checks they agree). It is
  * also the launch video's background. */
 export const SPLASH_BACKGROUND = "#f8f2e9";
