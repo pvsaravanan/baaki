@@ -59,7 +59,7 @@ const menuItem = (path: string) => `[data-tour="menu"] a[href^="${path}"], nav[d
 const STEPS: Step[] = [
   {
     title: "Welcome to baaki",
-    body: "Here's a quick look at what you can do. It takes under a minute, and you can skip it any time.",
+    body: "Here's a quick look at what you can do. It takes under a minute.",
   },
   {
     target: '[data-tour="greeting"]',
@@ -551,7 +551,8 @@ export function AppTour() {
   if (index === null || !step || typeof document === "undefined") return null;
 
   const last = index === steps.length - 1;
-  const needsName = nameStep && !hasName;
+  // No Skip until the name is set: not on the welcome card, nor on the name step itself.
+  const needsName = !hasName && nameIndex >= 0 && index <= nameIndex;
   async function next() {
     if (nameStep && !(await saveName())) return;
     if (last) finish();
