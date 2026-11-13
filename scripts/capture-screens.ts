@@ -18,6 +18,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync 
 import { tmpdir } from "node:os";
 import { extname, join } from "node:path";
 import { sampleBackup, TODAY } from "./sample-data";
+import { DEFAULT_DASHBOARD_WIDGETS } from "../src/lib/dashboard-widgets";
 
 const root = join(__dirname, "..");
 const OUT = join(root, "out");
@@ -32,6 +33,8 @@ interface Screen {
   wait: string;
   /** Something to open on the page first: a button's aria-label or text. */
   open?: string;
+  /** Text of a heading to scroll to before shooting (the shot is then one screen, not the full page). */
+  scroll?: string;
   /** What it opens sits over the page: shoot one screen, not the page behind. */
   overlay?: boolean;
   /** Phone-only screens (the bottom bar's add button and menu). */
@@ -48,8 +51,9 @@ const SCREENS: Screen[] = [
   { file: "09-reports", path: "/reports", wait: "Spending Trend" },
   { file: "12-categories", path: "/categories", wait: "Add Category" },
   { file: "13-category-detail", path: "/categories/detail?id=cat-food", wait: "Monthly spend" },
-  { file: "14-import", path: "/import", wait: "Bring in transactions" },
-  { file: "15-settings", path: "/settings", wait: "Money & Data" },
+  { file: "14-import", path: "/import", wait: "Upload a file" },
+  { file: "15-settings", path: "/settings", wait: "Dashboard layout" },
+  { file: "27-spending-calendar", path: "/dashboard", wait: "Spending calendar", scroll: "Spending calendar", overlay: true },
   { file: "16-add-transaction", path: "/dashboard", wait: "Good afternoon", open: "Add transaction", overlay: true, phoneOnly: true },
   { file: "17-more-menu", path: "/dashboard", wait: "Good afternoon", open: "More", overlay: true, phoneOnly: true },
   { file: "23-filters", path: "/transactions", wait: "Team dinner", open: "Filters", overlay: true },
@@ -254,14 +258,14 @@ async function fullShot(s: Send, width: number, height: number, scale: number) {
   return png;
 }
 
-/** Restore the sample data through Settings → Restore from backup. */
+/** Restore the sample data (with the spending calendar card switched on) through the Import screen. */
 async function loadSampleData(s: Send, app: string) {
   const file = join(mkdtempSync(join(tmpdir(), "baaki-sample-")), "baaki-sample.json");
-  writeFileSync(file, JSON.stringify(sampleBackup()));
+  const backup = sampleBackup();
+  backup.preference.dashboardWidgets = JSON.stringify([...DEFAULT_DASHBOARD_WIDGETS, "spending_calendar"]);
+  writeFileSync(file, JSON.stringify(backup));
   try {
-    await open(s, `${app}/settings`, "Money & Data");
-    await evaluate(s, `[...document.querySelectorAll("button")].find((b) => b.innerText.startsWith("Backup & Data")).click()`);
-    await waitFor(s, "Restore from backup");
+    await open(s, `${app}/import`, "Upload a file");
     const { root: doc } = await s("DOM.getDocument", { depth: 0 });
     const { nodeId } = await s("DOM.querySelector", {
       nodeId: (doc as { nodeId: number }).nodeId,
@@ -270,7 +274,7 @@ async function loadSampleData(s: Send, app: string) {
     await s("DOM.setFileInputFiles", { nodeId, files: [file] });
     await waitFor(s, "Restore this backup?");
     await press(s, "Restore");
-    await waitFor(s, "Restored");
+    await waitFor(s, "Good afternoon"); // restored, and on the dashboard
   } finally {
     rmSync(join(file, ".."), { recursive: true, force: true });
   }
@@ -359,6 +363,15 @@ async function main() {
           if (sc.open) {
             await press(s, sc.open);
             await sleep(1200);
+          }
+          if (sc.scroll) {
+            await evaluate(s, `(() => {
+              const want = ${JSON.stringify(sc.scroll.toLowerCase())};
+              const el = [...document.querySelectorAll("h1,h2,h3,h4")].find((h) => h.innerText.trim().toLowerCase() === want);
+              el?.scrollIntoView({ block: "start" });
+              const main = document.querySelector("main"); if (main && el) main.scrollTop -= 16;
+            })()`);
+            await sleep(900);
           }
           await take(s, sc);
         }

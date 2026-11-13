@@ -42,3 +42,4 @@ made by the script.
 | 26 | Onboarding: stays private | [phone](phone-framed/26-onboarding-private.png) | [mobile](mobile/26-onboarding-private.png) | [desktop](desktop/26-onboarding-private.png) |
 | 22 | Choose a profile picture | [phone](phone-framed/22-choose-avatar.png) | [mobile](mobile/22-choose-avatar.png) | [desktop](desktop/22-choose-avatar.png) |
 | 23 | Transaction filters | [phone](phone-framed/23-filters.png) | [mobile](mobile/23-filters.png) | [desktop](desktop/23-filters.png) |
+| 27 | Spending calendar (dashboard card) | [phone](phone-framed/27-spending-calendar.png) | [mobile](mobile/27-spending-calendar.png) | [desktop](desktop/27-spending-calendar.png) |
