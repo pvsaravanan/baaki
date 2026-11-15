@@ -201,7 +201,17 @@ function DashboardBody({ data, monthKey, fit }: { data: PageData<"dashboard">; m
       {showBalance && <BalanceHero balance={a.totalBalance} />}
 
       {/* Number tiles, in the order chosen in Settings. */}
-      {tiles.length > 0 && <div className="grid shrink-0 grid-cols-3 gap-2 pb-0.5 pr-0.5 md:gap-3">{tiles}</div>}
+      {/* As many columns as there are tiles (three at most), so one or two of them fill the row instead of leaving a gap. */}
+      {tiles.length > 0 && (
+        <div
+          className={cn(
+            "grid shrink-0 gap-3 pb-0.5 pr-0.5 md:gap-4",
+            tiles.length === 1 ? "grid-cols-1" : tiles.length === 2 ? "grid-cols-2" : "grid-cols-3",
+          )}
+        >
+          {tiles}
+        </div>
+      )}
 
       {/* Cards, in the order chosen in Settings: one column on phones, two from
           `lg` up, where the wide ones (the charts) span both. */}
