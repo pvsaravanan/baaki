@@ -39,6 +39,13 @@ CI (`.github/workflows/ci.yml`) also builds a debug APK on every push to `main` 
 `mobile-app`. Download it from the run's **Artifacts** and install it on a phone (allow
 "install unknown apps" for your browser or file manager).
 
+### Releasing a version
+
+Bump `"version"` in `package.json` (and `npm install --package-lock-only`). The Android version
+name is that string and the version code is derived from it (1.1.0 → 10100), so there is
+nothing else to edit. The iOS app's `MARKETING_VERSION` (Xcode → App target) is set by hand to
+match.
+
 A Play Store release needs a signed bundle: create an upload key once
 (`keytool -genkey -v -keystore baaki-upload.jks -alias baaki -keyalg RSA -keysize 2048 -validity 10000`),
 keep it and its passwords **out of git**, and use **Build → Generate Signed Bundle** in

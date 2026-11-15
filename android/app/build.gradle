@@ -10,8 +10,15 @@ if (signingFile.exists()) {
     signingFile.withInputStream { signingProps.load(it) }
 }
 
-def baakiVersionCode = Integer.parseInt(System.getenv("BAAKI_VERSION_CODE") ?: "1")
-def baakiVersionName = System.getenv("BAAKI_VERSION_NAME") ?: "1.0.0"
+// The version lives in one place: "version" in the repo's package.json. The
+// version code is derived from it (major*10000 + minor*100 + patch, so 1.1.0 is
+// 10100), which always rises with the version. BAAKI_VERSION_NAME and
+// BAAKI_VERSION_CODE can still override both for a one-off build.
+def packageVersion = new groovy.json.JsonSlurper().parse(file("${rootDir}/../package.json")).version as String
+def versionParts = packageVersion.tokenize('.').collect { it.replaceAll(/\D.*/, "") as Integer }
+def baakiVersionName = System.getenv("BAAKI_VERSION_NAME") ?: packageVersion
+def baakiVersionCode = Integer.parseInt(System.getenv("BAAKI_VERSION_CODE") ?:
+        String.valueOf(versionParts[0] * 10000 + versionParts[1] * 100 + versionParts[2]))
 
 android {
     namespace = "app.baaki"
@@ -20,8 +27,8 @@ android {
         applicationId "app.baaki"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        // Raise both for each release (BAAKI_VERSION_CODE / BAAKI_VERSION_NAME);
-        // Android only installs an APK over another if its versionCode is higher.
+        // Bump "version" in package.json for each release; Android only installs
+        // an APK over another if its versionCode is higher.
         versionCode baakiVersionCode
         versionName baakiVersionName
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
