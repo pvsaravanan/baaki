@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { Money } from "@/components/money";
-import { formatPercent } from "@/lib/money/money";
+import { formatINR, formatPercent } from "@/lib/money/money";
 
 export interface CategorySlice {
   name: string;
@@ -20,6 +20,17 @@ export function topSlicesWithOthers(categories: CategorySlice[]): CategorySlice[
   return rest > 0 ? [...top, { name: "Others", value: rest, color: OTHERS_COLOR }] : top;
 }
 
+/**
+ * Font size for the total in the ring's hole: as large as `max`, but small
+ * enough that every character fits. A bold digit is about 0.58em wide and the
+ * hole is about 62% of the ring's width, so a big total (₹1,65,466) gets
+ * smaller type than a short one (₹5,609) instead of running into the ring.
+ * `cqi` is a percentage of the ring's width (see the container on the ring).
+ */
+export function ringAmountFontSize(characters: number, max: string): string {
+  return `min(${max}, ${(62 / (Math.max(characters, 1) * 0.58)).toFixed(2)}cqi)`;
+}
+
 const RADIUS = 40;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
@@ -28,7 +39,7 @@ function Ring({ slices, total }: { slices: CategorySlice[]; total: number }) {
   const gap = slices.length > 1 ? 3 : 0;
   let offset = 0;
   return (
-    <div className="relative h-[clamp(80px,12.5dvh,128px)] w-[clamp(80px,12.5dvh,128px)] shrink-0">
+    <div className="relative h-[clamp(80px,12.5dvh,128px)] w-[clamp(80px,12.5dvh,128px)] shrink-0 [container-type:inline-size] [--amount-max:12px] md:[--amount-max:15px]">
       <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90" aria-hidden>
         <circle cx="50" cy="50" r={RADIUS} fill="none" strokeWidth="13" className="stroke-surface-2" />
         {slices.map((s) => {
@@ -51,7 +62,12 @@ function Ring({ slices, total }: { slices: CategorySlice[]; total: number }) {
         })}
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <Money paise={total} tone="default" decimals="never" className="text-[12px] font-bold leading-4 md:text-[15px]" />
+        <span
+          className="whitespace-nowrap font-bold leading-4"
+          style={{ fontSize: ringAmountFontSize(formatINR(total, { decimals: "never" }).length, "var(--amount-max)") }}
+        >
+          <Money paise={total} tone="default" decimals="never" />
+        </span>
         <span className="text-[11px] leading-4 text-fg md:text-body-sm">Total</span>
       </div>
     </div>
