@@ -7,10 +7,10 @@ import { CategoryIcon } from "@/components/app/category-icon";
 import { SectionIcon } from "@/components/app/section-icon";
 import { useAppData } from "./app-data";
 import { BudgetEditor } from "./budget-editor";
-import { budgetInsight, type BudgetInsight } from "@/lib/budget-insight";
-import { cn } from "@/lib/cn";
-import { formatPercent } from "@/lib/money";
-import { budgetStatus, type BudgetState, type BudgetStatus } from "@/lib/calculations";
+import { budgetInsight, type BudgetInsight } from "@/lib/reports/budget-insight";
+import { cn } from "@/lib/ui/cn";
+import { formatPercent } from "@/lib/money/money";
+import { budgetStatus, type BudgetState, type BudgetStatus } from "@/lib/money/calculations";
 import type { MonthKey } from "@/lib/dates";
 import type { CategoryDTO } from "@/lib/types";
 

@@ -1,9 +1,9 @@
 import type { NextRequest } from "@/server/request";
-import { prisma } from "@/lib/db";
-import { ConflictError, json, withUser } from "@/lib/api";
-import { assertCategoriesOwned } from "@/lib/ownership";
-import { categorySchema } from "@/lib/validation";
-import { loadCategories } from "@/lib/queries";
+import { prisma } from "@/lib/db/db";
+import { ConflictError, json, withUser } from "@/lib/request/api";
+import { assertCategoriesOwned } from "@/lib/request/ownership";
+import { categorySchema } from "@/lib/request/validation";
+import { loadCategories } from "@/lib/db/queries";
 
 export const GET = withUser(async (user) => {
   return json({ categories: await loadCategories(user.id) });

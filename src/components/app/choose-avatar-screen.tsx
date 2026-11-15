@@ -1,9 +1,9 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
-import { DEFAULT_AVATAR, type AvatarId } from "@/lib/avatars";
-import { ApiError, apiPatch } from "@/lib/http";
-import { cn } from "@/lib/cn";
+import { DEFAULT_AVATAR, type AvatarId } from "@/lib/presets/avatars";
+import { ApiError, apiPatch } from "@/lib/request/http";
+import { cn } from "@/lib/ui/cn";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { AvatarGrid } from "./avatar-picker";

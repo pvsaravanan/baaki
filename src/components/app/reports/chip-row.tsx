@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef } from "react";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/ui/cn";
 
 /** A pill, as ChipRow draws them (for a chip of your own after its options). */
 export function chipClass(active: boolean) {

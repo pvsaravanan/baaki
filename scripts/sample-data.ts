@@ -1,6 +1,6 @@
 /**
  * The sample data the screenshots in UI/ show, as a baaki backup file (format
- * version 2, see src/lib/backup.ts): three months of transactions up to 24
+ * version 2, see src/lib/io/backup.ts): three months of transactions up to 24
  * September 2026, a September budget and five
  * recurring items. Deterministic, so every run draws the same screens.
  *
@@ -13,7 +13,7 @@
  * makes the capture fail loudly rather than draw the wrong data.
  */
 import { DEFAULT_CATEGORIES } from "../src/lib/constants";
-import { DEFAULT_DASHBOARD_WIDGETS } from "../src/lib/dashboard-widgets";
+import { DEFAULT_DASHBOARD_WIDGETS } from "../src/lib/reports/dashboard-widgets";
 
 /** The capture's "now": a Thursday afternoon in the last month of data. */
 export const TODAY = "2026-09-24T14:30:00+05:30";

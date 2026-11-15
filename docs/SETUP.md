@@ -61,7 +61,7 @@ colour. Re-run it after changing the logo.
 
 The pictures offered after onboarding and in Settings are Open Peeps characters (CC0, by
 Pablo Stanley). `npx tsx scripts/make-avatars.ts` draws them into `src/assets/avatars/` from
-the table in that script; the list and labels live in `src/lib/avatars.ts`.
+the table in that script; the list and labels live in `src/lib/presets/avatars.ts`.
 
 ## The iOS app
 
@@ -112,12 +112,12 @@ Everything that used to run on a server now runs inside the app:
 
 ```
 screen ──usePageData / apiGet / apiPost──▶ local API ──▶ route handler ──▶ Prisma ──▶ PGlite (IndexedDB)
-          src/lib/local-api.ts, http.ts      src/server/local-server.ts      src/lib/*-service.ts
+          src/lib/request/local-api.ts, http.ts      src/server/local-server.ts      src/lib/transactions/*-service.ts
 ```
 
 - **Database.** [PGlite](https://pglite.dev) is Postgres compiled to WebAssembly. It's
   stored in the WebView's IndexedDB — the app's private storage, kept across restarts and
-  updates and removed only when the app is uninstalled. `src/lib/db.ts`.
+  updates and removed only when the app is uninstalled. `src/lib/db/db.ts`.
 - **Prisma, unchanged.** The services use the same Prisma API as before, through a PGlite
   driver adapter and Prisma's WebAssembly query compiler (`engineType = "client"`).
   `npm run db:generate` runs `prisma generate` and then `scripts/prisma-browser.mjs`, which
@@ -130,8 +130,8 @@ screen ──usePageData / apiGet / apiPost──▶ local API ──▶ route h
   (`scripts/api-routes.mjs`), with `[id]` folders as parameters. Screen data
   (dashboard, reports, …) is loaded by `src/server/pages.ts` through `usePageData`.
 - **One person, no login.** The database holds a single profile, created with starter
-  data on first launch (`src/lib/auth.ts`). The optional app lock uses the phone's own
-  fingerprint/screen lock (`src/lib/app-lock.ts`, `src/components/app/lock-gate.tsx`).
+  data on first launch (`src/lib/request/auth.ts`). The optional app lock uses the phone's own
+  fingerprint/screen lock (`src/lib/ui/app-lock.ts`, `src/components/app/lock-gate.tsx`).
 - **No network.** A content security policy (`src/app/layout.tsx`) lets the app load only
   its own files and blocks connections to anywhere else.
 - **Detail screens** use a query string (`/categories/detail?id=…`), since a static build
@@ -140,14 +140,14 @@ screen ──usePageData / apiGet / apiPost──▶ local API ──▶ route h
 ### Backups
 
 Settings → Data & backup → **Full backup** writes every table to a JSON file (format
-version 2, `src/lib/backup.ts`) and opens Android's share sheet. **Restore from backup**
+version 2, `src/lib/io/backup.ts`) and opens Android's share sheet. **Restore from backup**
 replaces everything in one transaction; if any part of the file can't be read, nothing
 changes. Restore also accepts version 1, the "Full backup" from the baaki website.
 
 ## Schema changes
 
 The app applies `prisma/migrations/*/migration.sql` to the on-device database on start-up,
-recording each in `_baaki_migrations` (`src/lib/local-db.ts`). Existing installs pick up
+recording each in `_baaki_migrations` (`src/lib/db/local-db.ts`). Existing installs pick up
 new migrations on their next launch, so:
 
 1. Edit `prisma/schema.prisma`.
@@ -157,7 +157,7 @@ new migrations on their next launch, so:
 3. `npm run db:generate`, then commit the migration folder.
 
 Never edit a migration that has shipped: phones that already ran it won't run it again.
-Fix a mistake with a new migration instead. `src/lib/migrations.test.ts` checks that the
+Fix a mistake with a new migration instead. `src/lib/db/migrations.test.ts` checks that the
 migrations, run in order on a new phone, build exactly what `schema.prisma` describes, so
 `npm test` fails if a schema change has no migration.
 
@@ -169,13 +169,13 @@ uses the Indian numbering system (`₹1,00,000`).
 
 ## Architecture
 
-- `src/lib/calculations.ts` — pure financial calculations (balance, summaries, category
+- `src/lib/money/calculations.ts` — pure financial calculations (balance, summaries, category
   totals, budgets, savings rate, date-range filtering). Unit-tested.
-- `src/lib/analytics.ts` — monthly analytics composed from the calc layer.
-- `src/lib/categorize.ts` — rule-based auto-categorization (no AI required).
-- `src/lib/csv.ts`, `src/lib/spreadsheet.ts` — statement import (CSV/Excel) and CSV export.
-- `src/lib/queries.ts`, `src/lib/tx-service.ts`, `src/lib/recurring.ts` — data loading and business logic.
-- `src/lib/backup.ts` — full backup and restore.
+- `src/lib/reports/analytics.ts` — monthly analytics composed from the calc layer.
+- `src/lib/transactions/categorize.ts` — rule-based auto-categorization (no AI required).
+- `src/lib/io/csv.ts`, `src/lib/io/spreadsheet.ts` — statement import (CSV/Excel) and CSV export.
+- `src/lib/db/queries.ts`, `src/lib/transactions/tx-service.ts`, `src/lib/transactions/recurring.ts` — data loading and business logic.
+- `src/lib/io/backup.ts` — full backup and restore.
 - `src/server/**` — the local API: route handlers, the router and screen loaders.
 - `src/components/**` — reusable UI kit and feature components.
 

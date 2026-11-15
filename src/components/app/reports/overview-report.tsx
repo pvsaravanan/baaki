@@ -4,7 +4,7 @@ import { EmptyState } from "@/components/ui/misc";
 import { StatCard } from "@/components/app/stat-card";
 import { SectionIcon } from "@/components/app/section-icon";
 import { IncomeExpenseBars, TrendArea } from "@/components/charts/chart-kit";
-import { formatPercent } from "@/lib/money";
+import { formatPercent } from "@/lib/money/money";
 import { dailySeries, lastSixMonths, Tile, type ReportsAnalytics } from "./shared";
 
 export function OverviewReport({ a, label }: { a: ReportsAnalytics; label: string }) {

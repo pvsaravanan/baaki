@@ -26,13 +26,13 @@ import { CategoryIcon } from "@/components/app/category-icon";
 import { SectionIcon } from "@/components/app/section-icon";
 import { RecurringForm } from "./recurring-form";
 import { useAppData, useLookups } from "./app-data";
-import { apiDelete, apiPatch, apiPost } from "@/lib/http";
+import { apiDelete, apiPatch, apiPost } from "@/lib/request/http";
 import { fromISODate, formatDate, toISODate } from "@/lib/dates";
 import { FREQUENCY_LABELS, type Frequency } from "@/lib/constants";
-import { formatINR } from "@/lib/money";
-import { expectedPerMonth, RECURRING_SORTS, sortRules, type RecurringSort } from "@/lib/recurring-summary";
+import { formatINR } from "@/lib/money/money";
+import { expectedPerMonth, RECURRING_SORTS, sortRules, type RecurringSort } from "@/lib/transactions/recurring-summary";
 import type { RecurringDTO } from "@/lib/types";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/ui/cn";
 
 const TYPE_TONE: Record<RecurringDTO["type"], "income" | "expense" | "muted"> = {
   income: "income",

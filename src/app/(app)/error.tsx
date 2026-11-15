@@ -2,7 +2,7 @@
 import { useEffect } from "react";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { reloadApp } from "@/lib/local-api";
+import { reloadApp } from "@/lib/request/local-api";
 
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {

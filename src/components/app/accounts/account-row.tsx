@@ -2,8 +2,8 @@ import { ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/misc";
 import { SwipeActions } from "@/components/ui/swipe-actions";
 import { BALANCE_EXEMPT_ACCOUNT_TYPES, formatAccountType } from "@/lib/constants";
-import { cn } from "@/lib/cn";
-import { formatINR } from "@/lib/money";
+import { cn } from "@/lib/ui/cn";
+import { formatINR } from "@/lib/money/money";
 import type { AccountDTO } from "@/lib/types";
 import { AccountIcon } from "./account-icon";
 

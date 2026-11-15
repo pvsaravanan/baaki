@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { Check, Plus, Search, X } from "lucide-react";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/ui/cn";
 import type { CategoryDTO } from "@/lib/types";
 import { CategoryIcon } from "../category-icon";
 import { Sheet } from "../sheet";

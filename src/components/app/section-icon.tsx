@@ -5,7 +5,7 @@ import calendar from "@/assets/default/calendar.png";
 import budget from "@/assets/default/budget.png";
 import transferMoney from "@/assets/default/transfer-money.png";
 import report from "@/assets/default/report.png";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/ui/cn";
 
 /**
  * Illustrated icons for the app's sections, shown only on a section's own

@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/misc";
 import { Money } from "@/components/money";
 import { formatAccountType } from "@/lib/constants";
 import type { AccountDTO } from "@/lib/types";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/ui/cn";
 import { AccountIcon } from "./account-icon";
 
 export function AccountCard({

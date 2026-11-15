@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { readAvatar } from "@/lib/avatars";
+import { readAvatar } from "@/lib/presets/avatars";
 import { useAppData } from "./app-data";
 import { CHOOSE_PICTURE_HREF, usePictureNudgeSeen } from "./picture-nudge";
 import { UserAvatar } from "./user-avatar";

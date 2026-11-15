@@ -1,8 +1,8 @@
 import type { NextRequest } from "@/server/request";
-import { prisma } from "@/lib/db";
-import { json, withUser } from "@/lib/api";
-import { duplicateTransaction } from "@/lib/tx-service";
-import { serializeTransaction, TXN_INCLUDE } from "@/lib/serialize";
+import { prisma } from "@/lib/db/db";
+import { json, withUser } from "@/lib/request/api";
+import { duplicateTransaction } from "@/lib/transactions/tx-service";
+import { serializeTransaction, TXN_INCLUDE } from "@/lib/db/serialize";
 
 type Ctx = { params: Promise<{ id: string }> };
 

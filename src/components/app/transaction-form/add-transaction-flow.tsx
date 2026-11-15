@@ -36,13 +36,13 @@ import {
   pressAmountKey,
   type AmountKey,
   type AmountOperator,
-} from "@/lib/amount-keypad";
-import { suggestCategoryKey } from "@/lib/categorize";
-import { cn } from "@/lib/cn";
+} from "@/lib/money/amount-keypad";
+import { suggestCategoryKey } from "@/lib/transactions/categorize";
+import { cn } from "@/lib/ui/cn";
 import { FREQUENCIES, FREQUENCY_LABELS, type Frequency, type TransactionType } from "@/lib/constants";
 import { formatDate, formatRelativeDay, fromISODate, toISODate } from "@/lib/dates";
-import { ApiError, apiPatch, apiPost } from "@/lib/http";
-import { formatINR, toRupees } from "@/lib/money";
+import { ApiError, apiPatch, apiPost } from "@/lib/request/http";
+import { formatINR, toRupees } from "@/lib/money/money";
 import type { CategoryDTO, TransactionDTO } from "@/lib/types";
 import { useAppData } from "../app-data";
 import { CategoryIcon } from "../category-icon";
@@ -52,7 +52,7 @@ import { Sheet } from "../sheet";
 import { CategoryPickerSheet } from "./category-picker-sheet";
 import { buildSplits, newPerson, SplitSection, type SplitPerson } from "./split-section";
 import { TYPE_OPTIONS } from "./types";
-import { equalShare, isEqualSplit, type SplitMode } from "@/lib/split";
+import { equalShare, isEqualSplit, type SplitMode } from "@/lib/money/split";
 
 const TYPE_ICONS = { expense: ArrowDownRight, income: ArrowUpRight, transfer: ArrowLeftRight };
 const KEYS: AmountKey[] = ["1", "2", "3", "÷", "4", "5", "6", "×", "7", "8", "9", "−", ".", "0", "backspace", "+", "="];

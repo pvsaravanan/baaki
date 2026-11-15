@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/db", async () => (await import("@/test/memory-db")).memoryDb());
+vi.mock("@/lib/db/db", async () => (await import("@/test/memory-db")).memoryDb());
 
 import { handle, loadPage } from "@/server/local-server";
 import { sampleBackup } from "../../scripts/sample-data";

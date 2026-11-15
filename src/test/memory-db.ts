@@ -6,7 +6,7 @@ import { PrismaClient } from "@/generated/prisma/client";
  * A throwaway in-memory copy of the on-device database, for tests that run
  * the real services and routes. Use as the `@/lib/db` module:
  *
- *   vi.mock("@/lib/db", async () => (await import("@/test/memory-db")).memoryDb());
+ *   vi.mock("@/lib/db/db", async () => (await import("@/test/memory-db")).memoryDb());
  */
 export function memoryDb() {
   const pglite = new PGlite();

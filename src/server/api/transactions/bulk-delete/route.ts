@@ -1,7 +1,7 @@
 import type { NextRequest } from "@/server/request";
 import { z } from "zod";
-import { json, withUser } from "@/lib/api";
-import { bulkSoftDeleteTransactions } from "@/lib/tx-service";
+import { json, withUser } from "@/lib/request/api";
+import { bulkSoftDeleteTransactions } from "@/lib/transactions/tx-service";
 
 // Matches the max `take` a client can page through in one GET /api/transactions
 // request (see query.ts), with headroom — a selection can never legitimately

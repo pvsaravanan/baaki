@@ -1,5 +1,5 @@
 "use client";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/ui/cn";
 import { UserMenu } from "./user-menu";
 import { TopbarSlotTarget, useBannerActive } from "./topbar-slot";
 

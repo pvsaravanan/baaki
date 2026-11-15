@@ -2,9 +2,9 @@
 import { useRef } from "react";
 import { Check, Plus, Users, X } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
-import { cn } from "@/lib/cn";
-import { formatINR, toPaise } from "@/lib/money";
-import { shareAmounts, yourShare, type SplitMode } from "@/lib/split";
+import { cn } from "@/lib/ui/cn";
+import { formatINR, toPaise } from "@/lib/money/money";
+import { shareAmounts, yourShare, type SplitMode } from "@/lib/money/split";
 import type { SplitDTO } from "@/lib/types";
 
 /** One person in the split editor: what's typed, before it's checked. */

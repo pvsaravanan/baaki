@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/ui/cn";
 import logoImage from "@/assets/baaki_logo_app.png";
 
 // "baaki" wordmark, from src/assets/baaki-typography.svg. The source draws

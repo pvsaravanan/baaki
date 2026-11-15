@@ -1,5 +1,5 @@
 import { Money } from "@/components/money";
-import type { MonthlyAnalytics } from "@/lib/analytics";
+import type { MonthlyAnalytics } from "@/lib/reports/analytics";
 
 /** Analytics with all Date fields serialized to ISO strings (safe for a client component). */
 export type ReportsAnalytics = Omit<MonthlyAnalytics, "largestExpense"> & {

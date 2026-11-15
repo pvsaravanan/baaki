@@ -1,5 +1,5 @@
-import { cn } from "@/lib/cn";
-import { formatINR, formatINRCompact } from "@/lib/money";
+import { cn } from "@/lib/ui/cn";
+import { formatINR, formatINRCompact } from "@/lib/money/money";
 
 /**
  * Renders a money amount (paise) with tabular figures and optional semantic

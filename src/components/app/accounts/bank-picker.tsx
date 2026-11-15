@@ -1,8 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
 import { CategoryIcon } from "../category-icon";
-import { DEFAULT_ACCOUNT_ICON } from "@/lib/category-icons";
-import { BANKS, type Bank } from "@/lib/banks";
+import { DEFAULT_ACCOUNT_ICON } from "@/lib/presets/category-icons";
+import { BANKS, type Bank } from "@/lib/presets/banks";
 import { BankLogo } from "../bank-logo";
 import { OTHER_BANK } from "./constants";
 

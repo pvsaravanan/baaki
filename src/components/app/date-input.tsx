@@ -2,7 +2,7 @@
 import { useCallback, useState } from "react";
 import { CalendarDays } from "lucide-react";
 import { INPUT_BASE } from "@/components/ui/field";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/ui/cn";
 import { formatDate, fromISODate } from "@/lib/dates";
 import { DatePickerSheet } from "./date-picker-sheet";
 

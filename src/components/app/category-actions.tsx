@@ -8,7 +8,7 @@ import { useToast } from "@/components/ui/toast";
 import { useConfirm } from "@/components/ui/confirm";
 import { useAppData } from "./app-data";
 import { CategoryForm } from "./category-form";
-import { ApiError, apiDelete } from "@/lib/http";
+import { ApiError, apiDelete } from "@/lib/request/http";
 import type { CategoryDTO } from "@/lib/types";
 
 /**

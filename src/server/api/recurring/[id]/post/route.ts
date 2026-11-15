@@ -1,8 +1,8 @@
 import type { NextRequest } from "@/server/request";
-import { prisma } from "@/lib/db";
-import { apiError, json, NotFoundError, withUser } from "@/lib/api";
-import { loadRecurring } from "@/lib/queries";
-import { postOccurrence } from "@/lib/recurring";
+import { prisma } from "@/lib/db/db";
+import { apiError, json, NotFoundError, withUser } from "@/lib/request/api";
+import { loadRecurring } from "@/lib/db/queries";
+import { postOccurrence } from "@/lib/transactions/recurring";
 
 type Ctx = { params: Promise<{ id: string }> };
 

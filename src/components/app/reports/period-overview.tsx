@@ -16,11 +16,11 @@ import {
 import { EmptyState } from "@/components/ui/misc";
 import { SectionIcon } from "@/components/app/section-icon";
 import { PeriodBars } from "@/components/charts/chart-kit";
-import type { PeriodReport } from "@/lib/analytics";
-import { cn } from "@/lib/cn";
+import type { PeriodReport } from "@/lib/reports/analytics";
+import { cn } from "@/lib/ui/cn";
 import { monthKeyString } from "@/lib/dates";
-import { formatINR } from "@/lib/money";
-import { categorySlices, shareLabel, type Slice } from "@/lib/report-period";
+import { formatINR } from "@/lib/money/money";
+import { categorySlices, shareLabel, type Slice } from "@/lib/reports/report-period";
 
 const INSIGHT = "flex items-center gap-3 rounded-xl bg-brand-soft/50 px-4 py-3";
 

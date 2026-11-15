@@ -1,7 +1,7 @@
 "use client";
 import { useEffect } from "react";
 import { Capacitor } from "@capacitor/core";
-import { apiPost } from "@/lib/http";
+import { apiPost } from "@/lib/request/http";
 import { useAppData } from "./app-data";
 
 /**

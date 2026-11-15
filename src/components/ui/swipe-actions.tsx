@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { Pencil, Trash2 } from "lucide-react";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/ui/cn";
 
 /** How far a finger moves before it counts as a swipe rather than a tap. */
 const SLOP = 8;

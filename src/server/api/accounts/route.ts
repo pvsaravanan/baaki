@@ -1,8 +1,8 @@
 import type { NextRequest } from "@/server/request";
-import { prisma } from "@/lib/db";
-import { ConflictError, json, withUser } from "@/lib/api";
-import { accountSchema } from "@/lib/validation";
-import { loadAccounts } from "@/lib/queries";
+import { prisma } from "@/lib/db/db";
+import { ConflictError, json, withUser } from "@/lib/request/api";
+import { accountSchema } from "@/lib/request/validation";
+import { loadAccounts } from "@/lib/db/queries";
 
 export const GET = withUser(async (user) => {
   return json({ accounts: await loadAccounts(user.id) });

@@ -1,5 +1,5 @@
 "use client";
-import { usePageData } from "@/lib/local-api";
+import { usePageData } from "@/lib/request/local-api";
 import { PageBanner } from "@/components/app/page-banner";
 import { RecurringView } from "@/components/app/recurring-view";
 import { RepeatCalendar } from "@/components/app/repeat-calendar";

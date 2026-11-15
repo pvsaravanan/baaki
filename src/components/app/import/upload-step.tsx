@@ -2,7 +2,7 @@ import { Upload, FileText, Download, ArrowRight, AlertCircle, History } from "lu
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/misc";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/ui/cn";
 
 export function UploadStep({
   fileName,

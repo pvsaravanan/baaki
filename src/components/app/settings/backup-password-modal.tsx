@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { MIN_PASSWORD_LENGTH } from "@/lib/backup-crypto";
+import { MIN_PASSWORD_LENGTH } from "@/lib/io/backup-crypto";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
 import { Modal } from "@/components/ui/modal";

@@ -1,6 +1,6 @@
 "use client";
-import { AVATARS, type AvatarId } from "@/lib/avatars";
-import { cn } from "@/lib/cn";
+import { AVATARS, type AvatarId } from "@/lib/presets/avatars";
+import { cn } from "@/lib/ui/cn";
 import { AvatarPicture } from "./user-avatar";
 
 /**

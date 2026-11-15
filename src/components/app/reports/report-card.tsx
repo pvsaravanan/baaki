@@ -1,4 +1,4 @@
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/ui/cn";
 
 /** The soft cards of the Reports pages: rounded, lightly outlined, with plain-case headings. */
 export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {

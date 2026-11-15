@@ -1,10 +1,10 @@
 import type { NextRequest } from "@/server/request";
-import { prisma } from "@/lib/db";
-import { json, NotFoundError, withUser } from "@/lib/api";
-import { assertAccountsOwned, assertCategoriesOwned } from "@/lib/ownership";
-import { recurringSchema } from "@/lib/validation";
-import { loadRecurring } from "@/lib/queries";
-import { computeNextOccurrence } from "@/lib/recurring";
+import { prisma } from "@/lib/db/db";
+import { json, NotFoundError, withUser } from "@/lib/request/api";
+import { assertAccountsOwned, assertCategoriesOwned } from "@/lib/request/ownership";
+import { recurringSchema } from "@/lib/request/validation";
+import { loadRecurring } from "@/lib/db/queries";
+import { computeNextOccurrence } from "@/lib/transactions/recurring";
 import { fromISODate } from "@/lib/dates";
 import type { Frequency } from "@/lib/constants";
 

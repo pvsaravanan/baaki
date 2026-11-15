@@ -1,9 +1,9 @@
 import type { NextRequest } from "@/server/request";
 import { z } from "zod";
-import { prisma } from "@/lib/db";
-import { json, withUser } from "@/lib/api";
-import { budgetSchema } from "@/lib/validation";
-import { loadBudget } from "@/lib/queries";
+import { prisma } from "@/lib/db/db";
+import { json, withUser } from "@/lib/request/api";
+import { budgetSchema } from "@/lib/request/validation";
+import { loadBudget } from "@/lib/db/queries";
 import { monthKeyOf } from "@/lib/dates";
 
 // Matches the year/month bounds budgetSchema enforces on PUT — GET previously

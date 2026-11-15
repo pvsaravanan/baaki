@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { Fingerprint } from "lucide-react";
-import { lockAvailability, setPrivacyScreen, unlockWithDevice } from "@/lib/app-lock";
+import { lockAvailability, setPrivacyScreen, unlockWithDevice } from "@/lib/ui/app-lock";
 import { Logo, Wordmark } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 

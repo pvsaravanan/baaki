@@ -1,8 +1,8 @@
 import type { NextRequest } from "@/server/request";
-import { json, withUser } from "@/lib/api";
-import { softDeleteTransaction, updateTransaction } from "@/lib/tx-service";
-import { transactionSchema } from "@/lib/validation";
-import { serializeTransaction } from "@/lib/serialize";
+import { json, withUser } from "@/lib/request/api";
+import { softDeleteTransaction, updateTransaction } from "@/lib/transactions/tx-service";
+import { transactionSchema } from "@/lib/request/validation";
+import { serializeTransaction } from "@/lib/db/serialize";
 
 type Ctx = { params: Promise<{ id: string }> };
 

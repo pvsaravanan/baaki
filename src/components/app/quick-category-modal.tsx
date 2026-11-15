@@ -7,12 +7,12 @@ import { Field, Input } from "@/components/ui/field";
 import { Segmented } from "@/components/ui/segmented";
 import { useToast } from "@/components/ui/toast";
 import { useAppData } from "./app-data";
-import { apiPost, ApiError } from "@/lib/http";
+import { apiPost, ApiError } from "@/lib/request/http";
 import type { CategoryKind } from "@/lib/constants";
-import { leastUsedColor } from "@/lib/category-colors";
+import { leastUsedColor } from "@/lib/presets/category-colors";
 import { CategoryColorPicker } from "./category-color-picker";
 import type { CategoryDTO } from "@/lib/types";
-import { DEFAULT_CATEGORY_ICON } from "@/lib/category-icons";
+import { DEFAULT_CATEGORY_ICON } from "@/lib/presets/category-icons";
 import { CategoryIconPicker } from "./category-icon-picker";
 
 const KIND_OPTIONS: { value: CategoryKind; label: string }[] = [

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { Money } from "@/components/money";
-import { formatPercent } from "@/lib/money";
+import { formatPercent } from "@/lib/money/money";
 
 export interface CategorySlice {
   name: string;

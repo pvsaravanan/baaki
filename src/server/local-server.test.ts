@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { readdirSync } from "node:fs";
 import { join, sep } from "node:path";
 
-vi.mock("@/lib/db", async () => (await import("@/test/memory-db")).memoryDb());
+vi.mock("@/lib/db/db", async () => (await import("@/test/memory-db")).memoryDb());
 
 import { handle, loadPage, matchRoute } from "./local-server";
 import type { AccountDTO, CategoryDTO, RecurringDTO } from "@/lib/types";

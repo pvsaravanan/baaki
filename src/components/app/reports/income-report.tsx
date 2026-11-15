@@ -3,7 +3,7 @@ import { Card, CardBody, CardHeader } from "./report-card";
 import { Money } from "@/components/money";
 import { StatCard } from "@/components/app/stat-card";
 import { TrendArea } from "@/components/charts/chart-kit";
-import { formatPercent } from "@/lib/money";
+import { formatPercent } from "@/lib/money/money";
 import { DistributionTiles, lastSixMonths, Tile, type ReportsAnalytics } from "./shared";
 
 export function IncomeReport({ a }: { a: ReportsAnalytics }) {

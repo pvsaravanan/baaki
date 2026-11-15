@@ -10,7 +10,7 @@ import { RunDueRecurring } from "./run-due-recurring";
 import { PageTransition } from "./page-transition";
 import { useState } from "react";
 import { Capacitor } from "@capacitor/core";
-import { eraseLocalData, usePageData } from "@/lib/local-api";
+import { eraseLocalData, usePageData } from "@/lib/request/local-api";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm";
 import { Logo } from "@/components/logo";

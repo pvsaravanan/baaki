@@ -1,4 +1,4 @@
-import { DASHBOARD_WIDGETS, normalizeWidgets, widgetKind, type WidgetKey } from "@/lib/dashboard-widgets";
+import { DASHBOARD_WIDGETS, normalizeWidgets, widgetKind, type WidgetKey } from "@/lib/reports/dashboard-widgets";
 
 export interface WidgetItem {
   key: WidgetKey;

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { formatINR } from "@/lib/money";
+import { formatINR } from "@/lib/money/money";
 
 /** Resolve themed colors from CSS variables at runtime (client only). */
 export function useChartColors() {

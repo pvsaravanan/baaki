@@ -1,11 +1,11 @@
 import type { NextRequest } from "@/server/request";
-import { prisma } from "@/lib/db";
-import { BadRequestError, ConflictError, json, NotFoundError, withUser } from "@/lib/api";
-import { accountSchema } from "@/lib/validation";
-import { loadAccounts, loadCalcTxns } from "@/lib/queries";
-import { accountBalance } from "@/lib/calculations";
+import { prisma } from "@/lib/db/db";
+import { BadRequestError, ConflictError, json, NotFoundError, withUser } from "@/lib/request/api";
+import { accountSchema } from "@/lib/request/validation";
+import { loadAccounts, loadCalcTxns } from "@/lib/db/queries";
+import { accountBalance } from "@/lib/money/calculations";
 import { BALANCE_EXEMPT_ACCOUNT_TYPES } from "@/lib/constants";
-import { formatINR } from "@/lib/money";
+import { formatINR } from "@/lib/money/money";
 
 type Ctx = { params: Promise<{ id: string }> };
 

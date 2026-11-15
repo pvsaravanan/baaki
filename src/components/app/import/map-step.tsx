@@ -3,7 +3,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { SelectMenu } from "@/components/ui/select-menu";
-import { hasAmountMapping, type ImportField } from "@/lib/csv";
+import { hasAmountMapping, type ImportField } from "@/lib/io/csv";
 import { FIELDS, type DateFormat } from "./types";
 
 export function MapStep({

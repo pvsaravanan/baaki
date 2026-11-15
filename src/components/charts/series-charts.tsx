@@ -3,7 +3,7 @@ import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer,
   Tooltip, XAxis, YAxis,
 } from "recharts";
-import { formatINRCompact } from "@/lib/money";
+import { formatINRCompact } from "@/lib/money/money";
 import { AXIS_TICK, TooltipBox, useChartColors } from "./theme";
 
 /** Grouped income-vs-expense (or any multi-series) bar chart. */

@@ -2,8 +2,8 @@ import { ArrowLeft, AlertCircle, X } from "lucide-react";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/misc";
-import { cn } from "@/lib/cn";
-import type { ImportField } from "@/lib/csv";
+import { cn } from "@/lib/ui/cn";
+import type { ImportField } from "@/lib/io/csv";
 import { FIELDS, type ImportSummary } from "./types";
 
 export function PreviewStep({

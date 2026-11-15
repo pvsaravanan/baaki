@@ -1,5 +1,5 @@
 "use client";
-import { usePageData } from "@/lib/local-api";
+import { usePageData } from "@/lib/request/local-api";
 import { PageBanner } from "@/components/app/page-banner";
 import { ScreenData } from "@/components/app/screen-data";
 import { SplitsView } from "@/components/app/splits-view";

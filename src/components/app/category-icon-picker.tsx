@@ -1,7 +1,7 @@
 "use client";
-import { CATEGORY_ICON_KEYS, categoryIconLabel, resolveCategoryIcon } from "@/lib/category-icons";
+import { CATEGORY_ICON_KEYS, categoryIconLabel, resolveCategoryIcon } from "@/lib/presets/category-icons";
 import { CategoryIcon } from "./category-icon";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/ui/cn";
 
 /** Scrollable grid of every illustrated icon; `value` may be a legacy line-icon name. */
 export function CategoryIconPicker({

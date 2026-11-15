@@ -2,7 +2,7 @@
 import { Check, Layers } from "lucide-react";
 import { AccountIcon } from "@/components/app/accounts/account-icon";
 import { Money } from "@/components/money";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/ui/cn";
 import { formatAccountType } from "@/lib/constants";
 import type { AccountDTO } from "@/lib/types";
 

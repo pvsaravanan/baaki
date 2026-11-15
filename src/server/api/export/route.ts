@@ -1,10 +1,10 @@
 import type { NextRequest } from "@/server/request";
-import { prisma } from "@/lib/db";
-import { withUser } from "@/lib/api";
-import { buildCSV } from "@/lib/csv";
+import { prisma } from "@/lib/db/db";
+import { withUser } from "@/lib/request/api";
+import { buildCSV } from "@/lib/io/csv";
 import { toISODate } from "@/lib/dates";
-import { buildWhere } from "@/lib/query";
-import { buildBackup } from "@/lib/backup";
+import { buildWhere } from "@/lib/db/query";
+import { buildBackup } from "@/lib/io/backup";
 import { TYPE_LABELS, type TransactionType } from "@/lib/constants";
 
 export const GET = withUser(async (user, req: NextRequest) => {

@@ -1,20 +1,20 @@
-import { requireUser } from "@/lib/auth";
-import { ensureDb } from "@/lib/local-db";
-import { clearQueryCache } from "@/lib/queries";
-import { pglite, releaseDb } from "@/lib/db";
-import { removeStoredData } from "@/lib/db-storage";
+import { requireUser } from "@/lib/request/auth";
+import { ensureDb } from "@/lib/db/local-db";
+import { clearQueryCache } from "@/lib/db/queries";
+import { pglite, releaseDb } from "@/lib/db/db";
+import { removeStoredData } from "@/lib/db/db-storage";
 import { localRequest, type NextRequest } from "./request";
 import { PAGE_LOADERS, type PageData, type PageName } from "./pages";
 import { ROUTES } from "@/generated/api-routes";
 
 /**
  * The app's "server", running inside the app itself. Screens and forms still
- * call `/api/...` URLs (through src/lib/http.ts); instead of going over the
+ * call `/api/...` URLs (through src/lib/request/http.ts); instead of going over the
  * network, each call is matched here to the same route handler that used to
  * run on the server, which reads and writes the on-device database. Every
  * src/server/api/<path>/route.ts is listed automatically by
  * scripts/api-routes.mjs (`npm run generate`). Loaded
- * lazily (see src/lib/local-api.ts), so the database engine only downloads
+ * lazily (see src/lib/request/local-api.ts), so the database engine only downloads
  * once the app actually needs data.
  */
 

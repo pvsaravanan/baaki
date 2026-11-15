@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/ui/cn";
 import { preloadAvatars } from "./preload-avatars";
 
 /** Hand-drawn coral wash behind every illustration (245 × 202). */

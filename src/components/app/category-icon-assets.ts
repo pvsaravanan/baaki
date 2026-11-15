@@ -1,5 +1,5 @@
 import type { StaticImageData } from "next/image";
-import type { CategoryIconKey } from "@/lib/category-icons";
+import type { CategoryIconKey } from "@/lib/presets/category-icons";
 import biryani from "@/assets/icons/biryani.png";
 import burger from "@/assets/icons/burger.png";
 import ramen from "@/assets/icons/ramen.png";

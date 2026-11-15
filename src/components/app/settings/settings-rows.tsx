@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/ui/cn";
 
 /** A headed group of rows in one outlined card. */
 export function Group({ title, children }: { title: string; children: React.ReactNode }) {

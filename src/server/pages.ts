@@ -1,7 +1,7 @@
-import type { SessionUser } from "@/lib/auth";
-import { getCategoryDetail, getMonthlyAnalytics, getPeriodReport } from "@/lib/analytics";
-import { filterRange } from "@/lib/calculations";
-import { parseReportPeriod } from "@/lib/report-period";
+import type { SessionUser } from "@/lib/request/auth";
+import { getCategoryDetail, getMonthlyAnalytics, getPeriodReport } from "@/lib/reports/analytics";
+import { filterRange } from "@/lib/money/calculations";
+import { parseReportPeriod } from "@/lib/reports/report-period";
 import {
   countTransactions,
   loadAccounts,
@@ -15,14 +15,14 @@ import {
   loadTags,
   loadTransactionTotals,
   loadTransactions,
-} from "@/lib/queries";
+} from "@/lib/db/queries";
 import { monthKeyOf, monthRange, parseMonthKey, toISODate, type MonthKey } from "@/lib/dates";
 import type { PerAccountRow, ReportsAnalytics } from "@/components/app/reports-view";
 
 /**
  * What each screen needs from the database — the data half of what used to
  * be async Server Component pages. The screens call these through the local
- * API (usePageData in src/lib/local-api.ts); results are passed straight
+ * API (usePageData in src/lib/request/local-api.ts); results are passed straight
  * back in memory, so Dates arrive as Dates just as they did from the server.
  */
 

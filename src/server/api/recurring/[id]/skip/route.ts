@@ -1,7 +1,7 @@
 import type { NextRequest } from "@/server/request";
-import { prisma } from "@/lib/db";
-import { apiError, json, NotFoundError, withUser } from "@/lib/api";
-import { loadRecurring } from "@/lib/queries";
+import { prisma } from "@/lib/db/db";
+import { apiError, json, NotFoundError, withUser } from "@/lib/request/api";
+import { loadRecurring } from "@/lib/db/queries";
 import { findOccurrenceIndex, occurrenceAt, startOfDay } from "@/lib/dates";
 import type { Frequency } from "@/lib/constants";
 

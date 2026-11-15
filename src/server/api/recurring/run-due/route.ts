@@ -1,5 +1,5 @@
-import { json, withUser } from "@/lib/api";
-import { postDueRecurring } from "@/lib/recurring";
+import { json, withUser } from "@/lib/request/api";
+import { postDueRecurring } from "@/lib/transactions/recurring";
 
 /**
  * Post any due auto-post recurring rules for the current user. Called by the

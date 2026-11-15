@@ -1,13 +1,13 @@
 /**
  * baaki ships as a static site inside the Android app (Capacitor serves the
  * `out/` folder from the phone). There is no server: every screen renders on
- * the device and reads the on-device database (see src/lib/local-api.ts).
+ * the device and reads the on-device database (see src/lib/request/local-api.ts).
  *
  * @type {import('next').NextConfig}
  */
 const nextConfig = {
   output: "export",
-  // Names this build's cached screens (see src/lib/local-api.ts).
+  // Names this build's cached screens (see src/lib/request/local-api.ts).
   env: { NEXT_PUBLIC_BUILD_ID: String(Date.now()) },
   // Each route becomes <route>/index.html, which the app's WebView serves directly.
   trailingSlash: true,

@@ -2,8 +2,8 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Pencil } from "lucide-react";
-import { DEFAULT_AVATAR, readAvatar, type AvatarId } from "@/lib/avatars";
-import { apiPatch, ApiError } from "@/lib/http";
+import { DEFAULT_AVATAR, readAvatar, type AvatarId } from "@/lib/presets/avatars";
+import { apiPatch, ApiError } from "@/lib/request/http";
 import { useAppData } from "@/components/app/app-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/field";

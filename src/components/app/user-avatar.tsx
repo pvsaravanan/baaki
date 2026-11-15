@@ -1,7 +1,7 @@
 import Image from "next/image";
 import { UserRound } from "lucide-react";
-import { readAvatar, type AvatarId } from "@/lib/avatars";
-import { cn } from "@/lib/cn";
+import { readAvatar, type AvatarId } from "@/lib/presets/avatars";
+import { cn } from "@/lib/ui/cn";
 import { AVATAR_IMAGES, AVATAR_THUMBS } from "./avatar-assets";
 
 /**

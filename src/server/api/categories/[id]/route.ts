@@ -1,9 +1,9 @@
 import type { NextRequest } from "@/server/request";
-import { prisma } from "@/lib/db";
-import { BadRequestError, ConflictError, json, NotFoundError, withUser } from "@/lib/api";
-import { assertCategoriesOwned } from "@/lib/ownership";
-import { categorySchema } from "@/lib/validation";
-import { loadCategories } from "@/lib/queries";
+import { prisma } from "@/lib/db/db";
+import { BadRequestError, ConflictError, json, NotFoundError, withUser } from "@/lib/request/api";
+import { assertCategoriesOwned } from "@/lib/request/ownership";
+import { categorySchema } from "@/lib/request/validation";
+import { loadCategories } from "@/lib/db/queries";
 
 type Ctx = { params: Promise<{ id: string }> };
 

@@ -6,7 +6,7 @@ import { Money } from "@/components/money";
 import { CategoryIcon } from "@/components/app/category-icon";
 import { SectionIcon } from "@/components/app/section-icon";
 import { InteractiveCategoryDonut } from "@/components/app/interactive-category-donut";
-import { formatPercent } from "@/lib/money";
+import { formatPercent } from "@/lib/money/money";
 import { DistributionTiles, type ReportsAnalytics } from "./shared";
 
 export function CategoryReport({ a, title }: { a: ReportsAnalytics; title: string }) {

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { usePageData } from "@/lib/local-api";
+import { usePageData } from "@/lib/request/local-api";
 import { NativeApp } from "@/components/app/native-app";
 import { splashGone } from "@/components/app/splash-handoff";
 import { ChooseAvatarScreen } from "@/components/app/choose-avatar-screen";

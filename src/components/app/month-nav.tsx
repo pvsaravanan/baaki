@@ -3,10 +3,10 @@ import { useCallback, useState } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { addMonths, monthKeyOf, monthKeyString, monthLabel, parseMonthKey, type MonthKey } from "@/lib/dates";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/ui/cn";
 import { MonthPickerSheet } from "./date-picker-sheet";
 import { useMonthScope } from "./month-scope";
-import { setSelectedMonth } from "@/lib/selected-month";
+import { setSelectedMonth } from "@/lib/ui/selected-month";
 
 // The floor budgetSchema and the budgets API enforce on `year`.
 const EARLIEST_MONTH: MonthKey = { year: 2000, month: 1 };
@@ -17,7 +17,6 @@ const EARLIEST_MONTH: MonthKey = { year: 2000, month: 1 };
  */
 export function MonthNav({
   monthKey,
-  isCurrent,
   className,
   monthsAhead = 0,
   rounded = false,
@@ -25,7 +24,6 @@ export function MonthNav({
   bar = false,
 }: {
   monthKey: MonthKey;
-  isCurrent: boolean;
   className?: string;
   /** How many months past this one can be opened (budgets look ahead; everything else stops at today). */
   monthsAhead?: number;

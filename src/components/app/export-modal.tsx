@@ -8,8 +8,8 @@ import { SelectMenu } from "@/components/ui/select-menu";
 import { useToast } from "@/components/ui/toast";
 import { useAppData } from "./app-data";
 import { DateInput } from "./date-input";
-import { downloadFile } from "@/lib/http";
-import { toPaise } from "@/lib/money";
+import { downloadFile } from "@/lib/request/http";
+import { toPaise } from "@/lib/money/money";
 import {
   TRANSACTION_TYPES,
   TYPE_LABELS,

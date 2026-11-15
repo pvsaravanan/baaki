@@ -1,10 +1,10 @@
 import type { NextRequest } from "@/server/request";
 import { z } from "zod";
-import { prisma } from "@/lib/db";
-import { json, NotFoundError, withUser } from "@/lib/api";
-import { dedupeKey, planImport, validateImportRows, type ColumnMapping, type InvalidImportRow } from "@/lib/csv";
+import { prisma } from "@/lib/db/db";
+import { json, NotFoundError, withUser } from "@/lib/request/api";
+import { dedupeKey, planImport, validateImportRows, type ColumnMapping, type InvalidImportRow } from "@/lib/io/csv";
 import { endOfDayExclusive, fromISODate, startOfDay, toISODate } from "@/lib/dates";
-import { suggestCategoryKey } from "@/lib/categorize";
+import { suggestCategoryKey } from "@/lib/transactions/categorize";
 
 const importSchema = z.object({
   records: z.array(z.record(z.string(), z.string())).max(5000),

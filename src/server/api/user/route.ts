@@ -1,8 +1,8 @@
 import type { NextRequest } from "@/server/request";
 import { z } from "zod";
-import { prisma } from "@/lib/db";
-import { json, withUser } from "@/lib/api";
-import { AVATAR_IDS, avatarUrlFor } from "@/lib/avatars";
+import { prisma } from "@/lib/db/db";
+import { json, withUser } from "@/lib/request/api";
+import { AVATAR_IDS, avatarUrlFor } from "@/lib/presets/avatars";
 
 const userUpdateSchema = z
   .object({

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/ui/cn";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { EmptyState } from "@/components/ui/misc";

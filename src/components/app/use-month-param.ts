@@ -2,7 +2,7 @@
 import { useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { monthKeyOf, monthKeyString, parseMonthKey } from "@/lib/dates";
-import { setSelectedMonth, useSelectedMonth } from "@/lib/selected-month";
+import { setSelectedMonth, useSelectedMonth } from "@/lib/ui/selected-month";
 
 /**
  * The month a screen shows: `?m=YYYY-MM` when the link has one, else the month
@@ -17,9 +17,8 @@ export function useMonthParam() {
   const fromParam = parseMonthKey(param ?? undefined);
   const monthKey = fromParam ?? parseMonthKey(selected ?? undefined) ?? nowKey;
   const m = monthKeyString(monthKey);
-  const isCurrent = monthKey.year === nowKey.year && monthKey.month === nowKey.month;
   useEffect(() => {
     if (fromParam) setSelectedMonth(m);
   }, [fromParam, m]);
-  return { m, monthKey, isCurrent };
+  return { m, monthKey };
 }

@@ -1,5 +1,5 @@
 import { CheckCircle2 } from "lucide-react";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/ui/cn";
 import { STEPS, type Step } from "./types";
 
 /**

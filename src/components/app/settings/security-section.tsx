@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import { apiPatch, ApiError } from "@/lib/http";
-import { lockAvailability, unlockWithDevice } from "@/lib/app-lock";
+import { apiPatch, ApiError } from "@/lib/request/http";
+import { lockAvailability, unlockWithDevice } from "@/lib/ui/app-lock";
 import { useAppData } from "@/components/app/app-data";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/toast";

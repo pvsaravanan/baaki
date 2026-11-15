@@ -5,9 +5,9 @@ import { createPortal } from "react-dom";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/field";
-import { apiPatch, ApiError } from "@/lib/http";
+import { apiPatch, ApiError } from "@/lib/request/http";
 import { useAppData } from "@/components/app/app-data";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/ui/cn";
 
 /**
  * A short walkthrough of the app's main controls: the screen dims, one control

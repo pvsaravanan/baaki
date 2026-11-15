@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { DASHBOARD_WIDGETS, widgetKind } from "@/lib/dashboard-widgets";
+import { DASHBOARD_WIDGETS, widgetKind } from "@/lib/reports/dashboard-widgets";
 import { ActionRow, Row } from "./layout";
 import { buildWidgetItems, moveWidget } from "./widget-items";
 

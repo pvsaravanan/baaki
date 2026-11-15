@@ -2,13 +2,13 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { ArrowUpRight, CalendarClock } from "lucide-react";
-import { usePageData } from "@/lib/local-api";
+import { usePageData } from "@/lib/request/local-api";
 import type { PageData } from "@/server/pages";
 import { useAppData } from "@/components/app/app-data";
 import { useMonthParam } from "@/components/app/use-month-param";
 import { ScreenData } from "@/components/app/screen-data";
 import { DashboardSkeleton } from "@/components/app/dashboard-skeleton";
-import { isWidgetKey, widgetKind, type WidgetKey } from "@/lib/dashboard-widgets";
+import { isWidgetKey, widgetKind, type WidgetKey } from "@/lib/reports/dashboard-widgets";
 import { fromISODate, formatDate, addDays, monthName, zonedParts, type MonthKey } from "@/lib/dates";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Money } from "@/components/money";
@@ -23,8 +23,8 @@ import { TopbarSlot } from "@/components/app/topbar-slot";
 import { MonthContent, MonthScope } from "@/components/app/month-scope";
 import { SpendingCalendar } from "@/components/app/spending-calendar";
 import { IncomeExpenseCard } from "@/components/app/income-expense-card";
-import { formatINR, formatPercent } from "@/lib/money";
-import { cn } from "@/lib/cn";
+import { formatINR, formatPercent } from "@/lib/money/money";
+import { cn } from "@/lib/ui/cn";
 
 export default function DashboardPage() {
   return (
@@ -48,7 +48,7 @@ function fitsOneScreen(widgets: string[]): boolean {
 
 function Dashboard() {
   const { user } = useAppData();
-  const { m, monthKey, isCurrent } = useMonthParam();
+  const { m, monthKey } = useMonthParam();
   const { data, error, isStale } = usePageData("dashboard", { m });
   const fit = !data || fitsOneScreen(data.preference.dashboardWidgets);
 
@@ -62,7 +62,7 @@ function Dashboard() {
       >
         <DashboardGreeting greeting={greeting().toUpperCase()} name={user.name.split(" ")[0]} monthName={monthName(monthKey.month)} />
         <TopbarSlot>
-          <MonthNav monthKey={monthKey} isCurrent={isCurrent} bar />
+          <MonthNav monthKey={monthKey} bar />
         </TopbarSlot>
         <MonthContent className="flex min-h-0 flex-1 flex-col gap-[clamp(6px,1.2dvh,12px)] md:flex-none md:gap-5">
           <ScreenData data={data} error={error} skeleton={<DashboardSkeleton header={false} />}>
@@ -101,7 +101,7 @@ function DashboardBody({ data, monthKey, fit }: { data: PageData<"dashboard">; m
     income: <SummaryTile key="income" label="Income" value={a.current.income} tone="income" delta={a.deltas.income} deltaGood="up" />,
     expenses: <SummaryTile key="expenses" label="Expenses" value={a.current.effectiveExpense} tone="expense" delta={a.deltas.expense} deltaGood="down" />,
     net_savings: <SummaryTile key="net_savings" label="Savings" value={a.current.net} tone={a.current.net >= 0 ? "income" : "expense"} delta={a.deltas.net} deltaGood="up" />,
-    savings_rate: <SavingsRateCard key="savings_rate" rate={a.current.savingsRate} delta={a.deltas.savings} />,
+    savings_rate: <SavingsRateCard key="savings_rate" rate={a.current.savingsRate} />,
     budget_left: <BudgetRemainingCard key="budget_left" remaining={budgetRemaining} limit={budgetLimit} />,
   };
   const tiles = order.filter((k) => widgetKind(k) === "tile" && k !== "balance").flatMap((k) => (TILES[k] ? [TILES[k]] : []));
@@ -214,7 +214,7 @@ function DashboardBody({ data, monthKey, fit }: { data: PageData<"dashboard">; m
   );
 }
 
-function SavingsRateCard({ rate, delta }: { rate: number; delta: number | null }) {
+function SavingsRateCard({ rate }: { rate: number }) {
   return (
     <div className="rounded-xl border border-border bg-surface p-sm [container-type:inline-size]">
       <p className="text-label-sm uppercase text-muted">Savings rate</p>

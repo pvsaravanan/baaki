@@ -9,7 +9,7 @@ import { SwipeActions } from "@/components/ui/swipe-actions";
 import { useToast } from "@/components/ui/toast";
 import { useAppData } from "./app-data";
 import type { CategoryDTO } from "@/lib/types";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/ui/cn";
 import { CategoryIcon } from "./category-icon";
 import { SectionIcon } from "./section-icon";
 import { CategoryForm } from "./category-form";

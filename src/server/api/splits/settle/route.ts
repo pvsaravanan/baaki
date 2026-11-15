@@ -1,7 +1,7 @@
 import type { NextRequest } from "@/server/request";
-import { json, withUser } from "@/lib/api";
-import { settleSplits } from "@/lib/tx-service";
-import { settleSplitsSchema } from "@/lib/validation";
+import { json, withUser } from "@/lib/request/api";
+import { settleSplits } from "@/lib/transactions/tx-service";
+import { settleSplitsSchema } from "@/lib/request/validation";
 
 /** Mark split shares as paid back, into the chosen account. */
 export const POST = withUser(async (user, req: NextRequest) => {

@@ -6,7 +6,7 @@ import { ArrowLeftRight, LayoutDashboard, MoreHorizontal, PieChart, Plus } from 
 import { Sheet } from "./sheet";
 import { MORE_SHEET_GROUPS } from "./nav-items";
 import { useTransactionModal } from "./add-transaction";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/ui/cn";
 import { TOUR_MENU_EVENT } from "./app-tour";
 
 const TABS = [

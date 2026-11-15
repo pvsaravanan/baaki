@@ -1,11 +1,11 @@
 "use client";
 import Link from "next/link";
 import { ArchiveRestore, ChevronRight, List, Pencil, Trash2 } from "lucide-react";
-import { accountTotals, groupAccounts } from "@/lib/account-groups";
+import { accountTotals, groupAccounts } from "@/lib/presets/account-groups";
 import { formatAccountType } from "@/lib/constants";
-import { formatINR } from "@/lib/money";
+import { formatINR } from "@/lib/money/money";
 import type { AccountDTO } from "@/lib/types";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/ui/cn";
 import { Sheet } from "../sheet";
 import { AccountIcon } from "./account-icon";
 import { balanceTone, HIDDEN_AMOUNT } from "./account-row";

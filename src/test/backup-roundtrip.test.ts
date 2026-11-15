@@ -1,9 +1,9 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/db", async () => (await import("@/test/memory-db")).memoryDb());
+vi.mock("@/lib/db/db", async () => (await import("@/test/memory-db")).memoryDb());
 
 import { handle, loadPage } from "@/server/local-server";
-import { decryptBackup, encryptBackup, isEncryptedBackup } from "@/lib/backup-crypto";
+import { decryptBackup, encryptBackup, isEncryptedBackup } from "@/lib/io/backup-crypto";
 import { sampleBackup } from "../../scripts/sample-data";
 
 /**

@@ -1,7 +1,7 @@
 "use client";
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { usePageData } from "@/lib/local-api";
+import { usePageData } from "@/lib/request/local-api";
 import { useMonthParam } from "@/components/app/use-month-param";
 import { MonthNav } from "@/components/app/month-nav";
 import { TopbarSlot } from "@/components/app/topbar-slot";
@@ -21,12 +21,12 @@ export default function CategoryDetailPage() {
 
 function CategoryDetail() {
   const id = useSearchParams().get("id") ?? "";
-  const { m, monthKey, isCurrent } = useMonthParam();
+  const { m, monthKey } = useMonthParam();
   const { data, error, isStale } = usePageData("category", { id, m });
   return (
     <MonthScope monthKey={m} loading={isStale}>
       <TopbarSlot>
-        <MonthNav monthKey={monthKey} isCurrent={isCurrent} bar />
+        <MonthNav monthKey={monthKey} bar />
       </TopbarSlot>
       <MonthContent>
         <ScreenData data={data} error={error}>

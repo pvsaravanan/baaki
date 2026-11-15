@@ -1,6 +1,6 @@
 "use client";
 import { Suspense, useState } from "react";
-import { usePageData } from "@/lib/local-api";
+import { usePageData } from "@/lib/request/local-api";
 import { useMonthParam } from "@/components/app/use-month-param";
 import { MonthNav } from "@/components/app/month-nav";
 import { TopbarSlot } from "@/components/app/topbar-slot";
@@ -19,7 +19,7 @@ export default function BudgetsPage() {
 }
 
 function Budgets() {
-  const { m, monthKey, isCurrent } = useMonthParam();
+  const { m, monthKey } = useMonthParam();
   const { data, error, isStale } = usePageData("budgets", { m });
   const [editing, setEditing] = useState(false);
   return (
@@ -36,7 +36,7 @@ function Budgets() {
         <BudgetArt />
       </div>
       <TopbarSlot>
-        <MonthNav monthKey={monthKey} isCurrent={isCurrent} monthsAhead={12} bar />
+        <MonthNav monthKey={monthKey} monthsAhead={12} bar />
       </TopbarSlot>
       <MonthContent>
         <ScreenData data={data} error={error}>

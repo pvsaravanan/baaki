@@ -1,7 +1,7 @@
 import type { NextRequest } from "@/server/request";
-import { prisma } from "@/lib/db";
-import { json, withUser } from "@/lib/api";
-import { suggestCategoryKey } from "@/lib/categorize";
+import { prisma } from "@/lib/db/db";
+import { json, withUser } from "@/lib/request/api";
+import { suggestCategoryKey } from "@/lib/transactions/categorize";
 
 /** Suggest one of the user's categories for a free-text description (rule-based). */
 export const POST = withUser(async (user, req: NextRequest) => {

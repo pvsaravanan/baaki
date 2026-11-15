@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { usePageData } from "@/lib/local-api";
+import { usePageData } from "@/lib/request/local-api";
 import { AccountsView } from "@/components/app/accounts-view";
 import { PageBanner } from "@/components/app/page-banner";
 import { ScreenData } from "@/components/app/screen-data";

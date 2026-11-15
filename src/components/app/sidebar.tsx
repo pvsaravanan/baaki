@@ -6,7 +6,7 @@ import { Logo, Wordmark } from "@/components/logo";
 import { PRIMARY_NAV, SECONDARY_NAV, type NavItem } from "./nav-items";
 import { useTransactionModal } from "./add-transaction";
 import { useSidebar } from "./sidebar-context";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/ui/cn";
 
 export function Sidebar() {
   const { openAdd } = useTransactionModal();

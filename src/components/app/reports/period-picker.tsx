@@ -10,7 +10,7 @@ import {
   periodLabel,
   rangePeriod,
   type ReportPeriod,
-} from "@/lib/report-period";
+} from "@/lib/reports/report-period";
 import { MonthYearPicker } from "../month-year-picker";
 import { Sheet } from "../sheet";
 import { chipClass } from "./chip-row";

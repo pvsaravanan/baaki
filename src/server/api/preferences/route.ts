@@ -1,8 +1,8 @@
 import type { NextRequest } from "@/server/request";
-import { prisma } from "@/lib/db";
-import { json, withUser } from "@/lib/api";
-import { assertAccountsOwned } from "@/lib/ownership";
-import { preferenceSchema } from "@/lib/validation";
+import { prisma } from "@/lib/db/db";
+import { json, withUser } from "@/lib/request/api";
+import { assertAccountsOwned } from "@/lib/request/ownership";
+import { preferenceSchema } from "@/lib/request/validation";
 
 export const PATCH = withUser(async (user, req: NextRequest) => {
   const input = preferenceSchema.parse(await req.json());

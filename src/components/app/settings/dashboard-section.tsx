@@ -1,9 +1,9 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { widgetKind, widgetLabel, type WidgetKey, type WidgetKind } from "@/lib/dashboard-widgets";
-import { apiPatch, ApiError } from "@/lib/http";
-import { cn } from "@/lib/cn";
+import { widgetKind, widgetLabel, type WidgetKey, type WidgetKind } from "@/lib/reports/dashboard-widgets";
+import { apiPatch, ApiError } from "@/lib/request/http";
+import { cn } from "@/lib/ui/cn";
 import { useAppData } from "@/components/app/app-data";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";

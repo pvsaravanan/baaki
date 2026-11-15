@@ -1,6 +1,6 @@
 import type { NextRequest } from "@/server/request";
-import { json, withUser } from "@/lib/api";
-import { restoreTransaction } from "@/lib/tx-service";
+import { json, withUser } from "@/lib/request/api";
+import { restoreTransaction } from "@/lib/transactions/tx-service";
 
 type Ctx = { params: Promise<{ id: string }> };
 

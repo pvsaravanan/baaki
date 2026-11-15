@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/ui/cn";
 import { AnchoredPopover, isInsidePopover } from "./anchored-popover";
 
 export interface SelectMenuOption {

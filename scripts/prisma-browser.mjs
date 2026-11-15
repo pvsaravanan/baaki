@@ -9,7 +9,7 @@
  *    asynchronously: see below).
  * 2. Bundle every prisma/migrations/<name>/migration.sql into
  *    src/generated/migrations.ts, so the app can bring the on-device
- *    database up to date on start-up (src/lib/local-db.ts).
+ *    database up to date on start-up (src/lib/db/local-db.ts).
  */
 import { readdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";

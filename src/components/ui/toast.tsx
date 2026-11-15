@@ -3,7 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from "rea
 import { createPortal } from "react-dom";
 import { Capacitor } from "@capacitor/core";
 import { AlertCircle, CheckCircle2, Info, X } from "lucide-react";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/ui/cn";
 
 type ToastTone = "success" | "error" | "info";
 

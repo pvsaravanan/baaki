@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { monthKeyOf, monthName, type MonthKey } from "@/lib/dates";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/ui/cn";
 import { AnchoredPopover, isInsidePopover } from "@/components/ui/anchored-popover";
 
 /** Order-independent comparison: true if `a` is chronologically after `b`. */

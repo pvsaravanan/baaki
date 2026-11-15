@@ -1,17 +1,17 @@
 "use client";
 import { useEffect, useState } from "react";
 import { ArrowLeft, Power, Tag, Target } from "lucide-react";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/ui/cn";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useAppData } from "./app-data";
-import { ApiError, apiPatch, apiPost } from "@/lib/http";
-import { toPaise, toRupees } from "@/lib/money";
+import { ApiError, apiPatch, apiPost } from "@/lib/request/http";
+import { toPaise, toRupees } from "@/lib/money/money";
 import { CATEGORY_KINDS, type CategoryKind } from "@/lib/constants";
-import { leastUsedColor } from "@/lib/category-colors";
+import { leastUsedColor } from "@/lib/presets/category-colors";
 import { CategoryColorPicker } from "./category-color-picker";
 import type { CategoryDTO } from "@/lib/types";
-import { resolveCategoryIcon } from "@/lib/category-icons";
+import { resolveCategoryIcon } from "@/lib/presets/category-icons";
 import { CategoryIconPicker } from "./category-icon-picker";
 
 const CARD = "rounded-xl border";

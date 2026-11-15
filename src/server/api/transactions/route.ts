@@ -1,11 +1,11 @@
 import type { NextRequest } from "@/server/request";
-import { prisma } from "@/lib/db";
-import { json, withUser } from "@/lib/api";
-import { createTransaction } from "@/lib/tx-service";
-import { transactionSchema } from "@/lib/validation";
-import { serializeTransaction, TXN_INCLUDE } from "@/lib/serialize";
-import { buildWhere, toFiniteInt } from "@/lib/query";
-import { loadMonthTotals, loadTotals } from "@/lib/queries";
+import { prisma } from "@/lib/db/db";
+import { json, withUser } from "@/lib/request/api";
+import { createTransaction } from "@/lib/transactions/tx-service";
+import { transactionSchema } from "@/lib/request/validation";
+import { serializeTransaction, TXN_INCLUDE } from "@/lib/db/serialize";
+import { buildWhere, toFiniteInt } from "@/lib/db/query";
+import { loadMonthTotals, loadTotals } from "@/lib/db/queries";
 
 export const GET = withUser(async (user, req: NextRequest) => {
   const params = req.nextUrl.searchParams;

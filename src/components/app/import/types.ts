@@ -1,4 +1,4 @@
-import type { ImportField } from "@/lib/csv";
+import type { ImportField } from "@/lib/io/csv";
 
 // ---- Types mirroring the /api/import contract -----------------------------
 

@@ -1,7 +1,7 @@
 "use client";
 import { createContext, useCallback, useContext, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/ui/cn";
 
 /**
  * Smooth month switching for pages driven by `?m=YYYY-MM`.

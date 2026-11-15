@@ -18,7 +18,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync 
 import { tmpdir } from "node:os";
 import { extname, join } from "node:path";
 import { sampleBackup, TODAY } from "./sample-data";
-import { DEFAULT_DASHBOARD_WIDGETS } from "../src/lib/dashboard-widgets";
+import { DEFAULT_DASHBOARD_WIDGETS } from "../src/lib/reports/dashboard-widgets";
 
 const root = join(__dirname, "..");
 const OUT = join(root, "out");

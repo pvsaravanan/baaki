@@ -1,8 +1,8 @@
 "use client";
 import React, { useState } from "react";
-import { formatINR, formatINRCompact } from "@/lib/money";
+import { formatINR, formatINRCompact } from "@/lib/money/money";
 import { daysInMonth, monthName, toISODate, type MonthKey } from "@/lib/dates";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/ui/cn";
 
 type DailyPoint = { date: string; expense: number; income?: number; count?: number };
 

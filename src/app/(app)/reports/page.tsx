@@ -2,9 +2,9 @@
 import { Suspense } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { usePageData } from "@/lib/local-api";
+import { usePageData } from "@/lib/request/local-api";
 import { monthLabel } from "@/lib/dates";
-import { parseReportPeriod, REPORT_PERIODS, type PresetPeriod, type ReportPeriod } from "@/lib/report-period";
+import { parseReportPeriod, REPORT_PERIODS, type PresetPeriod, type ReportPeriod } from "@/lib/reports/report-period";
 import { useMonthParam } from "@/components/app/use-month-param";
 import { MonthNav } from "@/components/app/month-nav";
 import { TopbarSlot } from "@/components/app/topbar-slot";
@@ -74,7 +74,7 @@ function PeriodChips({ period }: { period: ReportPeriod }) {
 }
 
 function DetailedReports({ report }: { report: string }) {
-  const { m, monthKey, isCurrent } = useMonthParam();
+  const { m, monthKey } = useMonthParam();
   const { data, error, isStale } = usePageData("reports", { m });
   const router = useRouter();
   const label = monthLabel(monthKey);
@@ -96,7 +96,7 @@ function DetailedReports({ report }: { report: string }) {
         <ExportButton />
       </div>
       <TopbarSlot>
-        <MonthNav monthKey={monthKey} isCurrent={isCurrent} bar />
+        <MonthNav monthKey={monthKey} bar />
       </TopbarSlot>
       <MonthContent>
         <ScreenData data={data} error={error}>

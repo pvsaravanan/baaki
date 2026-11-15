@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/ui/cn";
 
 /** The rows of one settings panel, in an outlined card. The panel's header carries the visible title. */
 export function Section({

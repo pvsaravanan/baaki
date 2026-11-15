@@ -1,4 +1,4 @@
-import { getBankByIcon } from "@/lib/banks";
+import { getBankByIcon } from "@/lib/presets/banks";
 import type { AccountDTO } from "@/lib/types";
 import { BankLogo } from "../bank-logo";
 import { CategoryIcon } from "../category-icon";

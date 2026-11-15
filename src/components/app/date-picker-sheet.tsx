@@ -2,8 +2,8 @@
 import { useState } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { clampDate, clampMonth, isoDate, leadingBlanks, monthKeyOfISO, moveToMonth, yearPageStart, type DateBounds } from "@/lib/date-picker";
-import { cn } from "@/lib/cn";
+import { clampDate, clampMonth, isoDate, leadingBlanks, monthKeyOfISO, moveToMonth, yearPageStart, type DateBounds } from "@/lib/ui/date-picker";
+import { cn } from "@/lib/ui/cn";
 import { addMonths, daysInMonth, formatDate, fromISODate, monthKeyString, monthLabel, monthName, toISODate, type MonthKey } from "@/lib/dates";
 import { Sheet } from "./sheet";
 

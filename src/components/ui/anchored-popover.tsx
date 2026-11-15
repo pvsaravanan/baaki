@@ -1,7 +1,7 @@
 "use client";
 import { forwardRef, useCallback, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/ui/cn";
 
 /**
  * A dropdown panel pinned to the element it opens from (a select's options,

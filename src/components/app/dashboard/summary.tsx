@@ -1,7 +1,7 @@
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { Money } from "@/components/money";
-import { formatDelta } from "@/lib/money";
-import { cn } from "@/lib/cn";
+import { formatDelta } from "@/lib/money/money";
+import { cn } from "@/lib/ui/cn";
 
 /** The big card: what you hold across every account. */
 export function BalanceHero({ balance }: { balance: number }) {

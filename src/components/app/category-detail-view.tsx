@@ -5,9 +5,9 @@ import { BackButton } from "@/components/app/back-button";
 import { CategoryActions } from "@/components/app/category-actions";
 import { Money } from "@/components/money";
 import { SpendBars, CategoryDonut, BudgetGauge } from "@/components/charts/chart-kit";
-import { formatDelta, formatINR } from "@/lib/money";
+import { formatDelta, formatINR } from "@/lib/money/money";
 import type { CategoryDTO } from "@/lib/types";
-import type { CategoryDetail } from "@/lib/analytics";
+import type { CategoryDetail } from "@/lib/reports/analytics";
 import { addMonths, monthKeyOf, monthLabel, type MonthKey } from "@/lib/dates";
 
 export function CategoryDetailView({ category, detail, monthKey }: { category: CategoryDTO; detail: CategoryDetail; monthKey: MonthKey }) {

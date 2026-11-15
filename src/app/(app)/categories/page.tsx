@@ -1,6 +1,6 @@
 "use client";
 import { Suspense } from "react";
-import { usePageData } from "@/lib/local-api";
+import { usePageData } from "@/lib/request/local-api";
 import { useMonthParam } from "@/components/app/use-month-param";
 import { MonthNav } from "@/components/app/month-nav";
 import { TopbarSlot } from "@/components/app/topbar-slot";
@@ -36,12 +36,12 @@ export default function CategoriesPage() {
 }
 
 function Categories() {
-  const { m, monthKey, isCurrent } = useMonthParam();
+  const { m, monthKey } = useMonthParam();
   const { data, error, isStale } = usePageData("categories", { m });
   return (
     <MonthScope monthKey={m} loading={isStale}>
       <TopbarSlot>
-        <MonthNav monthKey={monthKey} isCurrent={isCurrent} bar />
+        <MonthNav monthKey={monthKey} bar />
       </TopbarSlot>
       <div className="mb-4 flex items-end justify-between gap-3">
         <div className="min-w-0">

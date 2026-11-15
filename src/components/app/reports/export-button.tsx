@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Download, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
-import { downloadFile } from "@/lib/http";
+import { downloadFile } from "@/lib/request/http";
 
 /** Downloads all transactions as a CSV file. */
 export function ExportButton() {

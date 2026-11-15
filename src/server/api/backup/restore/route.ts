@@ -1,6 +1,6 @@
 import type { NextRequest } from "@/server/request";
-import { json, withUser } from "@/lib/api";
-import { restoreBackup } from "@/lib/backup";
+import { json, withUser } from "@/lib/request/api";
+import { restoreBackup } from "@/lib/io/backup";
 
 /** Replace everything on the device with a backup file's contents. */
 export const POST = withUser(async (user, req: NextRequest) => {

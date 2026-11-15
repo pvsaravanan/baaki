@@ -1,7 +1,7 @@
 "use client";
 import { Check } from "lucide-react";
-import { CATEGORY_COLORS, categoryColorName } from "@/lib/category-colors";
-import { cn } from "@/lib/cn";
+import { CATEGORY_COLORS, categoryColorName } from "@/lib/presets/category-colors";
+import { cn } from "@/lib/ui/cn";
 
 /**
  * Pick a category's colour from the palette. A colour saved before the
