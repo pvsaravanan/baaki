@@ -154,12 +154,12 @@ export function BudgetsView({
 function Overview({ status, countedAccounts }: { status: BudgetStatus; countedAccounts: string }) {
   const { remaining, state } = status;
   return (
-    <section className={cn(PANEL, "flex items-center gap-4 p-4")}>
+    <section className={cn(PANEL, "flex items-center gap-3 p-4 min-[420px]:gap-4")}>
       <UsageRing status={status} />
       <div aria-hidden className="w-px self-stretch bg-border/20" />
       <div className="min-w-0 flex-1">
         <p className="flex flex-wrap items-baseline gap-x-1.5 text-fg">
-          <Money paise={status.spent} tone="default" className="text-lg font-bold [overflow-wrap:anywhere] min-[420px]:text-xl" />
+          <Money paise={status.spent} tone="default" className="whitespace-nowrap text-base font-bold min-[420px]:text-xl" />
           <span className="text-sm text-muted">
             / <Money paise={status.limit} tone="default" />
           </span>
