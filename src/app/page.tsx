@@ -7,7 +7,7 @@ import { splashGone } from "@/components/app/splash-handoff";
 import { ChooseAvatarScreen } from "@/components/app/choose-avatar-screen";
 import { OnboardingScreen } from "@/components/app/onboarding-screen";
 import { WelcomeScreen } from "@/components/app/welcome-screen";
-import { queueAppTour } from "@/components/app/app-tour";
+import { queueAppTour } from "@/components/app/app-tour/events";
 
 const WELCOMED_KEY = "baaki.welcomed";
 

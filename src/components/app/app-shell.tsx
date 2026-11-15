@@ -16,7 +16,7 @@ import { useConfirm } from "@/components/ui/confirm";
 import { Logo } from "@/components/logo";
 import { LockGate } from "./lock-gate";
 import { NativeApp } from "./native-app";
-import { AppTour } from "./app-tour";
+import { AppTour } from "./app-tour/app-tour";
 
 /**
  * The app frame. Loads what every screen shares (accounts, categories,

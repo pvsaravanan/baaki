@@ -20,7 +20,7 @@ import { useAppData } from "./app-data";
 import { UserAvatar } from "./user-avatar";
 import { PageBanner } from "./page-banner";
 import { SettingsArt } from "./page-illustrations";
-import { startAppTour } from "./app-tour";
+import { startAppTour } from "./app-tour/events";
 import { DashboardSection } from "./settings/dashboard-section";
 import { DataSection } from "./settings/data-section";
 import { DefaultAccountRow } from "./settings/preferences-section";

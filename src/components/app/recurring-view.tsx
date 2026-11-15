@@ -24,7 +24,7 @@ import { ActionMenu, ActionMenuItem } from "@/components/ui/action-menu";
 import { Money } from "@/components/money";
 import { CategoryIcon } from "@/components/app/category-icon";
 import { SectionIcon } from "@/components/app/section-icon";
-import { RecurringForm } from "./recurring-form";
+import { RecurringForm } from "./recurring-form/recurring-form";
 import { useAppData, useLookups } from "./app-data";
 import { apiDelete, apiPatch, apiPost } from "@/lib/request/http";
 import { fromISODate, formatDate, toISODate } from "@/lib/dates";

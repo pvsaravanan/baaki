@@ -1,129 +1,23 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import {
-  ArrowDownRight,
-  ArrowLeft,
-  ArrowLeftRight,
-  ArrowUpRight,
-  CalendarDays,
-  CalendarOff,
-  ChevronDown,
-  ChevronRight,
-  ChevronUp,
-  Coins,
-  LayoutGrid,
-  Minus,
-  Pause,
-  Plus,
-  RefreshCw,
-  SlidersHorizontal,
-  Tag,
-  Wallet,
-  Zap,
-} from "lucide-react";
+import { ArrowLeft, ArrowLeftRight, Coins, LayoutGrid, Tag, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { SelectMenu } from "@/components/ui/select-menu";
-import { Switch } from "@/components/ui/switch";
-import { useAppData } from "./app-data";
-import { CategoryIcon } from "./category-icon";
-import { DatePickerSheet } from "./date-picker-sheet";
-import { RepeatCalendar } from "./repeat-calendar";
-import { CategoryPickerSheet } from "./transaction-form/category-picker-sheet";
-import { PickerSheet } from "./transaction-form/add-transaction-flow";
+import { useAppData } from "../app-data";
+import { CategoryIcon } from "../category-icon";
+import { DatePickerSheet } from "../date-picker-sheet";
+import { RepeatCalendar } from "../repeat-calendar";
+import { CategoryPickerSheet } from "../transaction-form/category-picker-sheet";
+import { PickerSheet } from "../transaction-form/picker-sheet";
 import { ApiError, apiPatch, apiPost } from "@/lib/request/http";
-import { formatDate, fromISODate, toISODate } from "@/lib/dates";
+import { toISODate } from "@/lib/dates";
 import { formatINR, toPaise, toRupees } from "@/lib/money/money";
-import { QuickCategoryModal } from "./quick-category-modal";
-import { FREQUENCIES, type Frequency } from "@/lib/constants";
+import { QuickCategoryModal } from "../quick-category-modal";
+import { type Frequency } from "@/lib/constants";
 import type { RecurringDTO } from "@/lib/types";
 import { cn } from "@/lib/ui/cn";
-
-type RecurringType = RecurringDTO["type"];
-type Picker = "category" | "account" | "toAccount" | "start" | "end" | null;
-
-const TYPE_OPTIONS: { value: RecurringType; label: string; icon: React.ElementType }[] = [
-  { value: "expense", label: "Expense", icon: ArrowDownRight },
-  { value: "income", label: "Income", icon: ArrowUpRight },
-  { value: "transfer", label: "Transfer", icon: ArrowLeftRight },
-];
-
-/** The everyday schedules get a chip each; Custom opens up every unit. */
-const QUICK_FREQUENCIES: { value: Frequency; label: string }[] = [
-  { value: "monthly", label: "Monthly" },
-  { value: "weekly", label: "Weekly" },
-  { value: "yearly", label: "Yearly" },
-];
-const isQuick = (f: Frequency) => QUICK_FREQUENCIES.some((q) => q.value === f);
-
-const UNITS: Record<Frequency, [one: string, many: string]> = {
-  daily: ["day", "days"],
-  weekly: ["week", "weeks"],
-  monthly: ["month", "months"],
-  quarterly: ["quarter", "quarters"],
-  yearly: ["year", "years"],
-};
-
-const MAX_INTERVAL = 365;
-// No fill of their own: they sit on the same colour, and on the emulator's software
-// renderer, filled rounded cards here made the WebView draw ghost copies of the form.
-const CARD = "rounded-xl border";
-const VALUE = "text-body-sm";
-const CHIP = "h-10 min-w-0 rounded-lg border text-[13px] font-bold transition-colors";
-
-function Required() {
-  return <span aria-hidden className="ml-0.5 text-expense">*</span>;
-}
-
-function dateLabel(iso: string): string {
-  const date = fromISODate(iso);
-  return date ? formatDate(date) : iso;
-}
-
-function FieldError({ message }: { message?: string }) {
-  return message ? <p className="mt-1 text-xs text-expense">{message}</p> : null;
-}
-
-/** A choice made on a sheet: its label and current value, opening the sheet on tap. */
-function PickerRow({
-  icon,
-  label,
-  value,
-  placeholder,
-  required,
-  error,
-  onClick,
-  className,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value?: string;
-  placeholder?: string;
-  required?: boolean;
-  error?: string;
-  onClick: () => void;
-  className?: string;
-}) {
-  return (
-    <div className={cn("min-w-0", className)}>
-      <button
-        type="button"
-        onClick={onClick}
-        className={cn(CARD, "flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition-colors active:bg-surface-2", error ? "border-expense" : "border-border")}
-      >
-        <span className="flex w-8 shrink-0 justify-center text-fg">{icon}</span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-sm font-bold text-fg">
-            {label}
-            {required && <Required />}
-          </span>
-          <span className={cn("block truncate", VALUE, value ? "text-fg" : "text-muted")}>{value ?? placeholder}</span>
-        </span>
-        <ChevronRight aria-hidden className="h-5 w-5 shrink-0 text-fg" />
-      </button>
-      <FieldError message={error} />
-    </div>
-  );
-}
+import { RepeatSection } from "./repeat-section";
+import { MoreOptions } from "./more-options";
+import { type Picker, type RecurringType, TYPE_OPTIONS, MAX_INTERVAL, CARD, VALUE, Required, FieldError, PickerRow, isQuick } from "./parts";
 
 export function RecurringForm({
   initial,
@@ -417,169 +311,30 @@ export function RecurringForm({
           )}
         </div>
 
-        <section className={cn(CARD, "space-y-3 border-border p-3")}>
-          <h3 className="flex items-center gap-2.5 text-base font-bold text-fg">
-            <span className="flex w-8 shrink-0 justify-center">
-              <RefreshCw aria-hidden className="h-6 w-6" />
-            </span>
-            Repeat
-          </h3>
+        <RepeatSection
+          custom={custom}
+          onCustom={setCustom}
+          frequency={frequency}
+          onFrequency={setFrequency}
+          interval={interval}
+          onInterval={setInterval}
+          intervalNum={intervalNum}
+          error={errors.interval}
+          startDate={startDate}
+          onPickStart={() => setPicker("start")}
+        />
 
-          <div>
-            <p className="mb-1.5 text-body-sm text-fg">Frequency</p>
-            <div role="radiogroup" aria-label="Frequency" className="grid grid-cols-4 gap-1.5">
-              {QUICK_FREQUENCIES.map(({ value, label }) => {
-                const active = !custom && frequency === value;
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    role="radio"
-                    aria-checked={active}
-                    onClick={() => {
-                      setCustom(false);
-                      setFrequency(value);
-                    }}
-                    className={cn(CHIP, active ? "border-border bg-brand text-brand-fg" : "border-border/30 text-fg")}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-              <button
-                type="button"
-                role="radio"
-                aria-checked={custom}
-                onClick={() => setCustom(true)}
-                className={cn(CHIP, custom ? "border-border bg-brand text-brand-fg" : "border-border/30 text-fg")}
-              >
-                Custom
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-              {/* With the unit menu there's no room for all three on one line of a phone. */}
-              <span id="repeat-every" className={cn("text-body-sm text-fg", custom && "w-full sm:w-auto")}>Repeat every</span>
-              <div className={cn("flex h-11 items-center rounded-lg border", errors.interval ? "border-expense" : "border-border")}>
-                <button
-                  type="button"
-                  onClick={() => setInterval(String(Math.max(1, intervalNum - 1)))}
-                  disabled={intervalNum <= 1}
-                  aria-label="Decrease"
-                  className="flex h-full w-9 items-center justify-center text-fg disabled:text-faint"
-                >
-                  <Minus className="h-4 w-4" />
-                </button>
-                <input
-                  inputMode="numeric"
-                  value={interval}
-                  onChange={(e) => setInterval(e.target.value.replace(/\D/g, "").slice(0, 3))}
-                  onBlur={() => setInterval(String(Math.min(MAX_INTERVAL, Math.max(1, intervalNum))))}
-                  aria-labelledby="repeat-every"
-                  className="tnum w-9 bg-transparent text-center text-[16px] text-fg focus:outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => setInterval(String(Math.min(MAX_INTERVAL, intervalNum + 1)))}
-                  disabled={intervalNum >= MAX_INTERVAL}
-                  aria-label="Increase"
-                  className="flex h-full w-9 items-center justify-center text-fg disabled:text-faint"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
-              </div>
-              {custom ? (
-                <SelectMenu
-                  soft
-                  ariaLabel="Repeat unit"
-                  value={frequency}
-                  onChange={(v) => setFrequency(v as Frequency)}
-                  options={FREQUENCIES.map((f) => ({ value: f, label: UNITS[f][intervalNum === 1 ? 0 : 1] }))}
-                  className="w-32"
-                />
-              ) : (
-                <span className="text-body-sm text-fg">{UNITS[frequency][intervalNum === 1 ? 0 : 1]}</span>
-              )}
-            </div>
-            <FieldError message={errors.interval} />
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setPicker("start")}
-            className="flex w-full items-center gap-2.5 border-t border-border/15 pt-3 text-left"
-          >
-            <span className="flex w-8 shrink-0 justify-center text-fg">
-              <CalendarDays aria-hidden className="h-6 w-6" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm font-bold text-fg">
-                Start date
-                <Required />
-              </span>
-              <span className={cn("block text-fg", VALUE)}>{dateLabel(startDate)}</span>
-            </span>
-            <ChevronRight aria-hidden className="h-5 w-5 shrink-0 text-fg" />
-          </button>
-        </section>
-
-        <section className={cn(CARD, "border-border")}>
-          <button
-            type="button"
-            onClick={() => setMoreOpen((o) => !o)}
-            aria-expanded={moreOpen}
-            className="flex w-full items-center gap-2.5 p-3 text-left text-base font-bold text-fg"
-          >
-            <span className="flex w-8 shrink-0 justify-center">
-              <SlidersHorizontal aria-hidden className="h-6 w-6" />
-            </span>
-            <span className="min-w-0 flex-1">More options</span>
-            {moreOpen ? <ChevronUp aria-hidden className="h-5 w-5" /> : <ChevronDown aria-hidden className="h-5 w-5" />}
-          </button>
-          {moreOpen && (
-            <div className="divide-y divide-border/15 border-t border-border/15">
-              <div className="px-3 py-3">
-                <button type="button" onClick={() => setPicker("end")} className="flex w-full items-center gap-2.5 text-left">
-                  <span className="flex w-8 shrink-0 justify-center text-fg">
-                    <CalendarOff aria-hidden className="h-6 w-6" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-bold text-fg">End date</span>
-                    <span className={cn("block", VALUE, endDate ? "text-fg" : "text-muted")}>{endDate ? dateLabel(endDate) : "No end date"}</span>
-                  </span>
-                  <ChevronRight aria-hidden className="h-5 w-5 shrink-0 text-fg" />
-                </button>
-                <FieldError message={errors.endDate} />
-              </div>
-              <div className="flex items-start gap-2.5 px-3 py-3">
-                <span className="flex w-8 shrink-0 justify-center text-fg">
-                  <Zap aria-hidden className="h-6 w-6" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-bold text-fg">Add automatically when due</span>
-                  <span className="mt-0.5 block text-xs text-muted">
-                    On: the app adds each payment on its date for you. Off: the app only reminds you, and you add it with one tap.
-                  </span>
-                </span>
-                <Switch checked={autoPost} onChange={setAutoPost} label="Add automatically when due" />
-              </div>
-              <div className="flex items-start gap-2.5 px-3 py-3">
-                <span className="flex w-8 shrink-0 justify-center text-fg">
-                  <Pause aria-hidden className="h-6 w-6" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-bold text-fg">Active</span>
-                  <span className="mt-0.5 block text-xs text-muted">
-                    Off: paused. Nothing is added and no reminders show, but it isn&apos;t deleted.
-                  </span>
-                </span>
-                <Switch checked={isActive} onChange={setIsActive} label="Active" />
-              </div>
-            </div>
-          )}
-        </section>
+        <MoreOptions
+          open={moreOpen}
+          onToggle={() => setMoreOpen((o) => !o)}
+          endDate={endDate}
+          endError={errors.endDate}
+          onPickEnd={() => setPicker("end")}
+          autoPost={autoPost}
+          onAutoPost={setAutoPost}
+          isActive={isActive}
+          onActive={setIsActive}
+        />
       </div>
 
       <footer className="sticky bottom-0 grid grid-cols-2 gap-3 border-t border-border/20 bg-surface px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 sm:pb-4">

@@ -4,7 +4,7 @@ import { CreditCard } from "lucide-react";
 import { apiPatch, ApiError } from "@/lib/request/http";
 import { formatINR } from "@/lib/money/money";
 import { useAppData } from "@/components/app/app-data";
-import { PickerSheet } from "@/components/app/transaction-form/add-transaction-flow";
+import { PickerSheet } from "@/components/app/transaction-form/picker-sheet";
 import { useToast } from "@/components/ui/toast";
 import { NavRow } from "./settings-rows";
 
