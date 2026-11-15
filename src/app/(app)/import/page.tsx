@@ -1,14 +1,17 @@
-import { getCurrentUser } from "@/lib/auth";
-import { PageHeader } from "@/components/app/page-header";
+import { PageBanner } from "@/components/app/page-banner";
 import { ImportView } from "@/components/app/import-view";
+import { ImportArt } from "@/components/app/page-illustrations";
 
 export const metadata = { title: "Import · baaki" };
 
-export default async function ImportPage() {
-  await getCurrentUser();
+export default function ImportPage() {
   return (
     <div>
-      <PageHeader title="Import transactions" description="Bring in transactions from a CSV file." />
+      <PageBanner
+        title="Import"
+        subtitle="Bring in a bank statement, or restore a baaki backup."
+        art={<ImportArt />}
+      />
       <ImportView />
     </div>
   );

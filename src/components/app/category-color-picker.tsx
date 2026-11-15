@@ -1,7 +1,7 @@
 "use client";
 import { Check } from "lucide-react";
-import { CATEGORY_COLORS, categoryColorName } from "@/lib/category-colors";
-import { cn } from "@/lib/cn";
+import { CATEGORY_COLORS, categoryColorName } from "@/lib/presets/category-colors";
+import { cn } from "@/lib/ui/cn";
 
 /**
  * Pick a category's colour from the palette. A colour saved before the
@@ -29,8 +29,8 @@ export function CategoryColorPicker({ value, onChange }: { value: string; onChan
               className={cn(
                 "flex aspect-square items-center justify-center border transition-[transform,box-shadow] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
                 selected
-                  ? "border-fg shadow-stamp-sm"
-                  : "border-border/40 hover:-translate-x-px hover:-translate-y-px hover:border-border hover:shadow-stamp-sm",
+                  ? "border-fg"
+                  : "border-border/40 hover:border-border",
               )}
               style={{ backgroundColor: c.hex }}
             >

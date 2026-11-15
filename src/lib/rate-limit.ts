@@ -1,5 +1,5 @@
 import "server-only";
-import { prisma } from "./db";
+import { prisma } from "./db/db";
 
 /**
  * Generic fixed-window rate limiter for our own API routes.

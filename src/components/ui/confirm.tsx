@@ -55,9 +55,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
             </Button>
           </div>
         }
-      >
-        <span className="sr-only">{state?.message}</span>
-      </Modal>
+      />
     </ConfirmContext.Provider>
   );
 }

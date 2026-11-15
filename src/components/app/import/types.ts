@@ -1,4 +1,4 @@
-import type { ImportField } from "@/lib/csv";
+import type { ImportField } from "@/lib/io/csv";
 
 // ---- Types mirroring the /api/import contract -----------------------------
 
@@ -48,7 +48,6 @@ export const FIELDS: FieldMeta[] = [
   { key: "type", label: "Type", hints: ["type", "dr", "cr", "direction"] },
   { key: "category", label: "Category", hints: ["categ", "tag"] },
   { key: "account", label: "Account", hints: ["account", "acct", "bank", "card"] },
-  { key: "paymentMethod", label: "Payment method", hints: ["payment", "method", "mode", "channel"] },
   { key: "notes", label: "Notes", hints: ["note", "remark", "comment"] },
 ];
 

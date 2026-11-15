@@ -1,7 +1,7 @@
 "use client";
 import { forwardRef, useCallback, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/ui/cn";
 
 /**
  * A dropdown panel pinned to the element it opens from (a select's options,
@@ -167,7 +167,7 @@ export const AnchoredPopover = forwardRef<
             style={{ top: pos.top, bottom: pos.bottom, left: pos.left, width: pos.width, maxHeight: pos.maxHeight }}
             className={cn(
               // Above the modal (z-50) and its backdrop.
-              "fixed z-[70] overscroll-contain rounded-none border-2 border-border bg-surface shadow-stamp-lg animate-scale-in",
+              "fixed z-[70] overscroll-contain rounded-xl border border-border/40 bg-surface shadow-lg animate-scale-in",
               scroll === "panel" ? "overflow-y-auto" : "flex flex-col overflow-hidden",
               pos.above ? "origin-bottom" : "origin-top",
               className,

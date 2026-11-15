@@ -1,8 +1,9 @@
 "use client";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { Capacitor } from "@capacitor/core";
 import { AlertCircle, CheckCircle2, Info, X } from "lucide-react";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/ui/cn";
 
 type ToastTone = "success" | "error" | "info";
 
@@ -25,6 +26,18 @@ const ToastContext = createContext<ToastContextValue | null>(null);
 
 let counter = 0;
 
+/** A light tap when something saves (and a firmer one when it fails), on the phone. */
+function haptic(kind: "success" | "error") {
+  if (!Capacitor.isNativePlatform()) return;
+  import("@capacitor/haptics")
+    .then(({ Haptics, NotificationType }) =>
+      Haptics.notification({ type: kind === "success" ? NotificationType.Success : NotificationType.Error }),
+    )
+    .catch(() => {
+      /* no vibration motor, or it's switched off */
+    });
+}
+
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
@@ -42,8 +55,14 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
   const value: ToastContextValue = {
     toast,
-    success: (message, action) => toast({ message, tone: "success", action }),
-    error: (message) => toast({ message, tone: "error", duration: 6000 }),
+    success: (message, action) => {
+      haptic("success");
+      toast({ message, tone: "success", action });
+    },
+    error: (message) => {
+      haptic("error");
+      toast({ message, tone: "error", duration: 6000 });
+    },
     info: (message) => toast({ message, tone: "info" }),
   };
 
@@ -68,7 +87,7 @@ function Toaster({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: numbe
   useEffect(() => setMounted(true), []);
   if (!mounted || typeof document === "undefined") return null;
   return createPortal(
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[60] flex flex-col items-center gap-2 p-4 sm:bottom-4 sm:right-4 sm:left-auto sm:items-end">
+    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] z-[60] flex flex-col items-center gap-2 px-4 sm:bottom-4 sm:right-4 sm:left-auto sm:items-end sm:p-4">
       {toasts.map((t) => (
         <ToastItem key={t.id} toast={t} onDismiss={onDismiss} />
       ))}
@@ -92,8 +111,8 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: number)
   return (
     <div
       className={cn(
-        "pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-none border border-border",
-        "bg-surface px-4 py-3 shadow-stamp animate-slide-up",
+        "pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-xl border border-border/40",
+        "bg-surface px-4 py-3 shadow-lg animate-slide-up",
       )}
       role="status"
     >

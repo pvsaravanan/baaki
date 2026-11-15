@@ -37,7 +37,7 @@ const db = vi.hoisted(() => ({
     return [{ count: row.count, resetAt: row.resetAt }];
   }),
 }));
-vi.mock("./db", () => ({ prisma: db }));
+vi.mock("./db/db", () => ({ prisma: db }));
 
 import { clientKey, rateLimit, resetRateLimit } from "./rate-limit";
 

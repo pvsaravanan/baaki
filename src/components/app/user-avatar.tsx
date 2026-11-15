@@ -1,14 +1,47 @@
+import Image from "next/image";
 import { UserRound } from "lucide-react";
-import { cn } from "@/lib/cn";
+import { readAvatar, type AvatarId } from "@/lib/presets/avatars";
+import { cn } from "@/lib/ui/cn";
+import { AVATAR_IMAGES, AVATAR_THUMBS } from "./avatar-assets";
 
 /**
- * The user's profile photo, or a generic person silhouette when they haven't
- * uploaded one. `className` sets the size (e.g. "h-7 w-7").
+ * One of the profile pictures, filling its circle. `className` sets the size;
+ * `eager` loads it straight away rather than when it scrolls into view;
+ * `thumb` uses the small raster copy, for showing many at once (up to 56 px).
+ */
+export function AvatarPicture({
+  id,
+  className,
+  eager,
+  thumb,
+}: {
+  id: AvatarId;
+  className?: string;
+  eager?: boolean;
+  thumb?: boolean;
+}) {
+  return (
+    <Image
+      src={(thumb ? AVATAR_THUMBS : AVATAR_IMAGES)[id]}
+      alt=""
+      loading={eager ? "eager" : "lazy"}
+      draggable={false}
+      className={cn("shrink-0 select-none rounded-full object-cover", className)}
+    />
+  );
+}
+
+/**
+ * The user's profile picture, a photo uploaded before pictures replaced
+ * uploads, or a generic person silhouette. `className` sets the size (e.g.
+ * "h-7 w-7").
  */
 export function UserAvatar({ url, className }: { url: string | null; className?: string }) {
-  if (url) {
+  const avatar = readAvatar(url);
+  if (avatar.kind === "picture") return <AvatarPicture id={avatar.id} className={className} />;
+  if (avatar.kind === "photo") {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={url} alt="" className={cn("shrink-0 rounded-full border border-border object-cover", className)} />;
+    return <img src={avatar.src} alt="" className={cn("shrink-0 rounded-full border border-border object-cover", className)} />;
   }
   return (
     <span

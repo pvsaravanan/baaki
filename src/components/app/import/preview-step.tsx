@@ -2,8 +2,8 @@ import { ArrowLeft, AlertCircle, X } from "lucide-react";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/misc";
-import { cn } from "@/lib/cn";
-import type { ImportField } from "@/lib/csv";
+import { cn } from "@/lib/ui/cn";
+import type { ImportField } from "@/lib/io/csv";
 import { FIELDS, type ImportSummary } from "./types";
 
 export function PreviewStep({
@@ -34,7 +34,7 @@ export function PreviewStep({
       </div>
 
       {summary.willImport === 0 && (
-        <div className="flex items-start gap-2 rounded-none border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">
+        <div className="flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           <span>
             Nothing will be imported. This can happen if every row is invalid or a duplicate, or if no account
@@ -82,7 +82,7 @@ export function PreviewStep({
         <Card>
           <CardHeader
             title="Rows that won't import"
-            subtitle="Fix these in your CSV and re-upload to include them."
+            subtitle="Fix these in your file and re-upload to include them."
             action={<Badge tone="expense">{summary.invalid}</Badge>}
           />
           <CardBody className="p-0">
@@ -97,7 +97,7 @@ export function PreviewStep({
                 <tbody className="divide-y divide-border">
                   {summary.invalidRows.map((r) => (
                     <tr key={r.index}>
-                      <td className="whitespace-nowrap px-4 py-2 tabular-nums text-muted">#{r.index + 2}</td>
+                      <td className="whitespace-nowrap px-4 py-2 text-muted">#{r.index + 2}</td>
                       <td className="px-4 py-2">
                         <ul className="space-y-0.5">
                           {r.errors.map((err, i) => (
@@ -154,9 +154,9 @@ function StatTile({
     muted: "text-faint",
   };
   return (
-    <div className="rounded-none border border-border bg-surface p-4 shadow-card">
+    <div className="rounded-xl border border-border bg-surface p-4">
       <p className="text-xs font-medium text-muted">{label}</p>
-      <p className={cn("mt-1.5 text-2xl font-semibold tabular-nums", colors[tone])}>{value}</p>
+      <p className={cn("mt-1.5 text-2xl font-semibold", colors[tone])}>{value}</p>
     </div>
   );
 }

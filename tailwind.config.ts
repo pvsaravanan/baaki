@@ -44,33 +44,39 @@ const config: Config = {
         xl: "16px",
         full: "9999px",
       },
-      // Roboto Mono is the entire system, with a mono fallback chain.
+      // Plus Jakarta Sans is the entire system (set up in src/app/layout.tsx).
       fontFamily: {
         mono: [
-          "var(--font-mono)",
-          "Roboto Mono",
-          "IBM Plex Mono",
           "ui-monospace",
           "SFMono-Regular",
           "Menlo",
           "Consolas",
           "monospace",
         ],
-        sans: ["var(--font-mono)", "Roboto Mono", "IBM Plex Mono", "ui-monospace", "monospace"],
+        sans: ["var(--font-sans)", "Plus Jakarta Sans", "system-ui", "sans-serif"],
+      },
+      // Plus Jakarta Sans draws lighter than the design was made with, so each
+      // weight name sits a step heavier: regular text 500, medium 700, bold 800.
+      fontWeight: {
+        normal: "500",
+        medium: "700",
+        semibold: "800",
+        bold: "800",
+        extrabold: "800",
       },
       // The College.xyz type scale, verbatim.
       fontSize: {
-        "2xs": ["11px", { lineHeight: "14px", letterSpacing: "0.08em", fontWeight: "700" }],
+        "2xs": ["11px", { lineHeight: "14px", letterSpacing: "0.08em", fontWeight: "800" }],
         "display": ["42px", { lineHeight: "50px", letterSpacing: "-1.04px", fontWeight: "800" }],
         "headline-lg": ["32px", { lineHeight: "38px", letterSpacing: "-0.28px", fontWeight: "800" }],
-        "headline-md": ["25px", { lineHeight: "30px", letterSpacing: "-0.19px", fontWeight: "700" }],
-        "headline-sm": ["19px", { lineHeight: "23px", letterSpacing: "1px", fontWeight: "700" }],
+        "headline-md": ["25px", { lineHeight: "30px", letterSpacing: "-0.19px", fontWeight: "800" }],
+        "headline-sm": ["19px", { lineHeight: "23px", letterSpacing: "1px", fontWeight: "800" }],
         "body-lg": ["16px", { lineHeight: "24px" }],
         "body-md": ["15px", { lineHeight: "24px" }],
         "body-sm": ["14px", { lineHeight: "20px" }],
-        "label-lg": ["14px", { lineHeight: "20px", letterSpacing: "0.02em", fontWeight: "700" }],
-        "label-md": ["12px", { lineHeight: "16px", letterSpacing: "0.08em", fontWeight: "700" }],
-        "label-sm": ["11px", { lineHeight: "14px", letterSpacing: "0.08em", fontWeight: "700" }],
+        "label-lg": ["14px", { lineHeight: "20px", letterSpacing: "0.02em", fontWeight: "800" }],
+        "label-md": ["12px", { lineHeight: "16px", letterSpacing: "0.08em", fontWeight: "800" }],
+        "label-sm": ["11px", { lineHeight: "14px", letterSpacing: "0.08em", fontWeight: "800" }],
       },
       // The 8/16/24/32/56 modular rhythm.
       spacing: {
@@ -112,6 +118,11 @@ const config: Config = {
           from: { transform: "translateY(6px)", opacity: "0" },
           to: { transform: "translateY(0)", opacity: "1" },
         },
+        // Onboarding pages: a slow, soft arrival.
+        "slow-enter": {
+          from: { transform: "translateY(14px)", opacity: "0" },
+          to: { transform: "translateY(0)", opacity: "1" },
+        },
       },
       animation: {
         "fade-in": "fade-in 0.15s ease-out",
@@ -119,6 +130,7 @@ const config: Config = {
         "sheet-up": "sheet-up 0.24s cubic-bezier(0.32, 0.72, 0, 1)",
         "scale-in": "scale-in 0.14s ease-out",
         "enter": "enter 0.22s cubic-bezier(0.32, 0.72, 0, 1)",
+        "slow-enter": "slow-enter 0.9s cubic-bezier(0.22, 0.61, 0.36, 1) both",
       },
     },
   },

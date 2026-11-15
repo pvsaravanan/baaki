@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef } from "react";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/ui/cn";
 import { AnchoredPopover, isInsidePopover } from "./anchored-popover";
 
 /**
@@ -77,7 +77,7 @@ export function ActionMenuItem({
       role="menuitem"
       onClick={onClick}
       className={cn(
-        "flex w-full items-center gap-2 rounded-none px-2.5 py-1.5 text-sm transition-colors hover:bg-surface-2",
+        "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm transition-colors hover:bg-surface-2",
         danger ? "text-expense" : "text-fg",
       )}
     >

@@ -1,60 +1,107 @@
-import { requireUserOrRedirect } from "@/lib/auth";
-import { getMonthlyAnalytics } from "@/lib/analytics";
-import { loadCalcTxns } from "@/lib/queries";
-import { filterRange } from "@/lib/calculations";
-import { monthKeyOf, monthKeyString, monthLabel, monthRange, parseMonthKey, toISODate, type MonthKey } from "@/lib/dates";
-import { PageHeader } from "@/components/app/page-header";
+"use client";
+import { Suspense } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
+import { usePageData } from "@/lib/request/local-api";
+import { monthLabel } from "@/lib/dates";
+import { parseReportPeriod, REPORT_PERIODS, type PresetPeriod, type ReportPeriod } from "@/lib/reports/report-period";
+import { useMonthParam } from "@/components/app/use-month-param";
 import { MonthNav } from "@/components/app/month-nav";
-import { MonthContent, MonthScope } from "@/components/app/month-scope";
-import { ReportsView, type PerAccountRow, type ReportsAnalytics } from "@/components/app/reports-view";
+import { TopbarSlot } from "@/components/app/topbar-slot";
+import { MonthContent, MonthScope, useMonthScope } from "@/components/app/month-scope";
+import { parseReportType, ReportsView } from "@/components/app/reports-view";
+import { ChipRow } from "@/components/app/reports/chip-row";
+import { ExportButton } from "@/components/app/reports/export-button";
+import { PeriodOverview } from "@/components/app/reports/period-overview";
+import { MonthChip, RangeChip } from "@/components/app/reports/period-picker";
+import { ScreenData } from "@/components/app/screen-data";
+import { PageBanner } from "@/components/app/page-banner";
+import { ReportsArt } from "@/components/app/page-illustrations";
 
-export const metadata = { title: "Reports · baaki" };
-
-export default async function ReportsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ m?: string }>;
-}) {
-  const user = await requireUserOrRedirect();
-  const { m } = await searchParams;
-  const nowKey = monthKeyOf(new Date());
-  const monthKey: MonthKey = parseMonthKey(m) ?? nowKey;
-  const isCurrent = monthKey.year === nowKey.year && monthKey.month === nowKey.month;
-
-  const txns = await loadCalcTxns(user.id);
-  const analytics = await getMonthlyAnalytics(user.id, monthKey, txns);
-  const label = monthLabel(monthKey);
-
-  // Per-account activity for the selected month.
-  const { start, end } = monthRange(monthKey);
-  const monthTxns = filterRange(txns, start, end);
-  const byAccount = new Map<string, PerAccountRow>();
-  for (const t of monthTxns) {
-    const row = byAccount.get(t.accountId) ?? { accountId: t.accountId, expense: 0, income: 0, count: 0 };
-    row.count += 1;
-    if (t.type === "expense") row.expense += t.amount;
-    else if (t.type === "income") row.income += t.amount;
-    byAccount.set(t.accountId, row);
-  }
-  const perAccount = [...byAccount.values()];
-
-  // Serialize Dates for the client component.
-  const serialized: ReportsAnalytics = {
-    ...analytics,
-    largestExpense: analytics.largestExpense
-      ? { ...analytics.largestExpense, date: toISODate(analytics.largestExpense.date) }
-      : null,
-  };
-
+export default function ReportsPage() {
   return (
-    <MonthScope monthKey={monthKeyString(monthKey)}>
-      <PageHeader
-        title="Reports"
-        description={`Financial breakdown for ${label}.`}
-        actions={<MonthNav monthKey={monthKey} isCurrent={isCurrent} className="w-full sm:w-auto" />}
-      />
+    <Suspense>
+      <Reports />
+    </Suspense>
+  );
+}
+
+function Reports() {
+  // `?report=` opens the detailed monthly reports; otherwise it's the overview.
+  const report = useSearchParams().get("report");
+  return report ? <DetailedReports report={report} /> : <Overview />;
+}
+
+function Overview() {
+  const period = parseReportPeriod(useSearchParams().get("period"));
+  const { data, error, isStale } = usePageData("reportsOverview", { period });
+  return (
+    <MonthScope monthKey={period} loading={isStale}>
+      <PageBanner back={false} title="Reports" subtitle="Understand your spending patterns." art={<ReportsArt />}>
+        <div className="mt-3">
+          <ExportButton />
+        </div>
+      </PageBanner>
+      <div className="mb-4">
+        <PeriodChips period={period} />
+      </div>
       <MonthContent>
-        <ReportsView analytics={serialized} monthLabel={label} perAccount={perAccount} />
+        <ScreenData data={data} error={error}>
+          {(d) => <PeriodOverview key={period} report={d.report} />}
+        </ScreenData>
+      </MonthContent>
+    </MonthScope>
+  );
+}
+
+function PeriodChips({ period }: { period: ReportPeriod }) {
+  const scope = useMonthScope();
+  const pathname = usePathname();
+  // Shows the chip you tapped at once, while its numbers load.
+  const shown = parseReportPeriod(scope?.targetKey ?? period);
+  const go = (value: ReportPeriod) => scope?.navigate(`${pathname}?period=${value}`, value);
+  return (
+    <ChipRow
+      label="Report period"
+      options={REPORT_PERIODS}
+      value={REPORT_PERIODS.some((p) => p.value === shown) ? (shown as PresetPeriod) : null}
+      onChange={go}
+    >
+      <MonthChip period={shown} onPick={go} />
+      <RangeChip period={shown} onPick={go} />
+    </ChipRow>
+  );
+}
+
+function DetailedReports({ report }: { report: string }) {
+  const { m, monthKey } = useMonthParam();
+  const { data, error, isStale } = usePageData("reports", { m });
+  const router = useRouter();
+  const label = monthLabel(monthKey);
+  return (
+    <MonthScope monthKey={m} loading={isStale}>
+      <div className="mb-3 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          aria-label="Back to Reports"
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-border/25 text-fg transition-colors active:bg-surface-2 print:hidden"
+        >
+          <ArrowLeft className="h-6 w-6" />
+        </button>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-headline-sm tracking-normal text-fg sm:text-headline-md">Detailed Reports</h1>
+          <p className="mt-0.5 text-xs text-muted sm:text-body-sm">Breakdown for {label}.</p>
+        </div>
+        <ExportButton />
+      </div>
+      <TopbarSlot>
+        <MonthNav monthKey={monthKey} bar />
+      </TopbarSlot>
+      <MonthContent>
+        <ScreenData data={data} error={error}>
+          {(d) => <ReportsView analytics={d.analytics} monthLabel={label} perAccount={d.perAccount} initialReport={parseReportType(report)} />}
+        </ScreenData>
       </MonthContent>
     </MonthScope>
   );

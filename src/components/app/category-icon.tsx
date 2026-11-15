@@ -1,7 +1,7 @@
 import Image, { getImageProps } from "next/image";
-import { resolveCategoryIcon, type CategoryIconKey } from "@/lib/category-icons";
+import { resolveCategoryIcon, type CategoryIconKey } from "@/lib/presets/category-icons";
 import { CATEGORY_ICON_IMAGES } from "./category-icon-assets";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/ui/cn";
 
 /**
  * A category's illustrated icon. Accepts whatever is stored on the category

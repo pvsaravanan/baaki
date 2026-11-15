@@ -1,4 +1,5 @@
 "use client";
+import { queueAppTour } from "@/components/app/app-tour/events";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -50,6 +51,8 @@ export default function RegisterPage() {
       setCheckEmail(true);
       return;
     }
+    // A new account gets the app tour when the dashboard opens.
+    queueAppTour();
     router.push("/dashboard");
     router.refresh();
   }

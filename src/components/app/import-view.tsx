@@ -1,11 +1,13 @@
 "use client";
 import { useRef, useState } from "react";
 import Papa from "papaparse";
+import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/toast";
 import { useAppData } from "./app-data";
-import { apiPost, ApiError } from "@/lib/http";
-import { findHeaderRow, hasAmountMapping, recordsFromRows, type ColumnMapping, type ImportField } from "@/lib/csv";
-import { pickSheet, sheetToRows } from "@/lib/spreadsheet";
+import { apiPost, ApiError } from "@/lib/request/http";
+import { findHeaderRow, hasAmountMapping, recordsFromRows, type ColumnMapping, type ImportField } from "@/lib/io/csv";
+import { pickSheet, sheetToRows } from "@/lib/io/spreadsheet";
+import { isBackupFileName, useBackupRestore } from "./settings/use-backup-restore";
 import { Stepper } from "./import/stepper";
 import { UploadStep } from "./import/upload-step";
 import { MapStep } from "./import/map-step";
@@ -26,13 +28,16 @@ import {
 export function ImportView() {
   const { accounts, refresh } = useAppData();
   const toast = useToast();
+  const router = useRouter();
+  // A baaki backup (from this app, e.g. after a new phone or a reinstall) is restored, not mapped.
+  const { restoreFile, restoring, passwordModal } = useBackupRestore(() => router.push("/dashboard"));
 
   const [step, setStep] = useState<Step>(1);
   const [fileName, setFileName] = useState("");
   const [records, setRecords] = useState<Record<string, string>[]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
   const [mapping, setMapping] = useState<Record<ImportField, string>>(emptyMapping());
-  const [defaultAccountId, setDefaultAccountId] = useState<string>(accounts[0]?.id ?? "");
+  const [defaultAccountId, setDefaultAccountId] = useState<string>((accounts.find((a) => !a.isArchived) ?? accounts[0])?.id ?? "");
   const [dateFormat, setDateFormat] = useState<DateFormat>("auto");
   const [skipDuplicates, setSkipDuplicates] = useState(true);
   const [dragging, setDragging] = useState(false);
@@ -104,6 +109,10 @@ export function ImportView() {
   function handleFile(file: File | undefined | null) {
     if (!file) return;
     setParseError(null);
+    if (isBackupFileName(file.name)) {
+      void restoreFile(file);
+      return;
+    }
     // The <input accept> filter only applies to the native file picker —
     // drag-and-drop bypasses it entirely, so check the extension ourselves too.
     const isExcel = /\.xlsx$/i.test(file.name);
@@ -113,7 +122,7 @@ export function ImportView() {
       return;
     }
     if (!isExcel && !isCsv) {
-      setParseError("Please choose a .csv or .xlsx file.");
+      setParseError("Please choose a .csv or .xlsx file, or a baaki backup (.baaki).");
       return;
     }
     if (file.size > MAX_FILE_SIZE_BYTES) {
@@ -133,7 +142,7 @@ export function ImportView() {
       // Large files parse off the main thread so the UI doesn't freeze.
       worker: true,
       complete: (results) => loadRows(results.data as string[][], file.name),
-      error: (err) => setParseError(err.message || "Failed to parse the CSV file."),
+      error: (err) => setParseError(err.message || "Failed to read the file."),
     });
   }
 
@@ -237,6 +246,7 @@ export function ImportView() {
         <UploadStep
           fileName={fileName}
           recordCount={records.length}
+          restoring={restoring}
           dragging={dragging}
           parseError={parseError}
           fileInputRef={fileInputRef}
@@ -260,7 +270,7 @@ export function ImportView() {
           setMapping={setMapping}
           dateFormat={dateFormat}
           setDateFormat={setDateFormat}
-          accounts={accounts}
+          accounts={accounts.filter((a) => !a.isArchived)}
           defaultAccountId={defaultAccountId}
           setDefaultAccountId={setDefaultAccountId}
           skipDuplicates={skipDuplicates}
@@ -285,6 +295,7 @@ export function ImportView() {
       )}
 
       {step === 4 && result && <DoneStep summary={result} onReset={reset} />}
+      {passwordModal}
     </div>
   );
 }

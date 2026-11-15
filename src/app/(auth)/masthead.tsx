@@ -1,7 +1,7 @@
 import { Inter } from "next/font/google";
 import { Logo, Wordmark } from "@/components/logo";
 import { FitToWidth } from "./fit-to-width";
-import { formatINR } from "@/lib/money";
+import { formatINR } from "@/lib/money/money";
 import { mastheadSample, type MastheadSample } from "@/lib/masthead-sample";
 
 /**

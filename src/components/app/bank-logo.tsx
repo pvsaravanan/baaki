@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { type Bank } from "@/lib/banks";
+import { type Bank } from "@/lib/presets/banks";
 import { BANK_LOGOS } from "./bank-logo-assets";
 
 /**

@@ -6,8 +6,6 @@ import type {
   AccountType,
   CategoryKind,
   Frequency,
-  GoalStatus,
-  PaymentMethod,
   TransactionType,
 } from "./constants";
 
@@ -53,36 +51,33 @@ export interface TransactionDTO {
   categoryId: string | null;
   accountId: string;
   transferAccountId: string | null;
-  paymentMethod: PaymentMethod | null;
   notes: string | null;
   recurringId: string | null;
   tags: string[];
-  // People this expense is shared with (see ExpenseShare). Empty for most
-  // transactions.
-  shares: ShareDTO[];
+  /** Other people's parts of this expense (empty when it isn't split). */
+  splits: SplitDTO[];
 }
 
-export type ShareDirection = "owed_to_you" | "you_owe";
-
-export interface ShareDTO {
-  id: string;
-  contactId: string | null; // null = "Someone": not named yet
-  contactName: string;
-  amount: number; // paise, this contact's share
-  direction: ShareDirection;
-  settled: boolean;
-  settledAt: string | null;
-}
-
-export interface ContactDTO {
+/** One person's part of a split expense. */
+export interface SplitDTO {
   id: string;
   name: string;
-  color: string;
-  isArchived: boolean;
-  owedToYou: number; // unsettled amount the contact owes you (paise)
-  youOwe: number; // unsettled amount you owe the contact (paise)
-  net: number; // owedToYou - youOwe (positive: they owe you)
+  amount: number;
+  /** When they paid it back (ISO date), or null while it's still to collect. */
+  settledAt: string | null;
+  settledAccountId: string | null;
 }
+
+/** A share still to collect, with the expense it came from (the To collect screen). */
+export interface OpenSplitDTO extends SplitDTO {
+  transactionId: string;
+  description: string;
+  date: string;
+  accountId: string;
+}
+
+/** Income and expense (paise) per month, keyed "YYYY-MM". */
+export type MonthTotals = Record<string, { income: number; expense: number }>;
 
 export interface RecurringDTO {
   id: string;
@@ -92,7 +87,6 @@ export interface RecurringDTO {
   categoryId: string | null;
   accountId: string;
   transferAccountId: string | null;
-  paymentMethod: PaymentMethod | null;
   notes: string | null;
   frequency: Frequency;
   interval: number;
@@ -102,48 +96,6 @@ export interface RecurringDTO {
   lastPostedDate: string | null;
   isActive: boolean;
   autoPost: boolean;
-}
-
-export interface GoalDTO {
-  id: string;
-  name: string;
-  icon: string;
-  targetAmount: number;
-  targetDate: string | null;
-  /** active | achieved (shown as "Completed") | archived */
-  status: GoalStatus;
-  /** Money set aside for this goal (paise) — the sum of its allocation history. */
-  allocatedAmount: number;
-  /** Newest first. */
-  allocations: GoalAllocationDTO[];
-  createdAt: string;
-}
-
-/**
- * One change to a goal's allocation: positive allocates, negative removes.
- * Never a transaction — the money stays in your accounts either way.
- */
-export interface GoalAllocationDTO {
-  id: string;
-  amount: number;
-  /** When it happened (full ISO timestamp). */
-  at: string;
-  note: string | null;
-}
-
-/** What every page needs to warn before spending money reserved for goals. */
-export interface GoalMoneyDTO {
-  summary: GoalsSummaryDTO;
-  /** Goals currently holding money (archived ones release theirs). */
-  reserved: { id: string; name: string; allocated: number }[];
-}
-
-/** Where your money stands once goal allocations are set aside. */
-export interface GoalsSummaryDTO {
-  actualBalance: number;
-  totalAllocated: number;
-  available: number;
-  shortfall: number;
 }
 
 export interface BudgetCategoryDTO {
@@ -164,4 +116,6 @@ export interface BudgetDTO {
 export interface PreferenceDTO {
   dashboardWidgets: string[];
   defaultAccountId: string | null;
+  /** Ask for the phone's fingerprint / screen lock when the app opens. */
+  appLock: boolean;
 }

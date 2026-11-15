@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { BANKS } from "@/lib/banks";
+import { BANKS } from "@/lib/presets/banks";
 import { BANK_LOGOS } from "./bank-logo-assets";
 
 const directory = new URL("../../assets/banks/", import.meta.url);

@@ -43,6 +43,35 @@ The database starts empty. Create an account at `/register` — you begin with a
 default categories and two starter accounts (a bank account and cash), ready to record
 your first transaction.
 
+### Upgrading an existing database to the new screens
+
+The screens and server logic here are the ones the baaki phone app uses (split an expense
+by name, *To collect*, the redesigned shell). They need two additions to the schema, shipped
+as `prisma/migrations/20261105090000_adopt_split_shares_and_app_lock`. It is **additive**:
+nothing is dropped, so it can be undone by hand and your data is safe in it.
+
+1. **Back up the database first** (Supabase → Database → Backups, or `pg_dump`).
+2. **Migrate before you deploy the new code.** With the production `DATABASE_URL` and
+   `DIRECT_URL` set, run `npm run db:deploy`. A preview deployment of this version pointed at
+   an un-migrated database will fail on the first query for the new tables.
+3. Deploy.
+
+What the migration does:
+
+- Adds `UserPreference.appLock` and the `SplitShare` table.
+- Copies every share someone owes you (or has paid) from `ExpenseShare` into `SplitShare`, by
+  name; a share nobody was named for becomes "Someone". Standalone "you owe" entries have no
+  transaction to attach to and stay in `ExpenseShare`.
+- Changes transactions of type `repayment` to `income` (account balances are unchanged) and
+  records their ids in `LegacyRepaymentTransaction`. To reverse it:
+  `UPDATE "Transaction" SET "type" = 'repayment' WHERE "id" IN (SELECT "id" FROM "LegacyRepaymentTransaction");`
+- Resets a dashboard layout that was still the old default to the new default.
+
+What it leaves alone: `User.authId` (so Supabase sign-in keeps finding your profile),
+`Contact`, `ExpenseShare`, `FinancialGoal`, `GoalContribution`, `RateLimitBucket` and
+`Transaction.paymentMethod`. The People and Goals screens are gone from the app, but their
+data stays in those tables untouched.
+
 ## Scripts
 
 | Script | What it does |

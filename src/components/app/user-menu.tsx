@@ -1,85 +1,36 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { LogOut, Settings } from "lucide-react";
+import { readAvatar } from "@/lib/presets/avatars";
 import { useAppData } from "./app-data";
+import { CHOOSE_PICTURE_HREF, usePictureNudgeSeen } from "./picture-nudge";
 import { UserAvatar } from "./user-avatar";
-import { useToast } from "@/components/ui/toast";
-import { createClient } from "@/lib/supabase/client";
 
+/**
+ * Your picture and name in the top bar; opens Settings (there's no signing out
+ * on the device). Without a picture it nudges toward choosing one, with a dot
+ * (and a line under the name where there's room), and opens the picker.
+ */
 export function UserMenu() {
   const { user } = useAppData();
-  const router = useRouter();
-  const { error: toastError } = useToast();
-  const [open, setOpen] = useState(false);
-  const [signingOut, setSigningOut] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const onClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, []);
-
-  async function logout() {
-    // Only navigate once Supabase has actually cleared the session.
-    setSigningOut(true);
-    const supabase = createClient();
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      setSigningOut(false);
-      toastError(error.message || "Could not sign out");
-      return;
-    }
-    router.push("/login");
-    router.refresh();
-  }
-
+  const nudgeSeen = usePictureNudgeSeen();
+  const nudge = readAvatar(user.avatarUrl).kind === "none" && !nudgeSeen;
   return (
-    <div ref={ref} className="relative">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 rounded-none p-1 pr-2 transition-colors hover:bg-surface-2"
-        aria-haspopup="menu"
-        aria-expanded={open}
-      >
+    <Link
+      href={nudge ? CHOOSE_PICTURE_HREF : "/settings"}
+      aria-label={nudge ? "Settings: choose a profile picture" : "Settings"}
+      data-tour="profile"
+      className="flex items-center gap-2 rounded-full p-1 pr-2 transition-colors hover:bg-surface-2"
+    >
+      <span className="relative shrink-0">
         <UserAvatar url={user.avatarUrl} className="h-7 w-7" />
-        <span className="hidden max-w-[120px] truncate text-sm font-medium text-fg sm:block">{user.name}</span>
-      </button>
-      {open && (
-        <div
-          role="menu"
-          className="absolute right-0 z-20 mt-1 w-56 origin-top-right rounded-none border border-border bg-surface p-1 shadow-pop animate-scale-in"
-        >
-          <div className="px-3 py-2">
-            <p className="truncate text-sm font-medium text-fg">{user.name}</p>
-            <p className="truncate text-xs text-muted">{user.email}</p>
-          </div>
-          <div className="my-1 h-px bg-border" />
-          <Link
-            href="/settings"
-            role="menuitem"
-            onClick={() => setOpen(false)}
-            className="flex w-full items-center gap-2 rounded-none px-3 py-2 text-sm text-fg transition-colors hover:bg-surface-2"
-          >
-            <Settings className="h-4 w-4 text-muted" />
-            Settings
-          </Link>
-          <div className="my-1 h-px bg-border" />
-          <button
-            role="menuitem"
-            onClick={logout}
-            disabled={signingOut}
-            className="flex w-full items-center gap-2 rounded-none px-3 py-2 text-sm text-fg transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <LogOut className="h-4 w-4 text-muted" />
-            {signingOut ? "Signing out…" : "Sign out"}
-          </button>
-        </div>
-      )}
-    </div>
+        {nudge && (
+          <span aria-hidden className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-brand-hover ring-2 ring-bg" />
+        )}
+      </span>
+      <span className="hidden max-w-[120px] sm:block">
+        <span className="block truncate text-sm font-medium text-fg">{user.name}</span>
+        {nudge && <span className="block truncate text-xs text-accent">Choose a picture</span>}
+      </span>
+    </Link>
   );
 }

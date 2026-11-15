@@ -3,7 +3,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { SelectMenu } from "@/components/ui/select-menu";
-import { hasAmountMapping, type ImportField } from "@/lib/csv";
+import { hasAmountMapping, type ImportField } from "@/lib/io/csv";
 import { FIELDS, type DateFormat } from "./types";
 
 export function MapStep({
@@ -43,7 +43,7 @@ export function MapStep({
     <Card>
       <CardHeader
         title="Map your columns"
-        subtitle={`Match your CSV headers to baaki fields. ${recordCount} row${recordCount === 1 ? "" : "s"} to import.`}
+        subtitle={`Match your file's column headings to baaki fields. ${recordCount} row${recordCount === 1 ? "" : "s"} to import.`}
       />
       <CardBody className="space-y-5">
         <div className="grid gap-4 sm:grid-cols-2">
@@ -64,7 +64,7 @@ export function MapStep({
           <Field
             label="Date format"
             htmlFor="date-format"
-            hint="How dates are written in your CSV."
+            hint="How dates are written in your file."
           >
             <SelectMenu
               id="date-format"
@@ -97,7 +97,7 @@ export function MapStep({
           </Field>
 
           <Field label="Duplicates">
-            <label className="flex cursor-pointer items-start gap-2.5 rounded-none border border-border bg-surface px-3 py-2.5 text-sm">
+            <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-border bg-surface px-3 py-2.5 text-sm">
               <input
                 type="checkbox"
                 checked={skipDuplicates}

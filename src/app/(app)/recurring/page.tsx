@@ -1,20 +1,20 @@
-import { requireUserOrRedirect } from "@/lib/auth";
-import { loadRecurring } from "@/lib/queries";
-import { PageHeader } from "@/components/app/page-header";
+"use client";
+import { usePageData } from "@/lib/request/local-api";
+import { PageBanner } from "@/components/app/page-banner";
 import { RecurringView } from "@/components/app/recurring-view";
+import { RepeatCalendar } from "@/components/app/repeat-calendar";
+import { ScreenData } from "@/components/app/screen-data";
 
-export const metadata = { title: "Recurring · baaki" };
-
-export default async function RecurringPage() {
-  const user = await requireUserOrRedirect();
-  const recurring = await loadRecurring(user.id);
+export default function RecurringPage() {
+  const { data, error } = usePageData("recurring");
   return (
     <div>
-      <PageHeader
+      <PageBanner
         title="Recurring"
-        description="Automate the bills, subscriptions and income you expect every period."
+        subtitle="Automate the bills, subscriptions and income you expect every period."
+        art={<RepeatCalendar />}
       />
-      <RecurringView recurring={recurring} />
+      <ScreenData data={data} error={error}>{(d) => <RecurringView recurring={d.recurring} />}</ScreenData>
     </div>
   );
 }

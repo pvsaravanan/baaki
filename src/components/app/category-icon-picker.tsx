@@ -1,7 +1,7 @@
 "use client";
-import { CATEGORY_ICON_KEYS, categoryIconLabel, resolveCategoryIcon } from "@/lib/category-icons";
+import { CATEGORY_ICON_KEYS, categoryIconLabel, resolveCategoryIcon } from "@/lib/presets/category-icons";
 import { CategoryIcon } from "./category-icon";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/ui/cn";
 
 /** Scrollable grid of every illustrated icon; `value` may be a legacy line-icon name. */
 export function CategoryIconPicker({
@@ -11,7 +11,7 @@ export function CategoryIconPicker({
 }: {
   value: string;
   onChange: (key: string) => void;
-  /** Accessible name for the group (it's also used for goals and accounts). */
+  /** Accessible name for the group (it's also used for accounts). */
   label?: string;
 }) {
   const selected = resolveCategoryIcon(value);
@@ -33,7 +33,7 @@ export function CategoryIconPicker({
             title={categoryIconLabel(key)}
             onClick={() => onChange(key)}
             className={cn(
-              "flex aspect-square items-center justify-center rounded-none border bg-surface transition-colors active:scale-95",
+              "flex aspect-square items-center justify-center rounded-xl border bg-surface transition-colors active:scale-95",
               "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
               active ? "border-brand bg-brand-soft ring-1 ring-brand" : "border-border hover:bg-brand-soft",
             )}

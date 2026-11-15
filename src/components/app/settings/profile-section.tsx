@@ -1,0 +1,179 @@
+"use client";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Pencil } from "lucide-react";
+import { DEFAULT_AVATAR, readAvatar, type AvatarId } from "@/lib/presets/avatars";
+import { apiPatch, ApiError } from "@/lib/request/http";
+import { useAppData } from "@/components/app/app-data";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/field";
+import { Modal } from "@/components/ui/modal";
+import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/components/ui/confirm";
+import { AvatarPicker } from "../avatar-picker";
+import { markPictureNudgeSeen } from "../picture-nudge";
+import { preloadAvatars } from "../preload-avatars";
+import { UserAvatar } from "../user-avatar";
+import { Row, Section } from "./layout";
+
+export function ProfileSection() {
+  const { user, refresh } = useAppData();
+  const { success, error } = useToast();
+  const confirm = useConfirm();
+
+  const [name, setName] = useState(user.name);
+  const [savingName, setSavingName] = useState(false);
+  // Resync if the saved name changes underneath us (e.g. after a refresh).
+  useEffect(() => setName(user.name), [user.name]);
+  const nameDirty = name.trim().length > 0 && name.trim() !== user.name;
+
+  // The picker is a tap away: get its pictures ready.
+  useEffect(preloadAvatars, []);
+
+  const current = readAvatar(user.avatarUrl);
+  const hasAvatar = current.kind !== "none";
+  // The picture being chosen in the picker, or null while it's closed.
+  const [choosing, setChoosing] = useState<AvatarId | null>(null);
+  const [savingAvatar, setSavingAvatar] = useState(false);
+
+  async function saveAvatar(avatar: AvatarId | null, done: string) {
+    setSavingAvatar(true);
+    try {
+      await apiPatch("/api/user", { avatar });
+      success(done);
+      setChoosing(null);
+      refresh();
+    } catch (e) {
+      error(e instanceof ApiError ? e.message : "Could not change your picture");
+    } finally {
+      setSavingAvatar(false);
+    }
+  }
+
+  async function handleRemoveAvatar() {
+    const ok = await confirm({
+      title: "Remove your picture?",
+      message: "You'll show as a plain silhouette. You can choose a picture again any time.",
+      confirmLabel: "Remove",
+      danger: true,
+    });
+    if (ok) await saveAvatar(null, "Picture removed");
+  }
+
+  async function handleSaveName() {
+    setSavingName(true);
+    try {
+      await apiPatch("/api/user", { name: name.trim() });
+      success("Name updated");
+      refresh();
+    } catch (e) {
+      error(e instanceof ApiError ? e.message : "Could not update name");
+    } finally {
+      setSavingName(false);
+    }
+  }
+
+  function openPicker() {
+    setChoosing(current.kind === "picture" ? current.id : DEFAULT_AVATAR);
+    markPictureNudgeSeen();
+  }
+
+  // The top bar's nudge links here with ?choose=picture: open the picker, and
+  // drop the query so a reload doesn't open it again. (Reading the query needs
+  // a <Suspense> around this section; see settings-view.) The query goes with
+  // history.replaceState, not a router navigation, which would re-render the
+  // page and close the picker it just opened.
+  const choose = useSearchParams().get("choose");
+  useEffect(() => {
+    if (choose !== "picture") return;
+    openPicker();
+    window.history.replaceState(null, "", window.location.pathname);
+    // Only when the query asks for it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [choose]);
+
+  return (
+    <>
+      <Section id="profile" title="Profile">
+        <div className="flex items-center gap-4 p-4">
+          <div className="relative h-20 w-20 shrink-0">
+            <UserAvatar url={user.avatarUrl} className="h-20 w-20" />
+            <button
+              type="button"
+              onClick={openPicker}
+              disabled={savingAvatar}
+              aria-label={hasAvatar ? "Change picture" : "Choose a picture"}
+              className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full border border-border bg-brand text-brand-fg disabled:opacity-50"
+            >
+              <Pencil className="h-4 w-4" aria-hidden />
+            </button>
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-headline-sm text-fg">{user.name}</p>
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+              <button
+                type="button"
+                onClick={openPicker}
+                disabled={savingAvatar}
+                className="text-sm font-semibold text-brand-hover underline-offset-4 hover:underline disabled:opacity-50"
+              >
+                {hasAvatar ? "Change picture" : "Choose a picture"}
+              </button>
+              {hasAvatar && (
+                <button
+                  type="button"
+                  onClick={handleRemoveAvatar}
+                  disabled={savingAvatar}
+                  className="text-sm font-semibold text-muted underline-offset-4 hover:text-fg hover:underline disabled:opacity-50"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+        <Row
+          title="Display name"
+          description="Used in your dashboard greeting."
+          htmlFor="profile-name"
+          stacked
+        >
+          <div className="flex gap-2">
+            <Input
+              id="profile-name"
+              value={name}
+              maxLength={80}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && nameDirty && !savingName) handleSaveName();
+              }}
+              className="!rounded-lg"
+            />
+            <Button onClick={handleSaveName} loading={savingName} disabled={!nameDirty} className="!h-auto shrink-0 !rounded-lg">
+              Save
+            </Button>
+          </div>
+        </Row>
+      </Section>
+
+      <Modal
+        open={choosing !== null}
+        onClose={() => setChoosing(null)}
+        title="Profile picture"
+        busy={savingAvatar}
+        footer={
+          <div className="flex items-center justify-end gap-2">
+            <Button variant="ghost" onClick={() => setChoosing(null)} disabled={savingAvatar}>
+              Cancel
+            </Button>
+            <Button onClick={() => choosing && saveAvatar(choosing, "Picture updated")} loading={savingAvatar}>
+              Save
+            </Button>
+          </div>
+        }
+      >
+        {choosing && <AvatarPicker value={choosing} onChange={setChoosing} pinned="-top-4 pt-4 bg-surface" />}
+      </Modal>
+    </>
+  );
+}

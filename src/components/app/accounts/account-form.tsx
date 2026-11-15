@@ -2,16 +2,16 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
 import { SelectMenu } from "@/components/ui/select-menu";
-import { ApiError, apiPatch, apiPost } from "@/lib/http";
-import { toRupees } from "@/lib/money";
-import { accountNameField, parseAccountForm } from "@/lib/account-form";
+import { ApiError, apiPatch, apiPost } from "@/lib/request/http";
+import { toRupees } from "@/lib/money/money";
+import { accountNameField, parseAccountForm } from "@/lib/presets/account-form";
 import { ACCOUNT_TYPES, ACCOUNT_TYPE_LABELS } from "@/lib/constants";
 import type { AccountDTO } from "@/lib/types";
-import { BANKS, BANK_ICON_PREFIX, getBankByIcon, type Bank } from "@/lib/banks";
+import { BANKS, BANK_ICON_PREFIX, getBankByIcon, type Bank } from "@/lib/presets/banks";
 import { BankPicker } from "./bank-picker";
 import { SWATCHES, OTHER_BANK } from "./constants";
 import { CategoryIconPicker } from "../category-icon-picker";
-import { DEFAULT_ACCOUNT_ICON } from "@/lib/category-icons";
+import { DEFAULT_ACCOUNT_ICON } from "@/lib/presets/category-icons";
 
 export function AccountForm({
   initial,
@@ -114,7 +114,7 @@ export function AccountForm({
   return (
     <form onSubmit={onSubmit} className="space-y-4" noValidate>
       {formError && (
-        <div className="rounded-none border border-expense/30 bg-expense/10 px-3 py-2 text-sm text-expense">
+        <div className="rounded-xl border border-expense/30 bg-expense/10 px-3 py-2 text-sm text-expense">
           {formError}
         </div>
       )}

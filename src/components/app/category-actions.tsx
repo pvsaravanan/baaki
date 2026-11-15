@@ -8,7 +8,7 @@ import { useToast } from "@/components/ui/toast";
 import { useConfirm } from "@/components/ui/confirm";
 import { useAppData } from "./app-data";
 import { CategoryForm } from "./category-form";
-import { ApiError, apiDelete } from "@/lib/http";
+import { ApiError, apiDelete } from "@/lib/request/http";
 import type { CategoryDTO } from "@/lib/types";
 
 /**
@@ -25,7 +25,7 @@ export function useDeleteCategory() {
     const ok = await confirm({
       title: `Delete ${c.name}?`,
       message:
-        "This removes the category. If any transactions use it, they will be kept and the category deactivated instead.",
+        "This removes the category. If anything still uses it (transactions, budgets, recurring rules), it stays on them and the category is only deactivated, so it won't be offered for new entries.",
       confirmLabel: "Delete",
       danger: true,
     });
@@ -33,7 +33,7 @@ export function useDeleteCategory() {
     try {
       const res = await apiDelete<{ detached: boolean; categories: CategoryDTO[] }>(`/api/categories/${c.id}`);
       refresh();
-      toast.success(res.detached ? `${c.name} deactivated (transactions kept)` : `${c.name} deleted`);
+      toast.success(res.detached ? `${c.name} deactivated (still on its transactions)` : `${c.name} deleted`);
       return res;
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Could not delete this category.");
@@ -70,7 +70,7 @@ export function CategoryActions({ category }: { category: CategoryDTO }) {
         </Button>
       </div>
 
-      <Modal open={editOpen} onClose={() => setEditOpen(false)} title="Edit category" busy={busy}>
+      <Modal open={editOpen} onClose={() => setEditOpen(false)} title="Edit category" busy={busy} fullScreen>
         <CategoryForm
           key={category.id}
           initial={category}

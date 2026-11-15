@@ -1,18 +1,24 @@
-import { requireUserOrRedirect } from "@/lib/auth";
-import { loadAccounts } from "@/lib/queries";
-import { PageHeader } from "@/components/app/page-header";
+"use client";
+import { useState } from "react";
+import { usePageData } from "@/lib/request/local-api";
 import { AccountsView } from "@/components/app/accounts-view";
+import { PageBanner } from "@/components/app/page-banner";
+import { ScreenData } from "@/components/app/screen-data";
+import { AccountsArt } from "@/components/app/page-illustrations";
 
-export const metadata = { title: "Accounts · baaki" };
-
-export default async function AccountsPage() {
-  const user = await requireUserOrRedirect();
-  const accounts = await loadAccounts(user.id);
-
+export default function AccountsPage() {
+  const { data, error } = usePageData("accounts");
+  const [adding, setAdding] = useState(false);
   return (
     <div>
-      <PageHeader title="Accounts" description="Track balances across your banks, cash and cards." />
-      <AccountsView accounts={accounts} />
+      <PageBanner
+        title="Accounts"
+        subtitle="Manage your money across accounts."
+        art={<AccountsArt />}
+      />
+      <ScreenData data={data} error={error}>
+        {(d) => <AccountsView accounts={d.accounts} adding={adding} onAddingChange={setAdding} />}
+      </ScreenData>
     </div>
   );
 }
