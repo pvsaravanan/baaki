@@ -139,8 +139,9 @@ export function TransactionRow({
       </button>
 
       <button onClick={openOrToggle} className="min-w-0 flex-1 text-left">
-        <div className="flex items-center gap-2">
-          <p className={cn("min-w-0 truncate font-medium text-fg", compact ? "text-[13px] leading-[18px]" : "text-[13px] font-semibold leading-[18px] md:text-sm")}>{txn.description}</p>
+        {/* Wraps, so on a narrow screen a chip drops below the description rather than squeezing it away. */}
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+          <p className={cn("min-w-0 max-w-full truncate font-medium text-fg", compact ? "text-[13px] leading-[18px]" : "text-[13px] font-semibold leading-[18px] md:text-sm")}>{txn.description}</p>
           {txn.recurringId && (
             <span className="shrink-0 rounded bg-brand-soft px-1.5 py-0.5 text-2xs font-medium text-brand-hover">auto</span>
           )}

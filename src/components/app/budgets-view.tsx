@@ -159,7 +159,7 @@ function Overview({ status, countedAccounts }: { status: BudgetStatus; countedAc
       <div aria-hidden className="w-px self-stretch bg-border/20" />
       <div className="min-w-0 flex-1">
         <p className="flex flex-wrap items-baseline gap-x-1.5 text-fg">
-          <Money paise={status.spent} tone="default" className="text-xl font-bold" />
+          <Money paise={status.spent} tone="default" className="text-lg font-bold [overflow-wrap:anywhere] min-[420px]:text-xl" />
           <span className="text-sm text-muted">
             / <Money paise={status.limit} tone="default" />
           </span>

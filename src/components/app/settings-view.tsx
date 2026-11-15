@@ -106,7 +106,7 @@ function Settings() {
             // Says where the data is.
             <span className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2 py-0.5 text-fg">
               <Cloud aria-hidden className="h-3.5 w-3.5 shrink-0" />
-              In your account
+              <span className="max-[419px]:sr-only">In your account</span>
             </span>
           }
           onClick={() => setPanel("data")}

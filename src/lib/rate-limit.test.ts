@@ -80,11 +80,11 @@ describe("rateLimit", () => {
 
   it("starts a fresh window once the old one expires", async () => {
     const key = `t5-${Math.random()}`;
-    expect((await rateLimit(key, 1, 1)).ok).toBe(true);
-    expect((await rateLimit(key, 1, 1)).ok).toBe(false);
-    const start = Date.now();
-    while (Date.now() - start < 5) { /* let the 1ms window lapse */ }
-    expect((await rateLimit(key, 1, 1)).ok).toBe(true);
+    // A window long enough that the second call can't straddle its end on a slow tick.
+    expect((await rateLimit(key, 1, 200)).ok).toBe(true);
+    expect((await rateLimit(key, 1, 200)).ok).toBe(false);
+    await new Promise((resolve) => setTimeout(resolve, 250)); // let the window lapse
+    expect((await rateLimit(key, 1, 200)).ok).toBe(true);
   });
 });
 

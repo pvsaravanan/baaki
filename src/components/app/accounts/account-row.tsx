@@ -50,7 +50,7 @@ export function AccountRow({
         </span>
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-2">
-            <span className="min-w-0 truncate text-sm font-bold text-fg">{account.name}</span>
+            <span className="min-w-0 line-clamp-2 break-words text-sm font-bold text-fg">{account.name}</span>
             {account.isArchived && <Badge tone="neutral" className="shrink-0">Archived</Badge>}
           </span>
           <span className="mt-0.5 block truncate text-xs text-muted">{formatAccountType(account.type)}</span>
