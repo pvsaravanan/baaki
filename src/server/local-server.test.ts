@@ -148,6 +148,30 @@ describe("the on-device app", () => {
     expect(again.data.summary).toMatchObject({ imported: 0, duplicates: 2 });
   });
 
+  it("imports transfers between accounts, moving the balance from one to the other", async () => {
+    const before = await call<{ accounts: AccountDTO[] }>("GET", "/api/accounts");
+    const balance = (list: AccountDTO[], name: string) => list.find((a) => a.name === name)!.balance;
+    const file = {
+      records: [
+        { Date: "2026-09-05", Type: "Transfer", Description: "ATM cash", Amount: "2,000.00", Account: "Primary Bank", "To Account": "Cash" },
+        { Date: "2026-09-06", Type: "Transfer", Description: "Oops", Amount: "10.00", Account: "Cash", "To Account": "Cash" },
+        { Date: "2026-09-06", Type: "Transfer", Description: "Nowhere", Amount: "10.00", Account: "Cash", "To Account": "Ghost" },
+      ],
+      mapping: { date: "Date", type: "Type", description: "Description", amount: "Amount", account: "Account", toAccount: "To Account" },
+      commit: true,
+    };
+    const res = await call<{ summary: { imported: number; invalid: number; invalidRows: { errors: string[] }[] } }>("POST", "/api/import", file);
+    expect(res.data.summary).toMatchObject({ imported: 1, invalid: 2 });
+    expect(res.data.summary.invalidRows.flatMap((r) => r.errors).join(" ")).toMatch(/must differ.*Ghost|Ghost.*must differ/);
+
+    const after = await call<{ accounts: AccountDTO[] }>("GET", "/api/accounts");
+    expect(balance(after.data.accounts, "Primary Bank")).toBe(balance(before.data.accounts, "Primary Bank") - 200_000);
+    expect(balance(after.data.accounts, "Cash")).toBe(balance(before.data.accounts, "Cash") + 200_000);
+
+    const again = await call<{ summary: { imported: number; duplicates: number } }>("POST", "/api/import", file);
+    expect(again.data.summary).toMatchObject({ imported: 0, duplicates: 1 });
+  });
+
   it("imports the baaki website's backup file", async () => {
     const website = {
       exportedAt: "2026-09-20T10:00:00.000Z",

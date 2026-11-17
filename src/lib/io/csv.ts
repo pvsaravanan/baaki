@@ -38,6 +38,7 @@ export type ImportField =
   | "type"
   | "category"
   | "account"
+  | "toAccount"
   | "notes";
 
 export type ColumnMapping = Partial<Record<ImportField, string>>;
@@ -174,6 +175,8 @@ export interface ParsedImportRow {
   date: string; // ISO
   categoryName: string | null;
   accountName: string | null;
+  /** A transfer's destination account, as named in the file. */
+  toAccountName: string | null;
   notes: string | null;
 }
 
@@ -336,13 +339,17 @@ export function validateImportRows(
     const rowTypeIsAmbiguous = hasTypeColumn && !rawType && direction === null;
 
     // Transfers need a destination account (see accountBalance's double-entry
-    // logic), but the import mapping has no "to account" column — so a transfer
-    // row would persist with transferAccountId = null and leak money out of the
-    // source account with nothing arriving anywhere. Reject it explicitly rather
-    // than import a balance-breaking row. (Only an explicit Type column can
-    // produce "transfer"; sign inference never does.)
-    if (type === "transfer") {
-      errors.push("Transfers can't be imported — record them manually, or map this row as an expense/income");
+    // logic): without one, money would leave the source account and arrive
+    // nowhere. The destination comes from the mapped "To Account" column (the
+    // same column baaki's own CSV export writes). Only an explicit Type column
+    // can produce "transfer"; sign inference never does.
+    const toAccountName = get("toAccount");
+    if (type === "transfer" && !toAccountName) {
+      errors.push(
+        mapping.toAccount
+          ? "Transfer has no To Account — fill in the account the money went to"
+          : "Transfers need a To Account — map the column naming the account the money went to",
+      );
     }
 
     if (fileIsAmbiguous) {
@@ -364,6 +371,7 @@ export function validateImportRows(
       date: date!,
       categoryName: get("category") || null,
       accountName: get("account") || null,
+      toAccountName: type === "transfer" ? toAccountName : null,
       notes: get("notes") || null,
     });
   });

@@ -19,7 +19,7 @@ const importSchema = z.object({
 interface Resolved {
   key: string;
   type: string; amount: number; description: string; date: Date;
-  categoryId: string | null; accountId: string; notes: string | null;
+  categoryId: string | null; accountId: string; transferAccountId: string | null; notes: string | null;
 }
 
 /**
@@ -82,11 +82,29 @@ export const POST = withUser(async (user, req: NextRequest) => {
       continue;
     }
 
-    let categoryId = row.categoryName ? catByName.get(row.categoryName.toLowerCase()) ?? null : null;
-    if (!categoryId && row.type !== "transfer") {
-      const suggested = suggestCategoryKey(row.description);
-      if (suggested) {
-        categoryId = catBySystemKey.get(suggested) ?? null;
+    // A transfer moves money into another of the user's accounts, named in
+    // the file's To Account column; it must exist, and differ from the source.
+    let transferAccountId: string | null = null;
+    if (row.type === "transfer") {
+      transferAccountId = acctByName.get((row.toAccountName ?? "").toLowerCase()) ?? null;
+      const error = !transferAccountId
+        ? `No account named "${row.toAccountName}" to transfer to — create it first`
+        : transferAccountId === accountId
+          ? "A transfer's To Account must differ from the account it comes from"
+          : null;
+      if (error) {
+        unresolvedAccount.push({ index: row.index, raw: input.records[row.index] ?? {}, errors: [error] });
+        continue;
+      }
+    }
+
+    // Transfers aren't spending or income, so they never carry a category.
+    let categoryId: string | null = null;
+    if (row.type !== "transfer") {
+      categoryId = row.categoryName ? catByName.get(row.categoryName.toLowerCase()) ?? null : null;
+      if (!categoryId) {
+        const suggested = suggestCategoryKey(row.description);
+        if (suggested) categoryId = catBySystemKey.get(suggested) ?? null;
       }
     }
 
@@ -98,6 +116,7 @@ export const POST = withUser(async (user, req: NextRequest) => {
       date: fromISODate(row.date)!,
       categoryId,
       accountId,
+      transferAccountId,
       notes: row.notes,
     });
   }
@@ -169,6 +188,7 @@ export const POST = withUser(async (user, req: NextRequest) => {
           date: t.date,
           categoryId: t.categoryId,
           accountId: t.accountId,
+          transferAccountId: t.transferAccountId,
           notes: t.notes,
         })),
       });
