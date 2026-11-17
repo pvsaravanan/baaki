@@ -48,6 +48,7 @@ export const FIELDS: FieldMeta[] = [
   { key: "type", label: "Type", hints: ["type", "dr", "cr", "direction"] },
   { key: "category", label: "Category", hints: ["categ", "tag"] },
   { key: "account", label: "Account", hints: ["account", "acct", "bank", "card"] },
+  { key: "toAccount", label: "To Account", hint: "For transfers: the account the money went to", hints: ["to account", "to acct", "transfer to", "destination"] },
   { key: "notes", label: "Notes", hints: ["note", "remark", "comment"] },
 ];
 

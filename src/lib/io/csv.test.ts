@@ -145,12 +145,22 @@ describe("validateImportRows", () => {
     expect(result.valid[1].type).toBe("income");
   });
 
-  it("rejects transfer rows — import has no destination-account column", () => {
-    const rows = [{ "Txn Date": "2026-08-01", Details: "To savings", Amount: "1000", Type: "transfer" }];
-    const result = validateImportRows(rows, mapping);
-    expect(result.valid).toHaveLength(0);
-    expect(result.invalid).toHaveLength(1);
-    expect(result.invalid[0].errors.join(" ")).toMatch(/[Tt]ransfer/);
+  it("accepts a transfer row with a To Account", () => {
+    const rows = [{ "Txn Date": "2026-08-01", Details: "To savings", Amount: "1000", Type: "transfer", To: "Savings" }];
+    const result = validateImportRows(rows, { ...mapping, toAccount: "To" });
+    expect(result.invalid).toHaveLength(0);
+    expect(result.valid[0]).toMatchObject({ type: "transfer", amount: 100_000, toAccountName: "Savings" });
+  });
+
+  it("rejects a transfer row without a To Account", () => {
+    const rows = [{ "Txn Date": "2026-08-01", Details: "To savings", Amount: "1000", Type: "transfer", To: "" }];
+    expect(validateImportRows(rows, mapping).invalid[0].errors.join(" ")).toMatch(/map the column/);
+    expect(validateImportRows(rows, { ...mapping, toAccount: "To" }).invalid[0].errors.join(" ")).toMatch(/no To Account/);
+  });
+
+  it("ignores the To Account column on income and expense rows", () => {
+    const rows = [{ "Txn Date": "2026-08-01", Details: "Swiggy", Amount: "-450", Type: "expense", To: "Savings" }];
+    expect(validateImportRows(rows, { ...mapping, toAccount: "To" }).valid[0].toAccountName).toBeNull();
   });
 });
 
