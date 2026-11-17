@@ -101,6 +101,18 @@ button, a, input, select, textarea {
   touch-action: manipulation;
 }
 
+/* iOS Safari zooms the page in when you tap a text field whose text is under
+   16px, and never zooms back out, so the app is left magnified and drifting
+   under your finger. On touch screens every text field is at least 16px.
+   (No field is styled larger than 16px, so this only ever raises the size.) */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
 @layer components {
   .card {
     @apply rounded-md border border-border bg-surface;

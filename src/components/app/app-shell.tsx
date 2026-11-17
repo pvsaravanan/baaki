@@ -7,6 +7,7 @@ import { Topbar } from "./topbar";
 import { TopbarSlotProvider } from "./topbar-slot";
 import { BottomNav } from "./bottom-nav";
 import { RunDueRecurring } from "./run-due-recurring";
+import { KeepWindowPinned } from "./keep-window-pinned";
 import { PageTransition } from "./page-transition";
 import { useState } from "react";
 import { Capacitor } from "@capacitor/core";
@@ -131,6 +132,7 @@ function AppFrame({ data, children }: { data: Omit<AppData, "refresh">; children
       <TransactionModalProvider>
         <SidebarProvider>
           <RunDueRecurring />
+          <KeepWindowPinned />
           <AppTour />
           {/* h-dvh, not h-screen: on phones 100vh is the height with the browser's
               toolbars hidden, so an h-screen frame is taller than what's visible —
