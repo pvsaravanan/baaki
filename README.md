@@ -13,7 +13,7 @@ https://github.com/user-attachments/assets/8afcd2f8-6ab8-4698-8fcd-779ffcf54675
   <img src="UI/phone-framed/04-budgets.png" width="32%" alt="Budgets">
 </p>
 
-**[Download the APK](https://github.com/pvsaravanan/baaki/releases/latest)** (Android 7.0+) · [All screens and walkthrough](UI/README.md)
+**[Download the APK](https://github.com/pvsaravanan/baaki/releases/latest/download/baaki-1.1.0.apk)** (v1.1.0, Android 7.0+) · [Release notes](https://github.com/pvsaravanan/baaki/releases/latest) · [All screens and walkthrough](UI/README.md)
 
 ## License
 
