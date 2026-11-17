@@ -15,6 +15,7 @@ import {
   type CalcTxn,
 } from "./calculations";
 import { toPaise } from "./money";
+import { fromISODate } from "../dates";
 
 // Helper to build transactions concisely.
 function tx(partial: Partial<CalcTxn> & Pick<CalcTxn, "type" | "amount">): CalcTxn {
@@ -212,13 +213,17 @@ describe("date range filtering", () => {
 });
 
 describe("dailySeries", () => {
+  // Midnight in the app's timezone (IST), as real period bounds are; a local
+  // `new Date(y, m, d)` would shift by the machine's offset (CI runs in UTC).
+  const day = (iso: string) => fromISODate(iso)!;
+
   it("fills every day and aggregates same-day transactions", () => {
-    const start = new Date(2026, 7, 1);
-    const end = new Date(2026, 7, 4); // 3 days: Aug 1,2,3
+    const start = day("2026-08-01");
+    const end = day("2026-08-04"); // 3 days: Aug 1,2,3
     const txns = [
-      tx({ type: "expense", amount: rs(100), date: new Date(2026, 7, 1) }),
-      tx({ type: "expense", amount: rs(50), date: new Date(2026, 7, 1) }),
-      tx({ type: "income", amount: rs(1000), date: new Date(2026, 7, 2) }),
+      tx({ type: "expense", amount: rs(100), date: day("2026-08-01") }),
+      tx({ type: "expense", amount: rs(50), date: day("2026-08-01") }),
+      tx({ type: "income", amount: rs(1000), date: day("2026-08-02") }),
     ];
     const series = dailySeries(txns, start, end);
     expect(series).toHaveLength(3);
@@ -228,8 +233,8 @@ describe("dailySeries", () => {
   });
 
   it("covers leap-day February correctly", () => {
-    const start = new Date(2024, 1, 1);
-    const end = new Date(2024, 2, 1); // Feb 2024 has 29 days
+    const start = day("2024-02-01");
+    const end = day("2024-03-01"); // Feb 2024 has 29 days
     const series = dailySeries([], start, end);
     expect(series).toHaveLength(29);
   });
