@@ -15,7 +15,9 @@ export function DoneStep({ summary, onReset }: { summary: ImportSummary; onReset
           title={`Imported ${imported} transaction${imported === 1 ? "" : "s"}`}
           description={
             summary.duplicates > 0
-              ? `${summary.duplicates} duplicate${summary.duplicates === 1 ? "" : "s"} were skipped.`
+              ? summary.duplicates === 1
+                ? "1 duplicate was skipped."
+                : `${summary.duplicates} duplicates were skipped.`
               : "Your transactions are now available in baaki."
           }
           action={
